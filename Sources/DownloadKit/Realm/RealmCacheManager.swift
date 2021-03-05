@@ -28,7 +28,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
     
     @Atomic private var downloadableMap: [String: DownloadSelection] = [:]
     
-    var configuration: Realm.Configuration = Realm.Configuration.defaultConfiguration {
+    public var configuration: Realm.Configuration = Realm.Configuration.defaultConfiguration {
         didSet {
             memoryCache?.configuration = configuration
             localCache.configuration = configuration
@@ -68,7 +68,10 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         }
         
         do {
-            let localAsset = try localCache.store(asset: downloadSelection.asset, mirror: downloadSelection.mirror.mirror, at: location, options: downloadSelection.options)
+            let localAsset = try localCache.store(asset: downloadSelection.asset,
+                                                  mirror: downloadSelection.mirror.mirror,
+                                                  at: location,
+                                                  options: downloadSelection.options)
             
             // Let mirror policy know that the download completed, so it can clean up after itself.
             mirrorPolicy.downloadComplete(for: downloadSelection.asset)

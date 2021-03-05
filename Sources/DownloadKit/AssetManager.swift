@@ -62,7 +62,7 @@ public class AssetManager {
     
     public let progress = AssetDownloadProgress()
     
-    convenience init(cache: AssetCacheable) {
+    public convenience init(cache: AssetCacheable) {
         let downloadQueue = DownloadQueue()
         downloadQueue.add(processor: WebDownloadProcessor())
         
@@ -78,7 +78,7 @@ public class AssetManager {
     ///   - cache: Cache Manager to use
     ///   - downloadQueue: Normal Download Queue
     ///   - priorityQueue: Priority Download Queue (to quickly download)
-    init(cache: AssetCacheable, downloadQueue: DownloadQueue, priorityQueue: DownloadQueue? = nil) {
+    public init(cache: AssetCacheable, downloadQueue: DownloadQueue, priorityQueue: DownloadQueue? = nil) {
         self.cache = cache
         self.downloadQueue = downloadQueue
         self.priorityQueue = priorityQueue
