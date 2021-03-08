@@ -13,17 +13,17 @@ import os.log
 /// it will continue to the mirror with the next highest weight. If it arrives to the last mirror,
 /// and download fails, it will retry `numberOfRetries` times.
 open class WeightedMirrorPolicy: MirrorPolicy {
-    static let weightKey = "weight"
+    public static let weightKey = "weight"
     
     public var log: OSLog = logDK
     
     public var delegate: MirrorPolicyDelegate?
     
     /// How many times the policy will retry the last mirror.
-    public var numberOfRetries = 3
+    public let numberOfRetries: Int
     
-    public init() {
-        
+    public init(numberOfRetries: Int = 3) {
+        self.numberOfRetries = numberOfRetries
     }
     
     /// Function sorts all mirrors on asset file. Override this method if additional filter
@@ -44,9 +44,9 @@ open class WeightedMirrorPolicy: MirrorPolicy {
         
         // If we have tried a mirror and gotten an error, select a lower weight mirror.
         if let mirrorSelection = lastMirrorSelection, error != nil {
+            
             // Find index of last mirror
-  
-            if let index = mirrors.firstIndex(where: { $0.id == mirrorSelection.id }) {
+            if let index = mirrors.firstIndex(where: { $0.id == mirrorSelection.mirror.id }) {
                 selectedIndex = index + 1
             }
             
@@ -119,6 +119,16 @@ open class WeightedMirrorPolicy: MirrorPolicy {
     }
 }
 
+extension WeightedMirrorPolicy {
+    /// For testing purposes.
+    /// - Parameter asset: asset file
+    /// - Returns: Array of retry counters for each mirror the asset has.
+    func retryCounters(for asset: AssetFile) -> [Int] {
+        let keys = asset.sortedMirrors().map { "\(asset.id)-\($0.id)" }
+        return keys.compactMap { retryCounters[$0] }
+    }
+}
+
 private extension AssetFile {
     func sortedMirrors() -> [AssetFileMirror] {
         var mirrors = self.alternatives.sorted(by: { $0.weight > $1.weight })
@@ -130,7 +140,7 @@ private extension AssetFile {
     }
 }
 
-private extension AssetFileMirror {
+public extension AssetFileMirror {
     var weight: Int {
         return (info[WeightedMirrorPolicy.weightKey] as? Int) ?? 0
     }

@@ -5,7 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "DownloadKit",
-    platforms: [.iOS(.v12), .macOS(.v10_12)],
+    platforms: [.iOS(.v12), .macOS(.v10_15)],
     products: [
         .library(
             name: "DownloadKit",
@@ -22,6 +22,8 @@ let package = Package(
             ]),
         .testTarget(
             name: "DownloadKitTests",
-            dependencies: ["DownloadKit"]),
+            dependencies: [
+                .target(name: "DownloadKit")
+            ])
     ]
 )

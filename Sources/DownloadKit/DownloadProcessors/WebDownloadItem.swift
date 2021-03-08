@@ -14,10 +14,6 @@ public extension DownloadParameter {
 }
 
 open class WebDownloadItem: Codable, Downloadable, CustomStringConvertible {
-    // MARK: - Private Properties
-    fileprivate let file: FileManager = FileManager.default
-    
-    private var localUrl: URL?
     
     // MARK: - Public Properties
     
@@ -61,7 +57,7 @@ open class WebDownloadItem: Codable, Downloadable, CustomStringConvertible {
         case finishedDate
     }
     
-    // Progress for older versions, before 11.0, stored internally and exposed via progress property.
+    /// Progress for older versions, before 11.0, stored internally and exposed via progress property.
     private var itemProgress: Foundation.Progress?
     
     public var progress: Foundation.Progress? {

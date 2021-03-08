@@ -58,7 +58,7 @@ public class ProgressNode {
     
     private var items = [Item]()
     
-    init?(items: [String: Foundation.Progress], inBytes: Bool = true) {
+    public init?(items: [String: Foundation.Progress], inBytes: Bool = true) {
         if items.count == 0 {
             return nil
         }
@@ -85,7 +85,7 @@ public class ProgressNode {
         self.progress.completedUnitCount = completedUnitCount
     }
     
-    func retry(_ identifier: String, with progress: Foundation.Progress) {
+    public func retry(_ identifier: String, with progress: Foundation.Progress) {
         guard let index = items.firstIndex(where: { $0.identifier == identifier }) else {
             return
         }
@@ -103,7 +103,7 @@ public class ProgressNode {
         self.progress.completedUnitCount = completedUnitCount
     }
     
-    func complete(_ identifier: String, with error: Error? = nil) {
+    public func complete(_ identifier: String, with error: Error? = nil) {
         guard let index = items.firstIndex(where: { $0.identifier == identifier }) else {
             return
         }
@@ -118,7 +118,7 @@ public class ProgressNode {
     
     /// Returns a new progress node adding any items that are in other node and updating
     /// existing values.
-    func merge(with other: ProgressNode?) -> ProgressNode? {
+    public func merge(with other: ProgressNode?) -> ProgressNode? {
         guard let other = other else { return self }
         // cannot merge if one is in bytes and other is not.
         guard self.inBytes == other.inBytes else { return nil }
@@ -138,7 +138,7 @@ public class ProgressNode {
         return ProgressNode(items: items, inBytes: inBytes)
     }
     
-    func hasSameItems(as other: ProgressNode) -> Bool {
+    public func hasSameItems(as other: ProgressNode) -> Bool {
         return Set(items).isSuperset(of: other.items)
     }
 }

@@ -14,6 +14,7 @@ import UIKit
 #endif
 
 #if os(OSX)
+import AppKit
 public typealias LocalImage = NSImage
 #else
 public typealias LocalImage = UIImage

@@ -8,7 +8,22 @@
 import Foundation
 
 public struct AssetMirrorSelection {
-    enum QueueOption {
+    
+    public let id: String
+    
+    /// Mirror to retry
+    public let mirror: AssetFileMirror
+    
+    /// Downloadable
+    public let downloadable: Downloadable
+    
+    /// Option to retry
+    public var option = QueueOption.normal
+}
+
+extension AssetMirrorSelection {
+    
+    public enum QueueOption {
         /// The Mirror should enqueue normally.
         case normal
         
@@ -20,16 +35,6 @@ public struct AssetMirrorSelection {
         case highPriority
     }
     
-    let id: String
-    
-    /// Mirror to retry
-    let mirror: AssetFileMirror
-    
-    /// Downloadable
-    let downloadable: Downloadable
-    
-    /// Option to retry
-    var option = QueueOption.normal
 }
 
 /// Mirror policy is responsible for picking a mirror to download when required.

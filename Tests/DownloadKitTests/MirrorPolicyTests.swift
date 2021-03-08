@@ -7,20 +7,120 @@
 //
 
 import XCTest
-import DownloadKit
+@testable import DownloadKit
 
 class WeightedMirrorPolicyTests: XCTestCase {
     
-    var policy: WeightedMirrorPolicy?
+    var policy: WeightedMirrorPolicy!
+    var delegate: MockPolicyDelegate!
+    let retries = 3
     
     override func setUpWithError() throws {
-        policy = WeightedMirrorPolicy()
+        policy = WeightedMirrorPolicy(numberOfRetries: retries)
+        delegate = MockPolicyDelegate()
+        policy.delegate = delegate
     }
 
     override func tearDownWithError() throws {
         policy = nil
+        delegate = nil
     }
+    
+    func testPolicyReturnsMirrorWithHighestWeight() {
+        let numberOfMirrors = 5
+        let asset = Asset.sample(mirrorCount: numberOfMirrors)
+        let selection = policy.mirror(for: asset, lastMirrorSelection: nil, error: nil)!
+        
+        XCTAssertEqual(selection.mirror.weight, numberOfMirrors)
+    }
+    
+    func testExhaustingAllMirrorsNotifiesDelegate() {
+        let numberOfMirrors = 5
+        let asset = Asset.sample(mirrorCount: numberOfMirrors)
+        
+        var previousSelection: AssetMirrorSelection?
+        let error = NSError(domain: "mirror.policy.error", code: 10, userInfo: nil)
+        
+        for _ in 0...(numberOfMirrors + retries) {
+            previousSelection = policy.mirror(for: asset, lastMirrorSelection: previousSelection, error: error)
+        }
+        
+        XCTAssertEqual(delegate.exhaustedAllMirrors, true)
+    }
+    
+    func testCreatingDownloadableFromUnsupportedURL() {
+        let asset = Asset(id: "random-id",
+                          main: FileMirror(id: "mirror-id",
+                                           location: "Path/To/Local/File.jpg", // unsupported URL
+                                           info: [:]),
+                          alternatives: [],
+                          fileURL: nil)
+        
+        _ = policy.mirror(for: asset, lastMirrorSelection: nil, error: nil)
+        XCTAssertEqual(delegate.failedToGenerateDownloadable, true)
+    }
+    
+    func testDownloadCompleteClearsRetryCount() {
+        let numberOfMirrors = 1
+        let asset = Asset.sample(mirrorCount: numberOfMirrors)
+        
+        var previousSelection: AssetMirrorSelection?
+        let error = NSError(domain: "mirror.policy.error", code: 10, userInfo: nil)
+        for _ in 0...(numberOfMirrors) {
+            previousSelection = policy.mirror(for: asset, lastMirrorSelection: previousSelection, error: error)
+        }
+        
+        policy.downloadComplete(for: asset)
+        
+        XCTAssertEqual(policy.retryCounters(for: asset).isEmpty, true)
+    }
+    
+}
 
-    func testCanProcess() throws {
+
+class MockPolicyDelegate: MirrorPolicyDelegate {
+    
+    var exhaustedAllMirrors = false
+    var failedToGenerateDownloadable = false
+    
+    func mirrorPolicy(_ mirrorPolicy: MirrorPolicy, didExhaustMirrorsIn file: AssetFile) {
+        exhaustedAllMirrors = true
+    }
+    
+    func mirrorPolicy(_ mirrorPolicy: MirrorPolicy, didFailToGenerateDownloadableIn file: AssetFile, for mirror: AssetFileMirror) {
+        failedToGenerateDownloadable = true
+    }
+}
+
+struct FileMirror: AssetFileMirror {
+    var id: String
+    
+    var location: String
+    
+    var info: AssetFileInfo
+    
+    static func random(weight: Int) -> FileMirror {
+        FileMirror(id: UUID().uuidString,
+                   location: "https://example.com/file",
+                   info: [WeightedMirrorPolicy.weightKey: weight])
+    }
+}
+
+struct Asset: AssetFile {
+    var id: String
+    
+    var main: AssetFileMirror = FileMirror.random(weight: 0)
+    
+    var alternatives: [AssetFileMirror] = [FileMirror]()
+    
+    var fileURL: URL?
+}
+
+extension Asset {
+    static func sample(mirrorCount: Int) -> AssetFile {
+        return Asset(id: "sample-id",
+                     main: FileMirror.random(weight: 0),
+                     alternatives: (1...mirrorCount).map { FileMirror.random(weight: $0) },
+                     fileURL: nil)
     }
 }
