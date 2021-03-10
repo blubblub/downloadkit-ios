@@ -40,28 +40,30 @@ public extension FileManager {
     ///   - prefix: prefix type, default `copy-`
     /// - Returns: Prefixed filename
     func addCopyString(to filename: String, with prefix: String = "copy-") -> String {
-        var components = filename.components(separatedBy: ".")
+        let expression = NSRegularExpression(prefix + "(\\d+)")
+        let range = NSRange(location: 0, length: filename.utf16.count)
         
-        // Find our "(prefix)(n)" string, we just replace the number, it can be last or one before last.
-        let index = components.count >= 2 ? components.count - 1 : 1
+        var count = 1
         
-        if index < components.count && (components[index].hasPrefix(prefix) || components[index - 1].hasPrefix(prefix)) {
-            let targetIndex = components[index].hasPrefix(prefix) ? index : index - 1
-            
-            let prefixValue = components[targetIndex].replacingOccurrences(of: prefix, with: "")
-            
-            if let number = Int(prefixValue) {
-                components[targetIndex] = "\(prefix)\(number + 1)"
-            }
-            else {
-                components[targetIndex] = "\(prefix)1"
-            }
-            
-        }
-        else {
-            components.insert("\(prefix)1", at: index)
+        var newFileName = filename
+        // if a match is found, we increment the count number
+        if let match = expression.firstMatch(in: filename, options: [], range: range),
+           let countRange = Range<String.Index>(match.range(at: 1), in: filename) {
+            count = (Int(filename[countRange]) ?? 0) + 1
+            newFileName = String(filename[countRange.upperBound...].dropFirst())
         }
         
-        return components.joined(separator: ".")
+        
+        return "\(prefix)\(count)." + newFileName
+    }
+}
+
+extension NSRegularExpression {
+    convenience init(_ pattern: String) {
+        do {
+            try self.init(pattern: pattern)
+        } catch {
+            preconditionFailure("Illegal regular expression: \(pattern).")
+        }
     }
 }

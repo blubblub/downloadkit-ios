@@ -10,10 +10,18 @@ import Foundation
 import os.log
 
 public protocol DownloadQueueDelegate: class {
-    // Called when the download item finishes downloading. URL is provided as a parameter.
+    /// Called when the download item finishes downloading. URL is provided as a parameter.
+    /// - Parameters:
+    ///   - queue: queue on which the item was downloaded.
+    ///   - item: item that finished downloading.
+    ///   - location: where on the filesystem the file was stored.
     func downloadQueue(_ queue: DownloadQueue, downloadDidFinish item: Downloadable, to location: URL)
     
-    // Called when download had failed for any reason, including sessions being invalidated.
+    /// Called when download had failed for any reason, including sessions being invalidated.
+    /// - Parameters:
+    ///   - queue: queue on which the item was downloaded.
+    ///   - item: item that failed to download.
+    ///   - error: error describing the failure.
     func downloadQueue(_ queue: DownloadQueue, downloadDidFail item: Downloadable, with error: Error)
 }
 

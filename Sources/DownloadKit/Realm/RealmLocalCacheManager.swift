@@ -29,6 +29,19 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         return realm
     }
     
+    public init(configuration: Realm.Configuration = Realm.Configuration.defaultConfiguration) {
+        self.configuration = configuration
+    }
+    
+    
+    /// Creates a new local asset and stores it in realm database.
+    /// - Parameters:
+    ///   - asset: asset to store in realm.
+    ///   - mirror: from which mirror the asset was downloaded.
+    ///   - url: where the asset is stored.
+    ///   - options: request options.
+    /// - Throws: in case the file already exists at the target url.
+    /// - Returns: local asset.
     public func store(asset: AssetFile, mirror: AssetFileMirror, at url: URL, options: RequestOptions) throws -> L {
         let targetUrl = L.targetUrl(for: asset, mirror: mirror, at: url, storagePriority: options.storagePriority, file: file)
         

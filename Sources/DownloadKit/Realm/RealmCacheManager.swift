@@ -35,8 +35,12 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         }
     }
     
-    public init() {
-        
+    public init(memoryCache: RealmMemoryCache<L>? = RealmMemoryCache(),
+                localCache: RealmLocalCacheManager<L> = RealmLocalCacheManager(),
+                mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()) {
+        self.memoryCache = memoryCache
+        self.localCache = localCache
+        self.mirrorPolicy = mirrorPolicy
     }
         
     public func requestDownloads(assets: [AssetFile], options: RequestOptions) -> [Downloadable] {
