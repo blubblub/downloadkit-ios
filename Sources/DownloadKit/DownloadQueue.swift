@@ -70,18 +70,17 @@ public class DownloadQueue: DownloadQueuable {
     
     public var log: OSLog = logDK
     
-    // Queue that executes after-download operations, such as moving the file.
-
+    /// Queue that executes after-download operations, such as moving the file.
     private let processQueue = DispatchQueue(label: "org.blubblub.core.synchronization.queue", qos: DispatchQoS.background)
     
-    // Holds pending downloads.
+    /// Holds pending downloads.
     private var downloadQueue = PriorityQueue<Downloadable>(order: { $0.priority > $1.priority })
     
     public private(set) var downloadProcessors: [DownloadProcessor] = []
     
     private var notificationCenter = NotificationCenter.default
     
-    // Holds properties to current items for quick access.
+    /// Holds properties to current items for quick access.
     private var progressDownloadMap: [String: Downloadable] = [:]
     private var queuedDownloadMap: [String: Downloadable] = [:]
         
@@ -90,7 +89,7 @@ public class DownloadQueue: DownloadQueuable {
     public weak var delegate: DownloadQueueDelegate?
     public var simultaneousDownloads = 4
     
-    // Set to false to stop any further downloads.
+    /// Set to false to stop any further downloads.
     public var isActive = true {
         didSet {
             if isActive {
@@ -139,7 +138,7 @@ public class DownloadQueue: DownloadQueuable {
     
     // MARK: - Public Methods
     
-    public init () {
+    public init() {
     }
     
     public func enqueuePending(completion: (() -> Void)? = nil) {
@@ -247,9 +246,7 @@ public class DownloadQueue: DownloadQueuable {
         }
     }
     
-    ///
     /// Start processing items, may only be called on process queue.
-    ///
     private func process() {
         // Will ensure we do not process anywhere else.
         dispatchPrecondition(condition: .onQueue(processQueue))
@@ -279,7 +276,6 @@ public class DownloadQueue: DownloadQueuable {
         self.queuedDownloadMap[item.identifier] = nil
         
         // Find a processor that will take care of the item.
-        
         if let processor = downloadProcessors.first(where: { $0.canProcess(item: item) }) {
             
             self.progressDownloadMap[item.identifier] = item
@@ -370,7 +366,6 @@ extension DownloadQueue: DownloadProcessorDelegate {
     }
     
     public func downloadDidFinish(_ processor: DownloadProcessor, item: Downloadable) {
-        // Currently NO-OP as it is not needed for web, we've done everything in Finish Transfer alre
-        log.info("[DownloadQueue]: Download operation for id: %@", item.identifier)
+        // Currently NO-OP as it is not needed for web, we've done everything in Finish Transfer already
     }
 }

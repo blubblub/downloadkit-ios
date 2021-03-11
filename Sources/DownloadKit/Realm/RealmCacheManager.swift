@@ -42,7 +42,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         self.localCache = localCache
         self.mirrorPolicy = mirrorPolicy
     }
-        
+    
     public func requestDownloads(assets: [AssetFile], options: RequestOptions) -> [Downloadable] {
         // Update storage for assets that exists.
         localCache.updateStorage(assets: assets, to: options.storagePriority)
@@ -108,7 +108,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         return mirrorSelection.downloadable
     }
     
-    public func cleanup(excluding urls: [URL]) {
+    public func cleanup(excluding urls: Set<URL>) {
         localCache.cleanup(excluding: urls)
     }
     

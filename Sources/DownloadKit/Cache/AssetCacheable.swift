@@ -11,7 +11,10 @@ import os.log
 public protocol AssetCacheable: AssetFileCacheable {
     var mirrorPolicy: MirrorPolicy { get set }
     
-    // Returns pending items
+    /// Returns downloadable items, that are not stored locally.
+    /// - Parameters:
+    ///   - assets: assets we're interested in.
+    ///   - options: request options.
     func requestDownloads(assets: [AssetFile], options: RequestOptions) -> [Downloadable]
         
     func download(downloadable: Downloadable, didFinishTo location: URL) -> LocalAssetFile?
@@ -19,5 +22,5 @@ public protocol AssetCacheable: AssetFileCacheable {
     // If the download fails, if downloadable is returned we should retry.
     func download(downloadable: Downloadable, didFailWith error: Error) -> Downloadable?
     
-    func cleanup(excluding urls: [URL])
+    func cleanup(excluding urls: Set<URL>)
 }

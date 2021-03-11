@@ -46,6 +46,9 @@ public protocol LocalAssetFile {
     
     var modifyDate: Date? { get set }
     
+    /// Storage priority when the file was saved locally.
+    var storage: StoragePriority { get set }
+    
     static func targetUrl(for asset: AssetFile, mirror: AssetFileMirror, at url: URL, storagePriority: StoragePriority, file: FileManager) -> URL
 }
 

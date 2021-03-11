@@ -29,10 +29,11 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         return realm
     }
     
+    // MARK: - Public
+    
     public init(configuration: Realm.Configuration = Realm.Configuration.defaultConfiguration) {
         self.configuration = configuration
     }
-    
     
     /// Creates a new local asset and stores it in realm database.
     /// - Parameters:
@@ -87,7 +88,34 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     ///   - assets: assets to operate on
     ///   - priority: priority to move to.
     public func updateStorage(assets: [AssetFile], to priority: StoragePriority) {
-        // TODO: Implement this, moving from cache folder to app support folder and vice versa.
+        // clear all realm objects that don't have local file
+        removeAssetsWithoutLocalFile(assets: assets)
+        
+        for asset in assets {
+            if var localAsset = realm.object(ofType: L.self, forPrimaryKey: asset.id),
+               let localURL = localAsset.fileURL {
+                
+                // if priorities are the same, skip moving files
+                if localAsset.storage == priority { continue }
+                
+                let targetURL = L.targetUrl(for: asset, mirror: asset.main, // main mirror here?
+                                            at: localURL,
+                                            storagePriority: priority, file: file)
+                
+                do {
+                    // move to new location
+                    try file.moveItem(at: localURL, to: targetURL)
+                    
+                    // update fileURL with new location and storage
+                    try realm.write {
+                        localAsset.fileURL = targetURL
+                        localAsset.storage = priority
+                    }
+                } catch {
+                    log.error("[RealmLocalCacheManager]: Error moving file from: %@ to %@", localURL.absoluteString, targetURL.absoluteString)
+                }
+            }
+        }
     }
     
     public func requestDownloads(assets: [AssetFile], options: RequestOptions) -> [AssetFile] {
@@ -98,17 +126,13 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         // Get assets that need to be downloaded.
         let downloadableAssets = assets.filter { item in
             
-            let identifier = item.id
-
-            let localAsset = realm.object(ofType: L.self, forPrimaryKey: identifier)
-
             // No local asset, let's download.
-            guard let asset = localAsset else {
+            guard let asset = realm.object(ofType: L.self, forPrimaryKey: item.id) else {
                 return true
             }
             
             // There is no local file URL, we should download it.
-            if item.fileURL == nil {
+            if asset.fileURL == nil {
                 return true
             }
                         
@@ -117,76 +141,62 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                 return fileModifyDate > localModifyDate
             }
 
-            return shouldDownload?(item, options) ?? true
+            return shouldDownload?(item, options) ?? false
         }
         
         return downloadableAssets
     }
     
-    /// Removes all traces of files in cache.
+    /// Removes all traces of files in document and cache folder.
+    /// Removes all objects from realm.
     public func reset() {
-        let supportFiles = try? file.contentsOfDirectory(at: file.supportDirectoryURL.appendingPathComponent(assetSubdirectory),
-                                                         includingPropertiesForKeys: nil,
-                                                         options: []).map { $0.resolvingSymlinksInPath() }
-        let cachedFiles = try? file.contentsOfDirectory(at: file.cacheDirectoryURL.appendingPathComponent(assetSubdirectory),
-                                                        includingPropertiesForKeys: nil,
-                                                        options: []).map { $0.resolvingSymlinksInPath() }
+        let supportFiles = file.cachedFiles(directory: file.supportDirectoryURL,
+                                            subdirectory: assetSubdirectory)
         
-        let filesToRemove: [URL] = (supportFiles ?? []) + (cachedFiles ?? [])
+        let cachedFiles = file.cachedFiles(directory: file.cacheDirectoryURL,
+                                           subdirectory: assetSubdirectory)
         
-        for currentFile in filesToRemove {
-            do {
-                try file.removeItem(at: currentFile)
-                log.debug("[RealmLocalCacheManager]: Removed file: %@", currentFile.absoluteString)
-            }
-            catch let error {
-                log.error("[RealmLocalCacheManager]: Error removing file: %@", error.localizedDescription)
-            }
-        }
+        let filesToRemove = supportFiles + cachedFiles
+        removeFiles(filesToRemove)
         
-        log.debug("[RealmLocalCacheManager]: Removed %lu files.", filesToRemove.count)
-        
-        let realm = self.realm
         let objects = realm.objects(L.self)
-         
         try! realm.write {
             realm.delete(objects)
         }
         
+        log.debug("[RealmLocalCacheManager]: Removed %lu files.", filesToRemove.count)
         log.debug("[RealmLocalCacheManager]: Removed %lu objects.", objects.count)
     }
     
-    public func cleanup(excluding urls: [URL]) {
-        // Get all files from asset directly
-        let assetDirectory = file.assetDirectoryURL(for: nil, assetDirectory: assetSubdirectory)
+    public func cleanup(excluding urls: Set<URL>) {
+        let files = file.cachedFiles(directory: file.supportDirectoryURL,
+                                     subdirectory: assetSubdirectory)
         
-        do {
-            let files = try file.contentsOfDirectory(at: assetDirectory, includingPropertiesForKeys: nil, options: []).map { $0.resolvingSymlinksInPath() }
-            
-            let filesToRemove = files.filter({ !urls.contains($0) })
-            
-            // Scan files and remove files that are not in urls array
-            for currentFile in filesToRemove {
-                do {
-                    try file.removeItem(at: currentFile)
-                    log.debug("[RealmLocalCacheManager]: Removed file: %@", currentFile.absoluteString)
-                }
-                catch let error {
-                    log.error("[RealmLocalCacheManager]: Error removing file: %@", error.localizedDescription)
-                }
-            }
-            
-            log.debug("[RealmLocalCacheManager]: Removed %lu files.", filesToRemove.count)
-            
-        }
-        catch {
-            log.error("[RealmLocalCacheManager]: Error while scanning asset directory: %@", assetDirectory.absoluteString)
-        }
+        let filesToRemove = files.filter({ !urls.contains($0) })
+        removeFiles(filesToRemove)
         
-        cleanupRealm(excluding: urls)
+        log.debug("[RealmLocalCacheManager]: Removed %lu files.", filesToRemove.count)
+        
+        cleanupRealm(excluding: Set(urls))
     }
     
-    private func cleanupRealm(excluding urls: [URL]) {
+    // MARK: - Private
+    
+    
+    /// Helper function that removes items from file system.
+    /// - Parameter items: items to remove from file system.
+    private func removeFiles(_ items: [URL]) {
+        for item in items {
+            do {
+                try file.removeItem(at: item)
+                log.debug("[RealmLocalCacheManager]: Removed file: %@", item.absoluteString)
+            } catch {
+                log.error("[RealmLocalCacheManager]: Error removing file: %@", error.localizedDescription)
+            }
+        }
+    }
+    
+    private func cleanupRealm(excluding urls: Set<URL>) {
         let realm = self.realm
         let objects = realm.objects(L.self)
         
@@ -215,45 +225,63 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         log.debug("[RealmLocalCacheManager]: Removed %lu objects.", deleteCounter)
     }
     
+    private func removeAssetsWithoutLocalFile(assets: [AssetFile]) {
+        let localAssets = assets.compactMap { realm.object(ofType: L.self, forPrimaryKey: $0.id) }
+        do {
+            try realm.write {
+                for asset in localAssets where !assetExistsLocally(asset: asset) {
+                    realm.delete(asset)
+                }
+            }
+        } catch {
+            log.error("[RealmLocalCacheManager]: Error while removing assets %@", error.localizedDescription)
+        }
+    }
+    
+    private func assetExistsLocally(asset: L) -> Bool {
+        // if we don't have file URL, delete
+        guard let url = asset.fileURL else {
+            return false
+        }
+        
+        return file.fileExists(atPath: url.path)
+    }
+    
     /// Creates a LocalAsset record with file path at URL.
     /// - Parameters:
     ///   - asset: asset to create record for
     ///   - url: url where file is located
     /// - Returns: local asset
     private func createLocalAsset(for asset: AssetFile, url: URL) -> L {
-
-        // Create local asset
         var localAsset = L()
         localAsset.id = asset.id
         localAsset.fileURL = url
-        
-        if let modified = asset.modifyDate {
-            localAsset.modifyDate = modified
-        }
-        else {
-            localAsset.modifyDate = Date()
-        }
+        localAsset.modifyDate = asset.modifyDate ?? Date()
         
         return localAsset
     }
 }
 
 private extension FileManager {
+    
+    func cachedFiles(directory: URL, subdirectory: String) -> [URL] {
+        do {
+            let directory = directory.appendingPathComponent(subdirectory)
+            let files = try contentsOfDirectory(at: directory,
+                                                includingPropertiesForKeys: nil,
+                                                options: []).map { $0.resolvingSymlinksInPath() }
+            
+            return files
+        } catch {
+            return []
+        }
+    }
+    
     var supportDirectoryURL: URL {
         return self.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
     }
     
     var cacheDirectoryURL: URL {
         return self.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-    }
-
-    func assetDirectoryURL(for directoryURL: URL? = nil, assetDirectory: String) -> URL {
-        var directoryURL: URL! = directoryURL
-        
-        if directoryURL == nil {
-            directoryURL = supportDirectoryURL
-        }
-        
-        return directoryURL.appendingPathComponent(assetDirectory)
     }
 }

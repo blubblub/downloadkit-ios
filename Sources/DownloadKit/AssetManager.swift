@@ -27,7 +27,7 @@ public enum DownloadPriority {
     case userInteractive
 }
 
-public enum StoragePriority {
+public enum StoragePriority: String {
     /// Cache Manager should place the file in temporary folder. Once system clears the folder
     /// due to space constraints, it will have to be redownloaded.
     case cached
@@ -37,8 +37,8 @@ public enum StoragePriority {
 }
 
 public struct RequestOptions {
-    let downloadPriority = DownloadPriority.normal
-    let storagePriority = StoragePriority.cached
+    var downloadPriority: DownloadPriority = .normal
+    var storagePriority: StoragePriority = .cached
 }
 
 /// Public API for Asset Manager. Combines all the smaller pieces of the API.
