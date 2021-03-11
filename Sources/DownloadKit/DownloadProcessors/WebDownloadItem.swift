@@ -106,6 +106,8 @@ open class WebDownloadItem: Codable, Downloadable, CustomStringConvertible {
     }
     
     public func start(with parameters: DownloadParameters) {
+        startDate = Date()
+        
         if let task = task {
             task.resume()
         } else {
@@ -114,9 +116,8 @@ open class WebDownloadItem: Codable, Downloadable, CustomStringConvertible {
                 return
             }
             
-            startDate = Date()
-            
             self.task = task
+            self.task?.resume()
         }
     }
 
@@ -152,5 +153,18 @@ open class WebDownloadItem: Codable, Downloadable, CustomStringConvertible {
         }
         
         itemProgress.completedUnitCount = totalBytesWritten > itemProgress.totalUnitCount ? itemProgress.totalUnitCount - 1 : totalBytesWritten
+    }
+}
+
+// MARK: - Hashable
+
+extension WebDownloadItem: Hashable {
+    
+    public static func == (l: WebDownloadItem, r: WebDownloadItem) -> Bool {
+        return l.isEqual(to: r)
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(identifier)
     }
 }

@@ -29,7 +29,7 @@ public enum DownloadPriority {
 
 public enum StoragePriority {
     /// Cache Manager should place the file in temporary folder. Once system clears the folder
-    /// due to space constraints, it will have to be reloaded.
+    /// due to space constraints, it will have to be redownloaded.
     case cached
     
     /// Cache Manager should permanently store the file. This should be used for offline mode.

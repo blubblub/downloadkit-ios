@@ -13,15 +13,24 @@ extension WebDownloadItem {
     static let encoder = JSONEncoder()
 }
 
+public extension WebDownloadProcessor {
+    enum ProcessorError: Error {
+        case cannotProcess(String)
+    }
+}
+
 /// Wrapper for NSURLSession delegate, between DownloadQueue and Downloadable,
 /// so we can correctly track.
 public class WebDownloadProcessor: NSObject, DownloadProcessor {
+    
+    // MARK: - Private Properties
+    
     /// URLSession that does the download.
     private var session: URLSession!
     
     /// Holds properties to current items for quick access.
-    private var itemMap: [Int: WebDownloadItem] = [:]
-    private var downloadTaskMap: [Int: URLSessionDownloadTask] = [:]
+    private var items = Set<WebDownloadItem>()
+    private var downloadTasks: [URLSessionDownloadTask] = []
     
     private lazy var queue: OperationQueue = {
         let queue = OperationQueue()
@@ -33,11 +42,12 @@ public class WebDownloadProcessor: NSObject, DownloadProcessor {
     }()
     
     // MARK: - Public Properties
+    
     public weak var delegate: DownloadProcessorDelegate?
     
-    public var log: OSLog = logDK
+    public var log = logDK
     
-    public var isActive: Bool = true
+    public var isActive = true
     
     
     // MARK: - Initialization
@@ -71,34 +81,38 @@ public class WebDownloadProcessor: NSObject, DownloadProcessor {
     }
     
     public func process(_ item: Downloadable) {
-        let itemDescription = item.description
-        
-        guard let item = item as? WebDownloadItem else {
-            fatalError("WebDownloadProcessor: Cannot process the unsupported download type. Item: \(itemDescription)")
-        }
-        
-        guard let task = prepare(item: item) else {
+        guard let webItem = item as? WebDownloadItem else {
+            let error = "Cannot process the unsupported download type. Item: \(item.description)"
+            delegate?.downloadDidError(self,
+                                       item: item,
+                                       error: ProcessorError.cannotProcess(error))
             return
         }
         
-        task.resume()
+        // we're already processing item with the same identifier
+        guard !self.items.contains(webItem) else {
+            return
+        }
         
-        self.downloadTaskMap[item.task!.taskIdentifier] = item.task!
-        self.itemMap[item.task!.taskIdentifier] = item
+        let task = createTask(for: webItem)
+        webItem.start(with: [DownloadParameter.urlDownloadTask: task])
         
-        delegate?.downloadDidBegin(self, item: item)
+        self.downloadTasks.append(task)
+        self.items.insert(webItem)
+        
+        delegate?.downloadDidBegin(self, item: webItem)
     }
     
     public func pause() {
-        // TODO: Handle inActive flag and state of download tasks
-        for (_, task) in downloadTaskMap {
+        isActive = false
+        for task in downloadTasks {
             task.suspend()
         }
     }
     
     public func resume() {
-        // TODO: Handle inActive flag and state of download tasks. We might need to tell delegate that we paused the tasks. Not sure what happens if tasks are resumed when they aren't suspended.
-        for (_, task) in downloadTaskMap {
+        isActive = true
+        for task in downloadTasks {
             task.resume()
         }
     }
@@ -117,51 +131,35 @@ public class WebDownloadProcessor: NSObject, DownloadProcessor {
                 // If we were unable to decode the item from task completion,
                 // it is likely a task that we did not start. We shouldn't handle it.
                 if let item = item {
-                    self.itemMap[task.taskIdentifier] = item
-                    self.downloadTaskMap[task.taskIdentifier] = task
+                    self.items.insert(item)
+                    self.downloadTasks.append(task)
                     
                     self.delegate?.downloadDidBegin(self, item: item)
                 }
             }
             
-            if let completion = completion {
-                completion()
-            }
+            completion?()
         }
     }
     
-    private func prepare(item: WebDownloadItem) -> URLSessionDownloadTask? {
-        
-        let request = URLRequest(url: item.url)
-        var task: URLSessionDownloadTask?
-        
-        if let currentTask = item.task, currentTask.state != .suspended {
-            task = session.downloadTask(with: request)
-        }
-        
-        if task == nil {
-            task = session.downloadTask(with: request)
-        }
-        
+    private func createTask(for item: WebDownloadItem) -> URLSessionDownloadTask {
+        let task = session.downloadTask(with: URLRequest(url: item.url))
         log.info("Starting download: %@ priority: %d", item.url.absoluteString, item.priority)
         
         if item.priority > 0 {
-            task!.priority = URLSessionDownloadTask.highPriority
+            task.priority = URLSessionDownloadTask.highPriority
         }
         
         if item.totalSize > 0 {
-            task!.countOfBytesClientExpectsToReceive = item.totalSize
+            task.countOfBytesClientExpectsToReceive = item.totalSize
         }
         
-        
-        // Want to crash here, if no task set up, need to crash, so we see where it went wrong.
-        task!.taskDescription = String(data: try! WebDownloadItem.encoder.encode(item), encoding: .utf8)
+        task.taskDescription = String(data: try! WebDownloadItem.encoder.encode(item), encoding: .utf8)
         return task
     }
     
-    
     private func item(for task: URLSessionTask) -> WebDownloadItem? {
-        return itemMap[task.taskIdentifier]
+        return items.first(where: { $0.task?.taskIdentifier == task.taskIdentifier })
     }
 }
 
@@ -194,14 +192,14 @@ extension WebDownloadProcessor: URLSessionDownloadDelegate {
     
     public func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
         // Invalidate and clean up all transfers
-        for item in self.itemMap.values {
+        for item in self.items {
             if let error = error {
                 delegate?.downloadDidError(self, item: item, error: error)
             }
         }
         
-        downloadTaskMap.removeAll()
-        itemMap.removeAll()
+        downloadTasks.removeAll()
+        items.removeAll()
     }
     
     public func urlSession(_ session: Foundation.URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
@@ -218,11 +216,11 @@ extension WebDownloadProcessor: URLSessionDownloadDelegate {
     
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         // Will get this callback once the task is completed, so cleanup.
-        self.downloadTaskMap[task.taskIdentifier] = nil
+        self.downloadTasks.removeAll(where: { $0.taskIdentifier == task.taskIdentifier })
         
         if let item = self.item(for: task) {
             // Update states.
-            self.itemMap[task.taskIdentifier] = nil
+            self.items.remove(item)
             
             if let error = error {
                 self.delegate?.downloadDidError(self, item: item, error: error)

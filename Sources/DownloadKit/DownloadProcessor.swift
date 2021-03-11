@@ -38,9 +38,3 @@ public protocol DownloadProcessorDelegate: class {
     /// Should be sent when a Downloadable is completely finished.
     func downloadDidFinish(_ processor: DownloadProcessor, item: Downloadable)
 }
-
-extension DownloadProcessor {
-    func enqueuePending() {
-        enqueuePending(completion: nil)
-    }
-}
