@@ -301,14 +301,14 @@ public class DownloadQueue: DownloadQueuable {
 extension DownloadQueue: DownloadProcessorDelegate {
 
     public func downloadDidBegin(_ processor: DownloadProcessor, item: Downloadable) {
-        processQueue.sync {
+        processQueue.async {
             if let trackedItem = self.item(for: item.identifier) {
                 // We have the item, but it wasn't processed yet, but a processor decided to start downloading it.
                 // This indicates a broken state between processor and the queue and we will fix it here.
                 // This could also be a resume of a very old download, if processor has that ability (such as in case of URLSession).
                 
                 if self.progressDownloadMap[item.identifier] == nil {
-                    log.error("[DownloadQueue]: Internal download inconsistency state for: %@", item.identifier)
+                    self.log.error("[DownloadQueue]: Internal download inconsistency state for: %@", item.identifier)
                     
                     self.progressDownloadMap[item.identifier] = trackedItem
                     self.queuedDownloadMap[item.identifier] = nil
@@ -317,7 +317,7 @@ extension DownloadQueue: DownloadProcessorDelegate {
             else {
                 // We have no tracked item here, but processor started working on it on it's own.
                 // This is to handle any resumed transfers if needed.
-                log.info("[DownloadQueue]: Processor started to download item %@ from internal state.", item.identifier)
+                self.log.info("[DownloadQueue]: Processor started to download item %@ from internal state.", item.identifier)
                 
                 self.progressDownloadMap[item.identifier] = item
             }

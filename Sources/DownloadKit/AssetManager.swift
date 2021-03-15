@@ -10,6 +10,7 @@ import Foundation
 import RealmSwift
 import os.log
 
+/// Completion block, having success flag and item identifier
 public typealias ProgressCompletion = (Bool, String) -> Void
 
 protocol AssetManagerDelegate {
@@ -87,29 +88,29 @@ public class AssetManager {
         priorityQueue?.delegate = self
     }
     
-    public func request(assets: [AssetFile]) {
-        request(assets: assets, options: RequestOptions())
+    @discardableResult
+    public func request(assets: [AssetFile]) -> [Downloadable] {
+        return request(assets: assets, options: RequestOptions())
     }
     
-    public func request(assets: [AssetFile], options: RequestOptions) {
+    @discardableResult
+    public func request(assets: [AssetFile], options: RequestOptions) -> [Downloadable] {
         // Grab Assets we need from file manager, filtering out those that are already downloaded.
         let downloads = cache.requestDownloads(assets: assets, options: options)
         
         guard downloads.count > 0 else {
             log.info("No assets need to be transferred at this point, all are available locally.")
             
-            return
+            return []
         }
         
         // We need to filter the downloads that are in progress, since there's not much we will do
         // in that case. For those that are in queue, we might move them to a higher priority queue.
-        
         let finalDownloads = downloads.filter { !isDownloading(for: $0.identifier) }
         
         if let priorityQueue = priorityQueue, options.downloadPriority == .high {
             // Move current priority queued downloads back to normal queue, because we have
             // a higher priority downloads now.
-            
             let currentPriorityDownloads = priorityQueue.queuedDownloads
             priorityQueue.cancel(items: currentPriorityDownloads)
             
@@ -125,7 +126,6 @@ public class AssetManager {
             
             // If those downloads are on download queue and were now moved to priority,
             // we need to cancel them on download, so we do not download them twice.
-            
             let normalQueuedDownloads = finalDownloads.filter { downloadQueue.hasItem(with: $0.identifier) }
             
             downloadQueue.cancel(items: normalQueuedDownloads)
@@ -136,6 +136,8 @@ public class AssetManager {
         
         // Add downloads to monitor progresses.
         progress.add(downloadItems: finalDownloads)
+        
+        return finalDownloads
     }
     
     public func resume(completion: (() -> Void)? = nil) {
@@ -188,7 +190,6 @@ extension AssetManager: DownloadQueueDelegate {
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFail item: Downloadable, with error: Error) {
         // Check if we should retry, cache will tell us based on it's internal mirror policy.
         // We cannot switch queues here, if it was put on lower priority, it should stay on lower priority.
-        //        
         if let retryItem = cache.download(downloadable: item, didFailWith: error) {
             // Put it on the same queue.
             queue.download(retryItem)
@@ -201,10 +202,10 @@ extension AssetManager: DownloadQueueDelegate {
     private func completeProgress(item: Downloadable, with error: Error?) {
         if let completions = self.assetCompletions[item.identifier] {
             for completion in completions {
-                completion(false, item.identifier)
+                completion(error == nil, item.identifier)
             }
             
-            self.assetCompletions[item.identifier] = nil
+            removeAssetCompletion(for: item.identifier)
         }
         
         progress.complete(identifier: item.identifier, with: error)
@@ -214,8 +215,7 @@ extension AssetManager: DownloadQueueDelegate {
 extension AssetManager {
     public func addAssetCompletion(for identifier: String, with completion: @escaping ProgressCompletion) {
         // If this asset is not downloading at all, call the closure immediately!
-        
-        guard !downloadQueue.hasItem(with: identifier) && !(priorityQueue?.hasItem(with: identifier) ?? false) else {
+        guard downloadQueue.hasItem(with: identifier) || (priorityQueue?.hasItem(with: identifier) ?? false) else {
             completion(false, identifier)
             return
         }
@@ -240,9 +240,10 @@ extension AssetManager {
 // MARK: - Convenience Methods to downloads
 
 extension AssetManager: DownloadQueuable {
+    
     public var isActive: Bool {
         get {
-            return downloadQueue.isActive && (priorityQueue?.isActive ?? true)
+            return downloadQueue.isActive || (priorityQueue?.isActive ?? false)
         }
         set {
             downloadQueue.isActive = newValue

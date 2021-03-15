@@ -118,9 +118,13 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         }
     }
     
+    
+    /// Filters through `assets` and returns only those that are not downloaded.
+    /// - Parameters:
+    ///   - assets: assets we filter through.
+    ///   - options: options
+    /// - Returns: assets that are not yet stored locally.
     public func requestDownloads(assets: [AssetFile], options: RequestOptions) -> [AssetFile] {
-        // Filter out binary and existing assets in local asset.
-        
         let realm = self.realm
         
         // Get assets that need to be downloaded.

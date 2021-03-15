@@ -55,7 +55,11 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
                 return nil
             }
             
-            return DownloadSelection(id: asset.id, options: options, asset: asset, mirror: mirrorSelection, downloadable: mirrorSelection.downloadable)
+            return DownloadSelection(id: asset.id,
+                                     options: options,
+                                     asset: asset,
+                                     mirror: mirrorSelection,
+                                     downloadable: mirrorSelection.downloadable)
         }
         
         return downloadSelections.map { $0.downloadable }
@@ -95,7 +99,9 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
             return nil
         }
         
-        guard let mirrorSelection = mirrorPolicy.mirror(for: downloadSelection.asset, mirrorSelection: downloadSelection.mirror, error: error) else {
+        guard let mirrorSelection = mirrorPolicy.mirror(for: downloadSelection.asset,
+                                                        mirrorSelection: downloadSelection.mirror,
+                                                        error: error) else {
             log.info("[RealmCacheManager]: Download failed: %@ Error: %@ No more retries.", downloadable.description)
             downloadableMap[downloadable.identifier] = nil
             return nil

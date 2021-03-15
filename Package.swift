@@ -24,6 +24,9 @@ let package = Package(
             name: "DownloadKitTests",
             dependencies: [
                 .target(name: "DownloadKit")
+            ],
+            resources: [
+                .process("Data")
             ])
     ]
 )

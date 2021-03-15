@@ -50,7 +50,7 @@ public class RealmMemoryCache<L: Object>: AssetFileCacheable where L: LocalAsset
     private let cache = NSCache<NSURL, LocalImage>()
     
     /// Target Realm to update
-    var configuration: Realm.Configuration = Realm.Configuration.defaultConfiguration
+    var configuration: Realm.Configuration = .defaultConfiguration
     
     private var realm: Realm {
         let realm = try! Realm(configuration: configuration)
@@ -60,7 +60,7 @@ public class RealmMemoryCache<L: Object>: AssetFileCacheable where L: LocalAsset
         return realm
     }
     
-    public init(loadURLs: Bool = true) {
+    public init(configuration: Realm.Configuration = .defaultConfiguration, loadURLs: Bool = true) {
         if loadURLs {
             let assets = realm.objects(L.self)
             
@@ -99,10 +99,8 @@ public class RealmMemoryCache<L: Object>: AssetFileCacheable where L: LocalAsset
     }
     
     public func update(for localAsset: L) {
-        let id = localAsset.id
-        
         if let localUrl = localAsset.fileURL {
-            assetURLs[id] = localUrl
+            assetURLs[localAsset.id] = localUrl
         }
     }
 }
