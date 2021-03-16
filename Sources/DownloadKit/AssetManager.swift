@@ -59,6 +59,10 @@ public class AssetManager {
     public let downloadQueue: DownloadQueue
     public let priorityQueue: DownloadQueue?
     
+    private var queues: [DownloadQueue] {
+        return [priorityQueue, downloadQueue].compactMap { $0 }
+    }
+    
     public let cache: AssetCacheable
     
     public let progress = AssetDownloadProgress()
@@ -141,6 +145,7 @@ public class AssetManager {
     }
     
     public func resume(completion: (() -> Void)? = nil) {
+        isActive = true
         
         let completionCounter = priorityQueue != nil ? 2 : 1
         var currentCompletionCounter = 0
@@ -163,8 +168,7 @@ public class AssetManager {
     }
     
     public func cancelAll() {
-        downloadQueue.cancelAll()
-        priorityQueue?.cancelAll()
+        queues.forEach { $0.cancelAll() }
         
         for (identifier, completions) in assetCompletions {
             for completion in completions {
@@ -215,7 +219,7 @@ extension AssetManager: DownloadQueueDelegate {
 extension AssetManager {
     public func addAssetCompletion(for identifier: String, with completion: @escaping ProgressCompletion) {
         // If this asset is not downloading at all, call the closure immediately!
-        guard downloadQueue.hasItem(with: identifier) || (priorityQueue?.hasItem(with: identifier) ?? false) else {
+        guard hasItem(with: identifier) else {
             completion(false, identifier)
             return
         }
@@ -243,7 +247,7 @@ extension AssetManager: DownloadQueuable {
     
     public var isActive: Bool {
         get {
-            return downloadQueue.isActive || (priorityQueue?.isActive ?? false)
+            return queues.reduce(false, { $0 || $1.isActive })
         }
         set {
             downloadQueue.isActive = newValue
@@ -252,38 +256,34 @@ extension AssetManager: DownloadQueuable {
     }
     
     public var currentDownloadCount: Int {
-        downloadQueue.currentDownloads.count + (priorityQueue?.currentDownloads.count ?? 0)
+        queues.reduce(0, { $0 + $1.currentDownloads.count })
     }
     
     public var queuedDownloadCount: Int {
-        downloadQueue.queuedDownloads.count + (priorityQueue?.queuedDownloads.count ?? 0)
+        queues.reduce(0, { $0 + $1.queuedDownloads.count })
     }
     
     public var downloads: [Downloadable] {
-        (priorityQueue?.downloads ?? []) + downloadQueue.downloads
+        queues.flatMap(\.downloads)
     }
     
     public var currentDownloads: [Downloadable] {
-        (priorityQueue?.currentDownloads ?? []) + downloadQueue.currentDownloads
+        queues.flatMap(\.currentDownloads)
     }
     
     public var queuedDownloads: [Downloadable] {
-        (priorityQueue?.queuedDownloads ?? []) + downloadQueue.queuedDownloads
+        queues.flatMap(\.queuedDownloads)
     }
     
     public func hasItem(with identifier: String) -> Bool {
-        return (priorityQueue?.hasItem(with: identifier) ?? false) || downloadQueue.hasItem(with: identifier)
+        queues.contains(where: { $0.hasItem(with: identifier) })
     }
     
     public func item(for identifier: String) -> Downloadable? {
-        if let item = priorityQueue?.item(for: identifier) {
-            return item
-        }
-        
-        return downloadQueue.item(for: identifier)
+        queues.compactMap { $0.item(for: identifier) }.first
     }
     
     public func isDownloading(for identifier: String) -> Bool {
-        return (priorityQueue?.isDownloading(for: identifier) ?? false) || downloadQueue.isDownloading(for: identifier)
+        queues.contains(where: { $0.isDownloading(for: identifier) })
     }
 }
