@@ -4,11 +4,11 @@ Pod::Spec.new do |spec|
   spec.version      = "0.0.1"
   spec.summary      = "A short description of DownloadKit."
   spec.description  = <<-DESC
-  A short description of DownloadKit.
+  DownloadKit is a framework that helps you manage your downloads.
                    DESC
 
   spec.homepage     = "https://github.com/blubblub/downloadkit-ios"
-  spec.license      = "MIT (example)"
+  spec.license      = "MIT"
   spec.author       = { "Jure Lajlar" => "jlajlar@gmail.com" }
 
   spec.platform     = :ios
