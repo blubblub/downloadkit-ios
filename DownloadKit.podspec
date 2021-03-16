@@ -12,7 +12,7 @@ Pod::Spec.new do |spec|
   spec.author       = { "Jure Lajlar" => "jlajlar@gmail.com" }
 
   spec.platform     = :ios
-  spec.platform     = :ios, "13.0"
+  spec.platform     = :ios, "12.0"
 
   spec.source       = { :git => "git@github.com:blubblub/downloadkit-ios.git", :tag => "#{spec.version}" }
 
