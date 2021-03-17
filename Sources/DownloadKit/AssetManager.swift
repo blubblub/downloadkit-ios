@@ -10,17 +10,13 @@ import Foundation
 import RealmSwift
 import os.log
 
+public protocol AssetManagerObserver: AnyObject {
+    func didFinishDownloading(assetId: String)
+    func didFailToDownload(assetId: String, with error: Error)
+}
+
 /// Completion block, having success flag and item identifier
 public typealias ProgressCompletion = (Bool, String) -> Void
-
-protocol AssetManagerDelegate {
-    /// Called when asset is ready for use.
-    func assetManager(_ assetManager: AssetManager, assetReady asset: AssetFile)
-    
-    /// Called when a transfer had failed through all retry logic and there is no practical way
-    /// to get it.
-    func assetManager(_ assetManager: AssetManager, assetUnavailable asset: AssetFile, error: Error)
-}
 
 public enum DownloadPriority {
     case normal
@@ -49,9 +45,17 @@ public struct RequestOptions {
 ///  - Weighted Mirror Policy (going from Mirror to Mirror, before retrying last one 3 times).
 public class AssetManager {
     
+    private struct Observer {
+        private(set) weak var instance: AssetManagerObserver?
+    }
+    
     // MARK: - Private Properties
     
     private var assetCompletions: [String: [ProgressCompletion]] = [:]
+    
+    private let observersQueue = DispatchQueue(label: "org.blubblub.core.assetManager.observersQueue",
+                                               qos: .background)
+    private var observers: [ObjectIdentifier: Observer] = [:]
 
     // MARK: - Public Properties
     public var log: OSLog = logDK
@@ -178,6 +182,27 @@ public class AssetManager {
         
         assetCompletions.removeAll()
     }
+    
+    public func add(observer: AssetManagerObserver) {
+        observersQueue.sync {
+            self.observers[ObjectIdentifier(observer)] = Observer(instance: observer)
+        }
+    }
+    
+    public func remove(observer: AssetManagerObserver) {
+        observersQueue.sync {
+            self.observers[ObjectIdentifier(observer)] = nil
+        }
+    }
+    
+    private func foreachObserver(action: (AssetManagerObserver) -> Void) {
+        observers.forEach { $0.value.instance.flatMap(action) }
+        
+        // cleanup deallocated observer wrappers
+        for key in observers.compactMap({ $1.instance == nil ? $0 : nil }) {
+            observers[key] = nil
+        }
+    }
 }
 
 // MARK: - DownloadQueueDelegate
@@ -197,8 +222,7 @@ extension AssetManager: DownloadQueueDelegate {
         if let retryItem = cache.download(downloadable: item, didFailWith: error) {
             // Put it on the same queue.
             queue.download(retryItem)
-        }
-        else {
+        } else {
             completeProgress(item: item, with: error)
         }
     }
@@ -210,6 +234,14 @@ extension AssetManager: DownloadQueueDelegate {
             }
             
             removeAssetCompletion(for: item.identifier)
+        }
+        
+        observersQueue.async {
+            if let error = error {
+                self.foreachObserver { $0.didFailToDownload(assetId: item.identifier, with: error) }
+            } else {
+                self.foreachObserver { $0.didFinishDownloading(assetId: item.identifier) }
+            }
         }
         
         progress.complete(identifier: item.identifier, with: error)
