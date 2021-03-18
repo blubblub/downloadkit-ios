@@ -62,6 +62,10 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
                                      downloadable: mirrorSelection.downloadable)
         }
         
+        downloadSelections.forEach {
+            downloadableMap[$0.id] = $0
+        }
+        
         return downloadSelections.map { $0.downloadable }
     }
     

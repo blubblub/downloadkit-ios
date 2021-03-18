@@ -29,8 +29,8 @@ public class WebDownloadProcessor: NSObject, DownloadProcessor {
     private var session: URLSession!
     
     /// Holds properties to current items for quick access.
-    private var items = Set<WebDownloadItem>()
-    private var downloadTasks: [URLSessionDownloadTask] = []
+    @Atomic private var items = Set<WebDownloadItem>()
+    @Atomic private var downloadTasks: [URLSessionDownloadTask] = []
     
     private lazy var queue: OperationQueue = {
         let queue = OperationQueue()
