@@ -72,15 +72,3 @@ public protocol MirrorPolicyDelegate: class {
     ///   - mirror: mirror
     func mirrorPolicy(_ mirrorPolicy: MirrorPolicy, didFailToGenerateDownloadableIn file: AssetFile, for mirror: AssetFileMirror)
 }
-
-
-extension MirrorPolicy {
-    func mirror(for asset: AssetFile, mirrorSelection: AssetMirrorSelection?, error: Error?) -> AssetMirrorSelection? {
-        // Default implementation just retries the default mirror forever.
-        guard let downloadable = asset.main.downloadable else {
-            return nil
-        }
-        
-        return AssetMirrorSelection(id: asset.id, mirror: asset.main, downloadable: downloadable)
-    }
-}

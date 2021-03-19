@@ -104,7 +104,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         }
         
         guard let mirrorSelection = mirrorPolicy.mirror(for: downloadSelection.asset,
-                                                        mirrorSelection: downloadSelection.mirror,
+                                                        lastMirrorSelection: downloadSelection.mirror,
                                                         error: error) else {
             log.info("[RealmCacheManager]: Download failed: %@ Error: %@ No more retries.", downloadable.description)
             downloadableMap[downloadable.identifier] = nil

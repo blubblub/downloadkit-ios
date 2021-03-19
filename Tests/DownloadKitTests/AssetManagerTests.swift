@@ -44,6 +44,7 @@ class AssetManagerTests: XCTestCase {
     }
 
     override func tearDownWithError() throws {
+        cache.cleanup(excluding: [])
         cache = nil
         manager = nil
     }
