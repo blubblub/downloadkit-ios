@@ -26,7 +26,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
     public var localCache = RealmLocalCacheManager<L>()
     public var mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()
     
-    @Atomic private var downloadableMap: [String: DownloadSelection] = [:]
+    private var downloadableMap = AtomicDictionary<String, DownloadSelection>()
     
     public var configuration: Realm.Configuration = Realm.Configuration.defaultConfiguration {
         didSet {

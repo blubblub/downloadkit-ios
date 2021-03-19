@@ -100,7 +100,7 @@ open class WeightedMirrorPolicy: MirrorPolicy {
     }
     
     /// Holds a small retry access
-    private var retryCounters: [String: Int] = [:]
+    private var retryCounters = AtomicDictionary<String, Int>()
     
     private func shouldRetry(mirror: AssetFileMirror, for asset: AssetFile) -> Bool {
         let mirrorKey = "\(asset.id)-\(mirror.id)"

@@ -21,7 +21,6 @@ public typealias ProgressCompletion = (Bool, String) -> Void
 public enum DownloadPriority {
     case normal
     case high
-    case userInteractive
 }
 
 public enum StoragePriority: String {
@@ -36,6 +35,12 @@ public enum StoragePriority: String {
 public struct RequestOptions {
     var downloadPriority: DownloadPriority = .normal
     var storagePriority: StoragePriority = .cached
+    
+    public init(downloadPriority: DownloadPriority = .normal,
+                storagePriority: StoragePriority = .cached) {
+        self.downloadPriority = downloadPriority
+        self.storagePriority = storagePriority
+    }
 }
 
 /// Public API for Asset Manager. Combines all the smaller pieces of the API.
@@ -219,11 +224,13 @@ extension AssetManager: DownloadQueueDelegate {
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFail item: Downloadable, with error: Error) {
         // Check if we should retry, cache will tell us based on it's internal mirror policy.
         // We cannot switch queues here, if it was put on lower priority, it should stay on lower priority.
-        if let retryItem = cache.download(downloadable: item, didFailWith: error) {
-            // Put it on the same queue.
-            queue.download(retryItem)
-        } else {
-            completeProgress(item: item, with: error)
+        DispatchQueue.main.async {
+            if let retryItem = self.cache.download(downloadable: item, didFailWith: error) {
+                // Put it on the same queue.
+                queue.download(retryItem)
+            } else {
+                self.completeProgress(item: item, with: error)
+            }
         }
     }
     

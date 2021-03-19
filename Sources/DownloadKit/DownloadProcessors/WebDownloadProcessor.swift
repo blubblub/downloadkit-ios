@@ -29,8 +29,8 @@ public class WebDownloadProcessor: NSObject, DownloadProcessor {
     private var session: URLSession!
     
     /// Holds properties to current items for quick access.
-    @Atomic private var items = Set<WebDownloadItem>()
-    @Atomic private var downloadTasks: [URLSessionDownloadTask] = []
+    private var items = Synchronized(data: Set<WebDownloadItem>())
+    private var downloadTasks = Synchronized<[URLSessionDownloadTask]>(data: [])
     
     private lazy var queue: OperationQueue = {
         let queue = OperationQueue()
@@ -90,29 +90,29 @@ public class WebDownloadProcessor: NSObject, DownloadProcessor {
         }
         
         // we're already processing item with the same identifier
-        guard !self.items.contains(webItem) else {
+        guard !self.items.sync({ $0.contains(webItem) }) else {
             return
         }
         
         let task = createTask(for: webItem)
         webItem.start(with: [DownloadParameter.urlDownloadTask: task])
         
-        self.downloadTasks.append(task)
-        self.items.insert(webItem)
+        self.downloadTasks.sync { $0.append(task) }
+        self.items.sync { $0.insert(webItem) }
         
         delegate?.downloadDidBegin(self, item: webItem)
     }
     
     public func pause() {
         isActive = false
-        for task in downloadTasks {
+        for task in downloadTasks.sync { $0 } {
             task.suspend()
         }
     }
     
     public func resume() {
         isActive = true
-        for task in downloadTasks {
+        for task in downloadTasks.sync { $0 } {
             task.resume()
         }
     }
@@ -131,8 +131,8 @@ public class WebDownloadProcessor: NSObject, DownloadProcessor {
                 // If we were unable to decode the item from task completion,
                 // it is likely a task that we did not start. We shouldn't handle it.
                 if let item = item {
-                    self.items.insert(item)
-                    self.downloadTasks.append(task)
+                    self.items.sync { $0.insert(item) }
+                    self.downloadTasks.sync { $0.append(task) }
                     
                     self.delegate?.downloadDidBegin(self, item: item)
                 }
@@ -159,7 +159,7 @@ public class WebDownloadProcessor: NSObject, DownloadProcessor {
     }
     
     private func item(for task: URLSessionTask) -> WebDownloadItem? {
-        return items.first(where: { $0.task?.taskIdentifier == task.taskIdentifier })
+        return items.sync { $0.first(where: { $0.task?.taskIdentifier == task.taskIdentifier }) }
     }
 }
 
@@ -192,14 +192,14 @@ extension WebDownloadProcessor: URLSessionDownloadDelegate {
     
     public func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
         // Invalidate and clean up all transfers
-        for item in self.items {
+        for item in self.items.sync { $0 } {
             if let error = error {
                 delegate?.downloadDidError(self, item: item, error: error)
             }
         }
         
-        downloadTasks.removeAll()
-        items.removeAll()
+        downloadTasks.sync { $0.removeAll() }
+        items.sync { $0.removeAll() }
     }
     
     public func urlSession(_ session: Foundation.URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
@@ -216,11 +216,11 @@ extension WebDownloadProcessor: URLSessionDownloadDelegate {
     
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         // Will get this callback once the task is completed, so cleanup.
-        self.downloadTasks.removeAll(where: { $0.taskIdentifier == task.taskIdentifier })
+        self.downloadTasks.sync { $0.removeAll(where: { $0.taskIdentifier == task.taskIdentifier }) }
         
         if let item = self.item(for: task) {
             // Update states.
-            self.items.remove(item)
+            self.items.sync { $0.remove(item) }
             
             if let error = error {
                 self.delegate?.downloadDidError(self, item: item, error: error)

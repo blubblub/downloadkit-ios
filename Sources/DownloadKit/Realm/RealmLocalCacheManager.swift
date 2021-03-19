@@ -76,7 +76,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         let realm = self.realm
         
         try realm.write {
-            realm.add(localAsset)
+            realm.add(localAsset, update: .modified)
         }
         
         return localAsset

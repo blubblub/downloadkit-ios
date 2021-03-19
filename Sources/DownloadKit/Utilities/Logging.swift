@@ -12,8 +12,6 @@ public let logDK = OSLog(subsystem: "org.blubblub.downloadkit", category: "Downl
 extension OSLog {
     func info(_ message: StaticString, _ args: Any...) {
         let varArgs = args.map { $0 as! CVarArg }
-        print("\(varArgs)")
-        
         
         os_log(message, log: self, type: .info, varArgs)
     }

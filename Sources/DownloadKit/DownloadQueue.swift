@@ -81,8 +81,8 @@ public class DownloadQueue: DownloadQueuable {
     private var notificationCenter = NotificationCenter.default
     
     /// Holds properties to current items for quick access.
-    private var progressDownloadMap: [String: Downloadable] = [:]
-    private var queuedDownloadMap: [String: Downloadable] = [:]
+    private var progressDownloadMap = AtomicDictionary<String, Downloadable>()
+    private var queuedDownloadMap = AtomicDictionary<String, Downloadable>()
         
     // MARK: - Public Properties
     
@@ -153,11 +153,11 @@ public class DownloadQueue: DownloadQueuable {
     /// Will cancel all current transfers.
     public func cancelCurrentDownloads() {
         processQueue.sync {
-            for (_, item) in self.progressDownloadMap {
+            for item in self.progressDownloadMap.values {
                 item.cancel()
             }
             
-            self.progressDownloadMap = [:]
+            self.progressDownloadMap = AtomicDictionary<String, Downloadable>()
         }
     }
     
