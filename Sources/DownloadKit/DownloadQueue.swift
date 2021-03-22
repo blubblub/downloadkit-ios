@@ -342,12 +342,10 @@ extension DownloadQueue: DownloadProcessorDelegate {
     }
     
     public func downloadDidError(_ processor: DownloadProcessor, item: Downloadable, error: Error) {
-        log.debug("[DownloadQueue] Failed downloading: %@ error: %@", item.identifier, error.localizedDescription)
-        
-        //item.didComplete(with: error)
         
         // Call delegate for error.
         processQueue.async {
+            self.log.debug("[DownloadQueue] Failed downloading: %@ error: %@", item.identifier, error.localizedDescription)
             // Remove item from current downloads
             self.progressDownloadMap[item.identifier] = nil
             
