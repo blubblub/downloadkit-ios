@@ -112,8 +112,6 @@ public class AssetManager {
         let downloads = cache.requestDownloads(assets: assets, options: options)
         
         guard downloads.count > 0 else {
-            log.info("No assets need to be transferred at this point, all are available locally.")
-            
             return []
         }
         

@@ -144,7 +144,6 @@ public class WebDownloadProcessor: NSObject, DownloadProcessor {
     
     private func createTask(for item: WebDownloadItem) -> URLSessionDownloadTask {
         let task = session.downloadTask(with: URLRequest(url: item.url))
-        log.info("Starting download: %@ priority: %d", item.url.absoluteString, item.priority)
         
         if item.priority > 0 {
             task.priority = URLSessionDownloadTask.highPriority

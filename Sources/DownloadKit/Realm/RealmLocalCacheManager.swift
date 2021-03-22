@@ -68,8 +68,6 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         
         try finalFileUrl.setResourceValues(resourceValues)
         
-        log.info("Downloaded file to: %@", finalFileUrl.absoluteString)
-        
         // Store file into Realm
         let localAsset = createLocalAsset(for: asset, url: finalFileUrl)
         
@@ -88,8 +86,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     ///   - assets: assets to operate on
     ///   - priority: priority to move to.
     public func updateStorage(assets: [AssetFile], to priority: StoragePriority) {
-        // clear all realm objects that don't have local file
-        removeAssetsWithoutLocalFile(assets: assets)
+        let realm = self.realm
         
         for asset in assets {
             if var localAsset = realm.object(ofType: L.self, forPrimaryKey: asset.id),
@@ -230,6 +227,8 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     }
     
     private func removeAssetsWithoutLocalFile(assets: [AssetFile]) {
+        let realm = self.realm
+        
         let localAssets = assets.compactMap { realm.object(ofType: L.self, forPrimaryKey: $0.id) }
         do {
             try realm.write {

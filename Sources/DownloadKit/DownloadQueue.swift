@@ -221,7 +221,6 @@ public class DownloadQueue: DownloadQueuable {
         processQueue.sync {
             // If the item is already in progress, do nothing.
             guard self.progressDownloadMap[item.identifier] == nil else {
-                self.log.info("[DownloadQueue]: Skipping download request, as it is in progress: %@.", item.identifier)
                 return
             }
             
@@ -317,8 +316,6 @@ extension DownloadQueue: DownloadProcessorDelegate {
             else {
                 // We have no tracked item here, but processor started working on it on it's own.
                 // This is to handle any resumed transfers if needed.
-                self.log.info("[DownloadQueue]: Processor started to download item %@ from internal state.", item.identifier)
-                
                 self.progressDownloadMap[item.identifier] = item
             }
         }
@@ -329,8 +326,6 @@ extension DownloadQueue: DownloadProcessorDelegate {
     }
     
     public func downloadDidFinishTransfer(_ processor: DownloadProcessor, item: Downloadable, to url: URL) {
-        log.info("[DownloadQueue]: Download complete for id: %@ to: %@", item.identifier, url.absoluteString)
-        
         // Need to call this on current thread, as URLSession will remove file behind URL after run-loop.
         // We can move the file in the WebDownloadProcessor, but either way, or decide later in the
         // asset manager.
