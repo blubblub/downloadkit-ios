@@ -48,7 +48,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         localCache.updateStorage(assets: assets, to: options.storagePriority)
         
         // Filter out binary and existing assets in local asset.
-        let downloadableAssets = localCache.requestDownloads(assets: assets, options: options)
+        let downloadableAssets = localCache.downloads(from: assets, options: options)
             
         let downloadSelections: [DownloadSelection] = downloadableAssets.compactMap { asset in
             guard let mirrorSelection = mirrorPolicy.mirror(for: asset, lastMirrorSelection: nil, error: nil) else {
@@ -69,7 +69,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         return downloadSelections.map { $0.downloadable }
     }
     
-    public func download(downloadable: Downloadable, didFinishTo location: URL) -> LocalAssetFile? {
+    public func download(_ downloadable: Downloadable, didFinishTo location: URL) -> LocalAssetFile? {
         defer {
             downloadableMap[downloadable.identifier] = nil
         }
@@ -97,7 +97,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         }
     }
     
-    public func download(downloadable: Downloadable, didFailWith error: Error) -> Downloadable? {
+    public func download(_ downloadable: Downloadable, didFailWith error: Error) -> Downloadable? {
         guard let downloadSelection = downloadableMap[downloadable.identifier] else {
             log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without asset information: %@", downloadable.description)
             return nil
@@ -106,12 +106,12 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         guard let mirrorSelection = mirrorPolicy.mirror(for: downloadSelection.asset,
                                                         lastMirrorSelection: downloadSelection.mirror,
                                                         error: error) else {
-            log.error("[RealmCacheManager]: Download failed: %@ Error: %@ No more retries.", downloadable.description)
+            log.error("[RealmCacheManager]: Download failed: %@ Error: %@ No more retries.", downloadable.description, error.localizedDescription)
             downloadableMap[downloadable.identifier] = nil
             return nil
         }
         
-        log.error("[RealmCacheManager]: Download failed: %@ Error: %@ Retrying with: %@", downloadable.description, mirrorSelection.downloadable.description)
+        log.error("[RealmCacheManager]: Retrying download with: %@", mirrorSelection.downloadable.description)
         
         downloadableMap[downloadable.identifier]?.mirror = mirrorSelection
 

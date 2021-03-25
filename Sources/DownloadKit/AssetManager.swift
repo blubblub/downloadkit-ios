@@ -214,7 +214,7 @@ extension AssetManager: DownloadQueueDelegate {
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFinish item: Downloadable, to location: URL) {
         // Cache will store the file, since it has completed downloading. This operation needs to be sync.
         // We should be on background thread here already.
-        _ = cache.download(downloadable: item, didFinishTo: location)
+        _ = cache.download(item, didFinishTo: location)
         completeProgress(item: item, with: nil)
     }
     
@@ -222,13 +222,11 @@ extension AssetManager: DownloadQueueDelegate {
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFail item: Downloadable, with error: Error) {
         // Check if we should retry, cache will tell us based on it's internal mirror policy.
         // We cannot switch queues here, if it was put on lower priority, it should stay on lower priority.
-        DispatchQueue.main.async {
-            if let retryItem = self.cache.download(downloadable: item, didFailWith: error) {
-                // Put it on the same queue.
-                queue.download(retryItem)
-            } else {
-                self.completeProgress(item: item, with: error)
-            }
+        if let retryItem = self.cache.download(item, didFailWith: error) {
+            // Put it on the same queue.
+            queue.download(retryItem)
+        } else {
+            self.completeProgress(item: item, with: error)
         }
     }
     

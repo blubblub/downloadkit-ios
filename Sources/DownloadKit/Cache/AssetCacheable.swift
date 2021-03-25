@@ -23,13 +23,13 @@ public protocol AssetCacheable: AssetFileCacheable {
     /// - Parameters:
     ///   - downloadable: item that finished downloading.
     ///   - location: where the item was stored.
-    func download(downloadable: Downloadable, didFinishTo location: URL) -> LocalAssetFile?
+    func download(_ downloadable: Downloadable, didFinishTo location: URL) -> LocalAssetFile?
     
     /// Called if download fails. Return new `Downloadable` item to retry download
     /// - Parameters:
     ///   - downloadable: item that failed
     ///   - error: error describing why the download failed.
-    func download(downloadable: Downloadable, didFailWith error: Error) -> Downloadable?
+    func download(_ downloadable: Downloadable, didFailWith error: Error) -> Downloadable?
     
     /// Cleans up cache.
     /// - Parameter urls: urls to ignore while clean up process.

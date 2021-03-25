@@ -81,8 +81,8 @@ public class DownloadQueue: DownloadQueuable {
     private var notificationCenter = NotificationCenter.default
     
     /// Holds properties to current items for quick access.
-    private var progressDownloadMap = AtomicDictionary<String, Downloadable>()
-    private var queuedDownloadMap = AtomicDictionary<String, Downloadable>()
+    private var progressDownloadMap = Dictionary<String, Downloadable>()
+    private var queuedDownloadMap = Dictionary<String, Downloadable>()
         
     // MARK: - Public Properties
     
@@ -157,7 +157,7 @@ public class DownloadQueue: DownloadQueuable {
                 item.cancel()
             }
             
-            self.progressDownloadMap = AtomicDictionary<String, Downloadable>()
+            self.progressDownloadMap = Dictionary<String, Downloadable>()
         }
     }
     
@@ -218,7 +218,7 @@ public class DownloadQueue: DownloadQueuable {
     
     public func download(_ item: Downloadable) {
         // If item is in incomplete state
-        processQueue.sync {
+        processQueue.async {
             // If the item is already in progress, do nothing.
             guard self.progressDownloadMap[item.identifier] == nil else {
                 return
@@ -343,13 +343,12 @@ extension DownloadQueue: DownloadProcessorDelegate {
     
     public func downloadDidError(_ processor: DownloadProcessor, item: Downloadable, error: Error) {
         
+        delegate?.downloadQueue(self, downloadDidFail: item, with: error)
+        
         // Call delegate for error.
         processQueue.async {
-            self.log.debug("[DownloadQueue] Failed downloading: %@ error: %@", item.identifier, error.localizedDescription)
             // Remove item from current downloads
             self.progressDownloadMap[item.identifier] = nil
-            
-            self.delegate?.downloadQueue(self, downloadDidFail: item, with: error)
  
             self.notificationCenter.post(name: DownloadQueue.downloadErrorNotification, object: error, userInfo: [ "downloadItem": item])
             

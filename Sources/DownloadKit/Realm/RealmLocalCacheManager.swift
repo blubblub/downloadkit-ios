@@ -121,7 +121,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     ///   - assets: assets we filter through.
     ///   - options: options
     /// - Returns: assets that are not yet stored locally.
-    public func requestDownloads(assets: [AssetFile], options: RequestOptions) -> [AssetFile] {
+    public func downloads(from assets: [AssetFile], options: RequestOptions) -> [AssetFile] {
         let realm = self.realm
         
         // Get assets that need to be downloaded.
