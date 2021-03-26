@@ -35,6 +35,12 @@ open class WeightedMirrorPolicy: MirrorPolicy {
     }
     
     public func mirror(for asset: AssetFile, lastMirrorSelection: AssetMirrorSelection?, error: Error?) -> AssetMirrorSelection? {
+        
+        // if download was cancelled, no need to retry or return new mirror
+        if (error as? NSError)?.code == NSURLErrorCancelled {
+            return nil
+        }
+        
         let mirrors = sortMirrors(for: asset)
         
         var selectedIndex = 0
