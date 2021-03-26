@@ -35,7 +35,7 @@ class LocalCacheManagerTests: XCTestCase {
     
     func testRequestingDownloadsOnEmptyCacheReturnsAllAssets() {
         let assets: [Asset] = (0..<5).map({ _ in Asset(id: UUID().uuidString) })
-        let requests = manager.requestDownloads(assets: assets, options: cachedOptions)
+        let requests = manager.downloads(from: assets, options: cachedOptions)
         
         XCTAssertEqual(5, requests.count, "Manager should return 5 assets that need to be downloaded.")
     }
@@ -48,7 +48,7 @@ class LocalCacheManagerTests: XCTestCase {
         let _ = try manager.store(asset: first, mirror: first.main, at: url, options: cachedOptions)
         
         // request downloads should only return 4 assets since the first one is saved
-        let requests = manager.requestDownloads(assets: assets, options: cachedOptions)
+        let requests = manager.downloads(from: assets, options: cachedOptions)
         
         XCTAssertEqual(4, requests.count, "Manager should return only 4 assets that need to be downloaded.")
     }
@@ -64,7 +64,7 @@ class LocalCacheManagerTests: XCTestCase {
         // update stored assets and move them to permanent storage
         manager.updateStorage(assets: assets, to: .permanent)
         
-        let requests = manager.requestDownloads(assets: assets, options: permanentOptions)
+        let requests = manager.downloads(from: assets, options: permanentOptions)
         XCTAssertEqual(requests.count, 0, "All assets should be stored locally in permanent storage")
     }
     
@@ -79,7 +79,7 @@ class LocalCacheManagerTests: XCTestCase {
         // reset local cache
         manager.reset()
         
-        let requests = manager.requestDownloads(assets: assets, options: permanentOptions)
+        let requests = manager.downloads(from: assets, options: permanentOptions)
         XCTAssertEqual(requests.count, 5, "Manager should return 5 requests, since everything was removed.")
     }
     
@@ -95,7 +95,7 @@ class LocalCacheManagerTests: XCTestCase {
         manager.cleanup(excluding: Set([localAssets.first!.fileURL!]))
         
         
-        let requested = manager.requestDownloads(assets: assets, options: permanentOptions)
+        let requested = manager.downloads(from: assets, options: permanentOptions)
         
         XCTAssertEqual(requested.count, 4)
     }

@@ -15,7 +15,6 @@ private struct DownloadSelection: Identifiable {
     let options: RequestOptions
     let asset: AssetFile
     var mirror: AssetMirrorSelection
-    var downloadable: Downloadable
 }
 
 public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFile {
@@ -58,22 +57,21 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
             return DownloadSelection(id: asset.id,
                                      options: options,
                                      asset: asset,
-                                     mirror: mirrorSelection,
-                                     downloadable: mirrorSelection.downloadable)
+                                     mirror: mirrorSelection)
         }
         
         downloadSelections.forEach {
-            downloadableMap[$0.id] = $0
+            downloadableMap[$0.mirror.downloadable.identifier] = $0
         }
         
-        return downloadSelections.map { $0.downloadable }
+        return downloadSelections.map { $0.mirror.downloadable }
     }
     
     public func download(_ downloadable: Downloadable, didFinishTo location: URL) -> LocalAssetFile? {
         defer {
             downloadableMap[downloadable.identifier] = nil
         }
-        
+
         guard let downloadSelection = downloadableMap[downloadable.identifier] else {
             log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without asset information: %@", downloadable.description)
             return nil

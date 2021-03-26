@@ -71,55 +71,22 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
         fetchOperation.perRecordCompletionBlock = { [weak self] record, recordID, error in
             guard let self = self else { return }
             
-            guard let record = record else {
-                if let error = error {
-                    self.delegate?.downloadDidError(self, item: item, error: error)
-                }
-                return
-            }
-            
-            // Find file asset in record.
-            
-            var assetData: CKAsset?
-            
-            for propertyKey in record.allKeys() {
-                //
-                guard let value = record[propertyKey] as? CKAsset else {
-                    continue
-                }
-                
-                // After first one is found, break.
-                assetData = value
-                
-                break
-            }
-            
-            guard let cloudAsset = assetData, let location = cloudAsset.fileURL else {
-                self.delegate?.downloadDidError(self, item: item, error: CloudKitError.noAssetData)
-                return
-            }
-            
-            self.delegate?.downloadDidFinishTransfer(self, item: item, to: location)
-        }
-        
-        fetchOperation.fetchRecordsCompletionBlock = { [weak self] records, error in
-            guard let self = self else {
-                return
-            }
-            
-            // There was some error fetching from CloudKit.
             if let error = error {
                 self.delegate?.downloadDidError(self, item: item, error: error)
                 return
             }
             
-            // The fetch completed, but no records
-            guard let records = records, records.count > 0 else {
-                self.delegate?.downloadDidError(self, item: item, error: CloudKitError.noRecord)
+            // Find file asset in record.
+            guard
+                let record = record,
+                let asset = record.allKeys().compactMap({ record[$0] as? CKAsset }).first,
+                let url = asset.fileURL
+            else {
+                self.delegate?.downloadDidError(self, item: item, error: CloudKitError.noAssetData)
                 return
             }
             
-            self.delegate?.downloadDidFinish(self, item: item)
+            self.delegate?.downloadDidFinishTransfer(self, item: item, to: url)
         }
         
         item.start(with: [:])
