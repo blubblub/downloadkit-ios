@@ -211,7 +211,7 @@ extension WebDownloadProcessor: URLSessionDownloadDelegate {
     
     public func urlSession(_ session: Foundation.URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         guard let item = self.item(for: downloadTask) else {
-            log.fault("[WebDownloadProcessor]: Consistency Error: Item for download task not found.")
+            os_log(.fault, log: log, "[WebDownloadProcessor]: Consistency Error: Item for download task not found.")
             return
         }
         
@@ -227,7 +227,7 @@ extension WebDownloadProcessor: URLSessionDownloadDelegate {
         
         if let item = self.item(for: task) {
             if let error = error {
-                log.debug("[DownloadQueue] Failed downloading error: %@", error.localizedDescription)
+                os_log(.debug, log: log, "[DownloadQueue] Failed downloading error: %@", error.localizedDescription)
                 delegate?.downloadDidError(self, item: item, error: error)
             } else {
                 delegate?.downloadDidFinish(self, item: item)

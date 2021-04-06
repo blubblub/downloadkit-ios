@@ -73,7 +73,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         }
 
         guard let downloadSelection = downloadableMap[downloadable.identifier] else {
-            log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without asset information: %@", downloadable.description)
+            os_log(.fault, log: log, "[RealmCacheManager]: NO-OP: Received a downloadable without asset information: %@", downloadable.description)
             return nil
         }
         
@@ -89,7 +89,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
             return localAsset
         }
         catch {
-            log.error("[RealmCacheManager]: Unable to cache file: %@", downloadable.description)
+            os_log(.error, log: log, "[RealmCacheManager]: Unable to cache file: %@", downloadable.description)
             
             return nil
         }
@@ -97,19 +97,20 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
     
     public func download(_ downloadable: Downloadable, didFailWith error: Error) -> Downloadable? {
         guard let downloadSelection = downloadableMap[downloadable.identifier] else {
-            log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without asset information: %@", downloadable.description)
+            os_log(.fault, log: log, "[RealmCacheManager]: NO-OP: Received a downloadable without asset information: %@", downloadable.description)
             return nil
         }
         
         guard let mirrorSelection = mirrorPolicy.mirror(for: downloadSelection.asset,
                                                         lastMirrorSelection: downloadSelection.mirror,
                                                         error: error) else {
-            log.error("[RealmCacheManager]: Download failed: %@ Error: %@ No more retries.", downloadable.description, error.localizedDescription)
+            os_log(.error, log: log, "[RealmCacheManager]: Download failed: %@ Error: %@",
+                   downloadable.description, error.localizedDescription)
             downloadableMap[downloadable.identifier] = nil
             return nil
         }
         
-        log.error("[RealmCacheManager]: Retrying download with: %@", mirrorSelection.downloadable.description)
+        os_log(.error, log: log, "[RealmCacheManager]: Retrying download with: %@", mirrorSelection.downloadable.description)
         
         downloadableMap[downloadable.identifier]?.mirror = mirrorSelection
 

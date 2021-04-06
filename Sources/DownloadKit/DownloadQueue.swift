@@ -307,7 +307,7 @@ extension DownloadQueue: DownloadProcessorDelegate {
                 // This could also be a resume of a very old download, if processor has that ability (such as in case of URLSession).
                 
                 if self.progressDownloadMap[item.identifier] == nil {
-                    self.log.error("[DownloadQueue]: Internal download inconsistency state for: %@", item.identifier)
+                    os_log(.error, log: self.log, "[DownloadQueue]: Internal download inconsistency state for: %@", item.identifier)
                     
                     self.progressDownloadMap[item.identifier] = trackedItem
                     self.queuedDownloadMap[item.identifier] = nil

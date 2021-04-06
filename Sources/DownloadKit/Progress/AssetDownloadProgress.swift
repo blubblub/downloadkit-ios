@@ -44,7 +44,7 @@ public class AssetDownloadProgress {
             }
             
             guard let items = items, items.count > 0 else {
-                log.debug("Requested progress node for items %@, but there are no items specified and progress does not exist.", identifier)
+                os_log(.debug, log: log, "Requested progress node for items %@, but there are no items specified and progress does not exist.", identifier)
                 return
             }
             
@@ -121,7 +121,7 @@ extension AssetDownloadProgress {
             }
             
             if progresses.count > 0 && items.count == 0 {
-                log.debug("There are progresses: %d, but apparently not for this group assets: %d", progresses.count, downloadIdentifiers.count)
+                os_log(.debug, log: log, "There are progresses: %d, but apparently not for this group assets: %d", progresses.count, downloadIdentifiers.count)
             }
         }
         

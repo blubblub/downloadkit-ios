@@ -88,7 +88,7 @@ open class WeightedMirrorPolicy: MirrorPolicy {
         }
         
         guard let finalDownloadable = downloadable else {
-            log.error("[WeightedMirrorPolicy]: No Downloadable Mirrors found for asset: %@", asset.id)
+            os_log(.error, log: log, "[WeightedMirrorPolicy]: No Downloadable Mirrors found for asset: %@", asset.id)
             delegate?.mirrorPolicy(self, didFailToGenerateDownloadableIn: asset, for: mirrors[selectedIndex])
             return nil
         }

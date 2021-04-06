@@ -79,7 +79,7 @@ open class WebDownloadItem: Codable, Downloadable, CustomStringConvertible {
     // MARK: - CustomStringConvertible
     
     public var description: String {
-        return "[URLDownloadItem]: \(identifier) url: \(url.absoluteString)"
+        return "[WebDownloadItem]: \(identifier) url: \(url.absoluteString)"
     }
     
     public init(identifier: String, url: URL, priority: Int = 0) {
@@ -112,7 +112,7 @@ open class WebDownloadItem: Codable, Downloadable, CustomStringConvertible {
             task.resume()
         } else {
             guard let task = parameters[.urlDownloadTask] as? URLSessionDownloadTask else {
-                log.fault("Cannot start an WebDownloadItem without URLSessionDownloadTask: %@", identifier)
+                os_log(.fault, log: log, "Cannot start an WebDownloadItem without URLSessionDownloadTask: %@", identifier)
                 return
             }
             
