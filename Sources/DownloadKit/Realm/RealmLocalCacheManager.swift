@@ -141,6 +141,11 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
             if let localModifyDate = asset.modifyDate, let fileModifyDate = item.modifyDate {
                 return fileModifyDate > localModifyDate
             }
+            
+            // We have local fileURL, no need to download
+            if asset.fileURL != nil {
+                return false
+            }
 
             return shouldDownload?(item, options) ?? false
         }
