@@ -18,6 +18,6 @@ Pod::Spec.new do |spec|
 
   spec.source_files  = "Sources/**/*.{h,m,swift}"
 
+  spec.dependency "Realm"
   spec.dependency "RealmSwift"
-
 end
