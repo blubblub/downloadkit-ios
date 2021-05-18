@@ -7,7 +7,7 @@
 
 import Foundation
 
-public protocol DownloadProcessor: class {
+public protocol DownloadProcessor: AnyObject {
     var isActive: Bool { get }
     var delegate: DownloadProcessorDelegate? { get set }
 
@@ -22,7 +22,7 @@ public protocol DownloadProcessor: class {
     func resume()
 }
 
-public protocol DownloadProcessorDelegate: class {
+public protocol DownloadProcessorDelegate: AnyObject {
     /// Should be sent when a Downloadable is being worked on.
     func downloadDidBegin(_ processor: DownloadProcessor, item: Downloadable)
     

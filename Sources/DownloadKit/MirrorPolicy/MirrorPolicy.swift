@@ -56,7 +56,7 @@ public protocol MirrorPolicy {
     func downloadComplete(for asset: AssetFile)
 }
 
-public protocol MirrorPolicyDelegate: class {
+public protocol MirrorPolicyDelegate: AnyObject {
     
     /// Will be called after all retry attempts to available mirrors are completed.
     /// - Parameters:

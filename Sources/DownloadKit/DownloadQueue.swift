@@ -9,7 +9,7 @@
 import Foundation
 import os.log
 
-public protocol DownloadQueueDelegate: class {
+public protocol DownloadQueueDelegate: AnyObject {
     /// Called when the download item finishes downloading. URL is provided as a parameter.
     /// - Parameters:
     ///   - queue: queue on which the item was downloaded.
