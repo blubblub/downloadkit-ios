@@ -35,10 +35,10 @@ class PriorityQueueTests: XCTestCase {
         let downloadItem3 = WebDownloadItem(identifier: "id3", url: URL(string: "https://google.com")!)
         queue.enqueue(downloadItem3)
         
-        XCTAssert(queue.peek()!.identifier == "id1")
-        XCTAssert(queue.dequeue()!.identifier == "id1")
-        XCTAssert(queue.dequeue()!.identifier == "id2")
-        XCTAssert(queue.dequeue()!.identifier == "id3")
+        XCTAssertEqual(queue.peek()!.identifier, "id1")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id1")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id2")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id3")
     }
 
     func testPriorityHigherFirstTwoItems() {
@@ -48,9 +48,9 @@ class PriorityQueueTests: XCTestCase {
         let downloadItem2 = WebDownloadItem(identifier: "id2", url: URL(string: "https://google.com")!, priority: 1000)
         queue.enqueue(downloadItem2)
 
-        XCTAssert(queue.peek()!.identifier == "id2")
-        XCTAssert(queue.dequeue()!.identifier == "id2")
-        XCTAssert(queue.dequeue()!.identifier == "id1")
+        XCTAssertEqual(queue.peek()!.identifier,"id2")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id2")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id1")
     }
     
     func testPriorityHigherFirst() {
@@ -63,10 +63,10 @@ class PriorityQueueTests: XCTestCase {
         let downloadItem3 = WebDownloadItem(identifier: "id3", url: URL(string: "https://google.com")!, priority: 2)
         queue.enqueue(downloadItem3)
         
-        XCTAssert(queue.peek()!.identifier == "id3")
-        XCTAssert(queue.dequeue()!.identifier == "id3")
-        XCTAssert(queue.dequeue()!.identifier == "id1")
-        XCTAssert(queue.dequeue()!.identifier == "id2")
+        XCTAssertEqual(queue.peek()!.identifier, "id3")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id3")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id1")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id2")
     }
     
     func testPriorityHigher() {
@@ -85,12 +85,12 @@ class PriorityQueueTests: XCTestCase {
         let downloadItem4 = WebDownloadItem(identifier: "id4", url: URL(string: "https://google.com")!, priority: 2)
         queue.enqueue(downloadItem4)
         
-        XCTAssert(queue.peek()!.identifier == "id2")
-        XCTAssert(queue.dequeue()!.identifier == "id2")
-        XCTAssert(queue.dequeue()!.identifier == "id3")
-        XCTAssert(queue.dequeue()!.identifier == "id4")
-        XCTAssert(queue.dequeue()!.identifier == "id1")
-        XCTAssert(queue.dequeue()!.identifier == "id5")
+        XCTAssertEqual(queue.peek()!.identifier, "id2")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id2")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id3")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id4")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id1")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id5")
     }
     
     func testPriorityHigherDifferent() {
@@ -118,14 +118,31 @@ class PriorityQueueTests: XCTestCase {
         let downloadItem8 = WebDownloadItem(identifier: "id8", url: URL(string: "https://google.com")!, priority: 5)
         queue.enqueue(downloadItem8)
         
-        XCTAssert(queue.peek()!.identifier == "id7")
-        XCTAssert(queue.dequeue()!.identifier == "id7")
-        XCTAssert(queue.dequeue()!.identifier == "id6")
-        XCTAssert(queue.dequeue()!.identifier == "id8")
-        XCTAssert(queue.dequeue()!.identifier == "id2")
-        XCTAssert(queue.dequeue()!.identifier == "id3")
-        XCTAssert(queue.dequeue()!.identifier == "id4")
-        XCTAssert(queue.dequeue()!.identifier == "id1")
-        XCTAssert(queue.dequeue()!.identifier == "id5")
+        XCTAssertEqual(queue.peek()!.identifier, "id7")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id7")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id6")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id8")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id2")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id3")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id4")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id1")
+        XCTAssertEqual(queue.dequeue()!.identifier, "id5")
     }
+    
+    func testEnqueuePerformance() {
+        var queue = PriorityQueue<Int>(order: <)
+        measure {
+            for _ in 0...5000 { queue.enqueue(0) }
+        }
+    }
+    
+    func testDequeuePerformance() {
+        var queue = PriorityQueue<Int>(order: <)
+        for _ in 0...5000 { queue.enqueue(0) }
+        
+        measure {
+            for _ in 0...50000 { _ = queue.dequeue() }
+        }
+    }
+    
 }
