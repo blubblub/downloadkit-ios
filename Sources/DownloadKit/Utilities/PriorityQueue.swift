@@ -26,20 +26,11 @@ public struct PriorityQueue<T> {
     /// true if and only if the Priority Queue is empty
     public var isEmpty: Bool { return heap.isEmpty }
     
-    /// Add a new element onto the Priority Queue. O(n)
+    /// Add a new element onto the Priority Queue. O(logn)
     ///
     /// - parameter element: The element to be inserted into the Priority Queue.
     public mutating func enqueue(_ element: T) {
-        var index = 0
-        
-        for currentElement in heap {
-            if ordered(element, currentElement) {
-                break
-            }
-            
-            index += 1
-        }
-        
+        let index = heap.insertionIndex { return ordered(element, $0) }
         heap.insert(element, at: index)
     }
     
@@ -50,14 +41,14 @@ public struct PriorityQueue<T> {
         
         if heap.isEmpty { return nil }
         
-        return heap.removeFirst()
+        return heap.removeLast()
     }
     
     /// Get a look at the current highest priority item, without removing it. O(1)
     ///
     /// - returns: The element with the highest priority in the PriorityQueue, or nil if the PriorityQueue is empty.
     public func peek() -> T? {
-        return heap.first
+        return heap.last
     }
     
     /// Removes all elements matching condition
@@ -128,4 +119,37 @@ extension PriorityQueue: CustomStringConvertible, CustomDebugStringConvertible {
     
     public var description: String { return heap.description }
     public var debugDescription: String { return heap.debugDescription }
+}
+
+
+extension RandomAccessCollection where Element : Comparable {
+    func insertionIndex(of value: Element) -> Index {
+        var slice : SubSequence = self[...]
+        
+        while !slice.isEmpty {
+            let middle = slice.index(slice.startIndex, offsetBy: slice.count / 2)
+            if value < slice[middle] {
+                slice = slice[..<middle]
+            } else {
+                slice = slice[index(after: middle)...]
+            }
+        }
+        return slice.startIndex
+    }
+}
+
+extension RandomAccessCollection {
+    func insertionIndex(for predicate: (Element) -> Bool) -> Index {
+        var slice: SubSequence = self[...]
+        
+        while !slice.isEmpty {
+            let middle = slice.index(slice.startIndex, offsetBy: slice.count / 2)
+            if predicate(slice[middle]) {
+                slice = slice[index(after: middle)...]
+            } else {
+                slice = slice[..<middle]
+            }
+        }
+        return slice.startIndex
+    }
 }

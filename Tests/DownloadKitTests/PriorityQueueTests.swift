@@ -129,19 +129,25 @@ class PriorityQueueTests: XCTestCase {
         XCTAssertEqual(queue.dequeue()!.identifier, "id5")
     }
     
+    @available(iOS 13.0, *)
     func testEnqueuePerformance() {
-        var queue = PriorityQueue<Int>(order: <)
-        measure {
-            for _ in 0...5000 { queue.enqueue(0) }
+        let limit = 3000
+        var queue = PriorityQueue<Int>(order: >)
+        measure(metrics: [XCTCPUMetric(),
+                          XCTClockMetric()]) {
+            for _ in 0...limit { queue.enqueue(0) }
         }
     }
     
+    @available(iOS 13.0, *)
     func testDequeuePerformance() {
-        var queue = PriorityQueue<Int>(order: <)
-        for _ in 0...5000 { queue.enqueue(0) }
+        let limit = 3000
+        var queue = PriorityQueue<Int>(order: >)
+        for _ in 0...limit { queue.enqueue(0) }
         
-        measure {
-            for _ in 0...50000 { _ = queue.dequeue() }
+        measure(metrics: [XCTCPUMetric(),
+                          XCTClockMetric()]) {
+            for _ in 0...limit { _ = queue.dequeue() }
         }
     }
     
