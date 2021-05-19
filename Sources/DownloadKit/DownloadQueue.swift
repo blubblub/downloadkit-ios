@@ -101,7 +101,7 @@ public class DownloadQueue: DownloadQueuable {
     }
     
     public var downloads: [Downloadable] {
-        var values: [Downloadable] = []
+        var values = [Downloadable]()
         
         processQueue.sync {
             values += Array(progressDownloadMap.values)
@@ -112,7 +112,7 @@ public class DownloadQueue: DownloadQueuable {
     }
     
     public var currentDownloads: [Downloadable] {
-        var values: [Downloadable]! = nil
+        var values = [Downloadable]()
         
         processQueue.sync {
             values = Array(progressDownloadMap.values)
@@ -122,7 +122,7 @@ public class DownloadQueue: DownloadQueuable {
     }
     
     public var queuedDownloads: [Downloadable] {
-        var values: [Downloadable]! = nil
+        var values = [Downloadable]()
         
         processQueue.sync {
             values = Array(downloadQueue)
@@ -224,23 +224,17 @@ public class DownloadQueue: DownloadQueuable {
                 return
             }
             
-            // If we are pending, we will read the item. This will ensure it's pushed on top.
-            var previousItem: Downloadable?
-            
-            for downloadItem in self.downloadQueue where item.isEqual(to: downloadItem) {
-                // Compare identifiers here, as DownloadItem conforms to Comparable, but only compares priorities
-                previousItem = downloadItem
-                break
-            }
-            
-            // If current item priority is higher, remove it and enqueue it again, which will place it higher.
+            let previousItem = self.queuedDownloadMap[item.identifier]
             if let previousItem = previousItem, item.priority > previousItem.priority {
+                // If current item priority is higher, remove it and enqueue it again, which will place it higher.
                 self.downloadQueue.remove(where: { $0.isEqual(to: previousItem) })
+            } else if previousItem != nil {
+                // item is already queued and priorities are the same, do nothing
+                return
             }
-      
+            
             self.downloadQueue.enqueue(item)
             self.queuedDownloadMap[item.identifier] = item
-            
             self.process()
         }
     }
@@ -278,8 +272,6 @@ public class DownloadQueue: DownloadQueuable {
         if let processor = downloadProcessors.first(where: { $0.canProcess(item: item) }) {
             
             self.progressDownloadMap[item.identifier] = item
-            self.queuedDownloadMap[item.identifier] = nil
-            
             processor.process(item)
             
             self.notificationCenter.post(name: DownloadQueue.downloadDidStartNotification, object: item)
