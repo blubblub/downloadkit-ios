@@ -126,6 +126,9 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         
         // Get assets that need to be downloaded.
         let downloadableAssets = assets.filter { item in
+            if shouldDownload?(item, options) == false {
+                return false
+            }
             
             // No local asset, let's download.
             guard let asset = realm.object(ofType: L.self, forPrimaryKey: item.id) else {

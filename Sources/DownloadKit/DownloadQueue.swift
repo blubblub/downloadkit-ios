@@ -157,7 +157,7 @@ public class DownloadQueue: DownloadQueuable {
                 item.cancel()
             }
             
-            self.progressDownloadMap = Dictionary<String, Downloadable>()
+            self.progressDownloadMap = [:]
         }
     }
     
@@ -171,6 +171,7 @@ public class DownloadQueue: DownloadQueuable {
             }
             
             self.downloadQueue.clear()
+            self.queuedDownloadMap = [:]
         }
     }
     
@@ -230,6 +231,7 @@ public class DownloadQueue: DownloadQueuable {
                 self.downloadQueue.remove(where: { $0.isEqual(to: previousItem) })
             } else if previousItem != nil {
                 // item is already queued and priorities are the same, do nothing
+                self.process()
                 return
             }
             

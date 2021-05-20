@@ -109,7 +109,7 @@ public class AssetManager {
     @discardableResult
     public func request(assets: [AssetFile], options: RequestOptions) -> [Downloadable] {
         // Grab Assets we need from file manager, filtering out those that are already downloaded.
-        let downloads = cache.requestDownloads(assets: assets, options: options)
+        let downloads = cache.requestDownloads(assets: assets.unique(\.id), options: options)
         
         guard downloads.count > 0 else {
             return []
@@ -320,5 +320,13 @@ extension AssetManager: DownloadQueuable {
     
     public func isDownloading(for identifier: String) -> Bool {
         queues.contains(where: { $0.isDownloading(for: identifier) })
+    }
+}
+
+extension Array {
+    public func unique(_ by: ((Element) -> String)) -> Array {
+        var seen: [String: Bool] = [:]
+        
+        return self.filter { seen.updateValue(true, forKey: by($0)) == nil }
     }
 }
