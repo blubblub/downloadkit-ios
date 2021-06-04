@@ -61,6 +61,7 @@ public class RealmMemoryCache<L: Object>: AssetFileCacheable where L: LocalAsset
     }
     
     public init(configuration: Realm.Configuration = .defaultConfiguration, loadURLs: Bool = true) {
+        self.configuration = configuration
         if loadURLs {
             let assets = realm.objects(L.self)
             

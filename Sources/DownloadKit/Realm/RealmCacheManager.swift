@@ -21,8 +21,8 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
     
     public var log: OSLog = logDK
     
-    public var memoryCache: RealmMemoryCache? = RealmMemoryCache<L>()
-    public var localCache = RealmLocalCacheManager<L>()
+    public var memoryCache: RealmMemoryCache<L>?
+    public let localCache: RealmLocalCacheManager<L>
     public var mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()
     
     private var downloadableMap = AtomicDictionary<String, DownloadSelection>()
@@ -32,6 +32,13 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
             memoryCache?.configuration = configuration
             localCache.configuration = configuration
         }
+    }
+    
+    public init(configuration: Realm.Configuration,
+                mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()) {
+        self.memoryCache = RealmMemoryCache<L>(configuration: configuration)
+        self.localCache = RealmLocalCacheManager<L>(configuration: configuration)
+        self.mirrorPolicy = mirrorPolicy
     }
     
     public init(memoryCache: RealmMemoryCache<L>? = RealmMemoryCache(),
