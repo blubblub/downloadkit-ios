@@ -60,7 +60,7 @@ public class RealmMemoryCache<L: Object>: AssetFileCacheable where L: LocalAsset
         return realm
     }
     
-    public init(configuration: Realm.Configuration = .defaultConfiguration, loadURLs: Bool = true) {
+    public init(configuration: Realm.Configuration = .defaultConfiguration, loadURLs: Bool = false) {
         self.configuration = configuration
         if loadURLs {
             let assets = realm.objects(L.self)
