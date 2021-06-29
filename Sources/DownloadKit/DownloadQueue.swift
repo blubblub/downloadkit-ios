@@ -71,7 +71,10 @@ public class DownloadQueue: DownloadQueuable {
     public var log: OSLog = logDK
     
     /// Queue that executes after-download operations, such as moving the file.
-    private let processQueue = DispatchQueue(label: "org.blubblub.core.synchronization.queue", qos: DispatchQoS.background)
+    private let processQueue = DispatchQueue(label: "org.blubblub.core.synchronization.queue", qos: .background, attributes: .concurrent)
+    
+    private let processQueueKey = DispatchSpecificKey<String>()
+    private let processQueueIdentifier = "ProcessQueueIdentifier"
     
     /// Holds pending downloads.
     private var downloadQueue = PriorityQueue<Downloadable>(order: { $0.priority > $1.priority })
@@ -93,7 +96,7 @@ public class DownloadQueue: DownloadQueuable {
     public var isActive = true {
         didSet {
             if isActive {
-                processQueue.async {
+                processQueue.async(flags: .barrier) {
                     self.process()
                 }
             }
@@ -139,6 +142,7 @@ public class DownloadQueue: DownloadQueuable {
     // MARK: - Public Methods
     
     public init() {
+        processQueue.setSpecific(key: processQueueKey, value: processQueueIdentifier)
     }
     
     public func enqueuePending(completion: (() -> Void)? = nil) {
@@ -152,7 +156,7 @@ public class DownloadQueue: DownloadQueuable {
     
     /// Will cancel all current transfers.
     public func cancelCurrentDownloads() {
-        processQueue.sync {
+        processQueue.async(flags: .barrier) {
             for item in self.progressDownloadMap.values {
                 item.cancel()
             }
@@ -165,7 +169,7 @@ public class DownloadQueue: DownloadQueuable {
         // Cancel current downloads.
         cancelCurrentDownloads()
         
-        processQueue.sync {
+        processQueue.async(flags: .barrier) {
             for item in self.downloadQueue {
                 item.cancel()
             }
@@ -183,7 +187,7 @@ public class DownloadQueue: DownloadQueuable {
     
     public func cancel(with identifier: String) {
         // Check if it is in progress.
-        processQueue.sync {
+        processQueue.async(flags: .barrier) {
             if let downloadableInProgress = self.progressDownloadMap[identifier] {
                 downloadableInProgress.cancel()
                 self.progressDownloadMap[identifier] = nil
@@ -196,11 +200,17 @@ public class DownloadQueue: DownloadQueuable {
     }
     
     public func hasItem(with identifier: String) -> Bool {
-        return progressDownloadMap[identifier] != nil || queuedDownloadMap[identifier] != nil
+        return item(for: identifier) != nil
     }
     
     public func item(for identifier: String) -> Downloadable? {
-        return progressDownloadMap[identifier] ?? queuedDownloadMap[identifier]
+        if DispatchQueue.getSpecific(key: processQueueKey) == processQueueIdentifier {
+            return progressDownloadMap[identifier] ?? queuedDownloadMap[identifier]
+        }
+        
+        return processQueue.sync {
+            progressDownloadMap[identifier] ?? queuedDownloadMap[identifier]
+        }
     }
     
     public func isDownloading(item: Downloadable) -> Bool {
@@ -208,7 +218,9 @@ public class DownloadQueue: DownloadQueuable {
     }
     
     public func isDownloading(for identifier: String) -> Bool {
-        progressDownloadMap[identifier] != nil
+        return processQueue.sync {
+            progressDownloadMap[identifier] != nil
+        }
     }
     
     public func download(_ items: [Downloadable]) {
@@ -219,7 +231,7 @@ public class DownloadQueue: DownloadQueuable {
     
     public func download(_ item: Downloadable) {
         // If item is in incomplete state
-        processQueue.async {
+        processQueue.async(flags: .barrier) {
             // If the item is already in progress, do nothing.
             guard self.progressDownloadMap[item.identifier] == nil else {
                 return
@@ -294,7 +306,7 @@ public class DownloadQueue: DownloadQueuable {
 extension DownloadQueue: DownloadProcessorDelegate {
 
     public func downloadDidBegin(_ processor: DownloadProcessor, item: Downloadable) {
-        processQueue.async {
+        processQueue.async(flags: .barrier) {
             if let trackedItem = self.item(for: item.identifier) {
                 // We have the item, but it wasn't processed yet, but a processor decided to start downloading it.
                 // This indicates a broken state between processor and the queue and we will fix it here.
@@ -324,10 +336,10 @@ extension DownloadQueue: DownloadProcessorDelegate {
         // We can move the file in the WebDownloadProcessor, but either way, or decide later in the
         // asset manager.
         
-        self.delegate?.downloadQueue(self, downloadDidFinish: item, to: url)
-        self.notificationCenter.post(name: DownloadQueue.downloadDidFinishNotification, object: item)
+        delegate?.downloadQueue(self, downloadDidFinish: item, to: url)
+        notificationCenter.post(name: DownloadQueue.downloadDidFinishNotification, object: item)
         
-        self.processQueue.async {
+        processQueue.async(flags: .barrier) {
             self.progressDownloadMap[item.identifier] = nil
             
             // Continue processing downloads.
@@ -336,11 +348,9 @@ extension DownloadQueue: DownloadProcessorDelegate {
     }
     
     public func downloadDidError(_ processor: DownloadProcessor, item: Downloadable, error: Error) {
-        
-        delegate?.downloadQueue(self, downloadDidFail: item, with: error)
-        
+
         // Call delegate for error.
-        processQueue.async {
+        processQueue.async(flags: .barrier) {
             // Remove item from current downloads
             self.progressDownloadMap[item.identifier] = nil
  
@@ -349,6 +359,8 @@ extension DownloadQueue: DownloadProcessorDelegate {
             // Continue processing downloadables.
             self.process()
         }
+        
+        delegate?.downloadQueue(self, downloadDidFail: item, with: error)
     }
     
     public func downloadDidFinish(_ processor: DownloadProcessor, item: Downloadable) {

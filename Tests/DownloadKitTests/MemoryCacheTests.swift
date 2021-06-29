@@ -21,7 +21,7 @@ class MemoryCacheTests: XCTestCase {
     }
     
     func testGettingImageFromCache() {
-        let imageURL = Bundle.module.urlForImageResource("sample")!
+        let imageURL = Bundle.module.url(forResource: "sample", withExtension: "png")!
         XCTAssertNotNil(cache.assetImage(url: imageURL))
         XCTAssertNotNil(cache.assetImage(url: imageURL))
     }
