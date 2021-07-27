@@ -148,7 +148,7 @@ public class AssetManager {
         // Add downloads to monitor progresses.
         progress.add(downloadItems: finalDownloads)
         
-        return finalDownloads
+        return downloads
     }
     
     public func resume(completion: (() -> Void)? = nil) {

@@ -81,8 +81,8 @@ open class WeightedMirrorPolicy: MirrorPolicy {
             downloadable = mirrors[selectedIndex].downloadable
         }
         
-        // If we should retry.
-        guard shouldRetry(mirror: mirrors[selectedIndex], for: asset) else {
+        // Only ask if we should retry in case there was an error.
+        if error != nil && shouldRetry(mirror: mirrors[selectedIndex], for: asset) {
             delegate?.mirrorPolicy(self, didExhaustMirrorsIn: asset)
             return nil
         }
