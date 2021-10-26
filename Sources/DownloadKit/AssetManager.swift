@@ -218,7 +218,7 @@ extension AssetManager: DownloadQueueDelegate {
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFinish item: Downloadable, to location: URL) {
         do {
             // Move the file to a temporary location, otherwise it gets removed by the system immediately after this function completes
-            let tempLocation = FileManager.temporaryDirectoryURL.appendingPathExtension(UUID().uuidString)
+            let tempLocation = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + "-download.tmp")
             try FileManager.default.moveItem(at: location, to: tempLocation)
             
             // store the file to the cache
