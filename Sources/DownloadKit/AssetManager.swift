@@ -58,8 +58,12 @@ public class AssetManager {
     
     private var assetCompletions: [String: [ProgressCompletion]] = [:]
     
-    private let observersQueue = DispatchQueue(label: "org.blubblub.core.assetManager.observersQueue",
+    private let processQueue = DispatchQueue(label: "downloadkit.asset-manager.process-queue",
+                                             qos: .background)
+
+    private let observersQueue = DispatchQueue(label: "downloadkit.asset-manager.observers-queue",
                                                qos: .background)
+    
     private var observers: [ObjectIdentifier: Observer] = [:]
 
     // MARK: - Public Properties
@@ -212,10 +216,19 @@ public class AssetManager {
 
 extension AssetManager: DownloadQueueDelegate {
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFinish item: Downloadable, to location: URL) {
-        // Cache will store the file, since it has completed downloading. This operation needs to be sync.
-        // We should be on background thread here already.
-        _ = cache.download(item, didFinishTo: location)
-        completeProgress(item: item, with: nil)
+        do {
+            // Move the file to a temporary location, otherwise it gets removed by the system immediately after this function completes
+            let tempLocation = FileManager.temporaryDirectoryURL.appendingPathExtension(UUID().uuidString)
+            try FileManager.default.moveItem(at: location, to: tempLocation)
+            
+            // store the file to the cache
+            processQueue.async {
+                _ = self.cache.download(item, didFinishTo: tempLocation)
+                self.completeProgress(item: item, with: nil)
+            }
+        } catch {
+            os_log(.error, log: log, "Error moving temporary file: %@", error.localizedDescription)
+        }
     }
     
     // Called when download had failed for any reason, including sessions being invalidated.
@@ -322,6 +335,18 @@ extension AssetManager: DownloadQueuable {
         queues.contains(where: { $0.isDownloading(for: identifier) })
     }
 }
+
+
+extension FileManager {
+    static var temporaryDirectoryPath: String {
+        NSTemporaryDirectory()
+    }
+
+    static var temporaryDirectoryURL: URL {
+        URL(fileURLWithPath: FileManager.temporaryDirectoryPath, isDirectory: true)
+    }
+}
+
 
 extension Array {
     public func unique(_ by: ((Element) -> String)) -> Array {
