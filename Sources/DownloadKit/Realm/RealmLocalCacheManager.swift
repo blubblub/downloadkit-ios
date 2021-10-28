@@ -19,7 +19,17 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     public var assetSubdirectory = "assets/"
     public var excludeFilesFromBackup = true
     
+    private let queue = DispatchQueue(label: "downloadkit.realm-local-cache-manager.queue")
+    
     public var shouldDownload: ((AssetFile, RequestOptions) -> Bool)?
+    
+    private lazy var writeRealm: Realm = {
+        let realm = try! Realm(configuration: configuration, queue: queue)
+        realm.autorefresh = false
+        realm.refresh()
+        
+        return realm
+    }()
 
     private var realm: Realm {
         let realm = try! Realm(configuration: configuration)
@@ -71,10 +81,12 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         // Store file into Realm
         let localAsset = createLocalAsset(for: asset, url: finalFileUrl)
         
-        let realm = self.realm
-        
-        try realm.write {
-            realm.add(localAsset, update: .modified)
+        queue.sync {
+            let realm = self.writeRealm
+            
+            try? realm.write {
+                realm.add(localAsset, update: .modified)
+            }
         }
         
         return localAsset
@@ -169,7 +181,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         removeFiles(filesToRemove)
         
         let objects = realm.objects(L.self)
-        try! realm.write {
+        try? realm.write {
             realm.delete(objects)
         }
         
@@ -211,7 +223,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         
         var deleteCounter = 0
          
-        try! realm.write {
+        try? realm.write {
             for object in objects {
                 // If the object has no URL, there is no file, we can delete the record.
                 guard let fileURL = object.fileURL else {
