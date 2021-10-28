@@ -14,22 +14,12 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     public var log: OSLog = logDK
     
     /// Target Realm to update
-    public var configuration: Realm.Configuration = Realm.Configuration.defaultConfiguration
+    public let configuration: Realm.Configuration
     
     public var assetSubdirectory = "assets/"
     public var excludeFilesFromBackup = true
     
-    private let queue = DispatchQueue(label: "downloadkit.realm-local-cache-manager.queue")
-    
     public var shouldDownload: ((AssetFile, RequestOptions) -> Bool)?
-    
-    private lazy var writeRealm: Realm = {
-        let realm = try! Realm(configuration: configuration, queue: queue)
-        realm.autorefresh = false
-        realm.refresh()
-        
-        return realm
-    }()
 
     private var realm: Realm {
         let realm = try! Realm(configuration: configuration)
@@ -41,7 +31,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     
     // MARK: - Public
     
-    public init(configuration: Realm.Configuration = Realm.Configuration.defaultConfiguration) {
+    public init(configuration: Realm.Configuration) {
         self.configuration = configuration
     }
     
@@ -79,17 +69,16 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         try finalFileUrl.setResourceValues(resourceValues)
         
         // Store file into Realm
-        let localAsset = createLocalAsset(for: asset, url: finalFileUrl)
-        
-        queue.sync {
-            let realm = self.writeRealm
+        return autoreleasepool {
+            let localAsset = self.createLocalAsset(for: asset, url: finalFileUrl)
+            let realm = self.realm
             
             try? realm.write {
                 realm.add(localAsset, update: .modified)
             }
+            
+            return localAsset
         }
-        
-        return localAsset
     }
     
     
@@ -98,32 +87,34 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     ///   - assets: assets to operate on
     ///   - priority: priority to move to.
     public func updateStorage(assets: [AssetFile], to priority: StoragePriority) {
-        let realm = self.realm
-        
-        for asset in assets {
-            if var localAsset = realm.object(ofType: L.self, forPrimaryKey: asset.id),
-               let localURL = localAsset.fileURL {
-                
-                // if priorities are the same, skip moving files
-                if localAsset.storage == priority { continue }
-                
-                let targetURL = L.targetUrl(for: asset, mirror: asset.main, // main mirror here?
-                                            at: localURL,
-                                            storagePriority: priority, file: file)
-                
-                do {
-                    // move to new location
-                    try file.moveItem(at: localURL, to: targetURL)
+        autoreleasepool {
+            let realm = self.realm
+            
+            realm.beginWrite()
+            for asset in assets {
+                if var localAsset = realm.object(ofType: L.self, forPrimaryKey: asset.id),
+                   let localURL = localAsset.fileURL {
                     
-                    // update fileURL with new location and storage
-                    try realm.write {
+                    // if priorities are the same, skip moving files
+                    if localAsset.storage == priority { continue }
+                    
+                    let targetURL = L.targetUrl(for: asset, mirror: asset.main, // main mirror here?
+                                                at: localURL,
+                                                storagePriority: priority, file: file)
+                    
+                    do {
+                        // move to new location
+                        try file.moveItem(at: localURL, to: targetURL)
+                        
+                        // update fileURL with new location and storage
                         localAsset.fileURL = targetURL
                         localAsset.storage = priority
+                    } catch {
+                        os_log(.error, log: log, "[RealmLocalCacheManager]: Error moving file from: %@ to %@", localURL.absoluteString, targetURL.absoluteString)
                     }
-                } catch {
-                    os_log(.error, log: log, "[RealmLocalCacheManager]: Error moving file from: %@ to %@", localURL.absoluteString, targetURL.absoluteString)
                 }
             }
+            try? realm.commitWrite()
         }
     }
     
@@ -134,38 +125,40 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     ///   - options: options
     /// - Returns: assets that are not yet stored locally.
     public func downloads(from assets: [AssetFile], options: RequestOptions) -> [AssetFile] {
-        let realm = self.realm
-        
-        // Get assets that need to be downloaded.
-        let downloadableAssets = assets.filter { item in
-            if shouldDownload?(item, options) == false {
-                return false
-            }
+        return autoreleasepool {
+            let realm = self.realm
             
-            // No local asset, let's download.
-            guard let asset = realm.object(ofType: L.self, forPrimaryKey: item.id) else {
-                return true
-            }
-            
-            // There is no local file URL, we should download it.
-            if asset.fileURL == nil {
-                return true
-            }
-                        
-            // Check if file supports modification date, only download if newer.
-            if let localModifyDate = asset.modifyDate, let fileModifyDate = item.modifyDate {
-                return fileModifyDate > localModifyDate
-            }
-            
-            // We have local fileURL, no need to download
-            if asset.fileURL != nil {
-                return false
-            }
+            // Get assets that need to be downloaded.
+            let downloadableAssets = assets.filter { item in
+                if shouldDownload?(item, options) == false {
+                    return false
+                }
+                
+                // No local asset, let's download.
+                guard let asset = realm.object(ofType: L.self, forPrimaryKey: item.id) else {
+                    return true
+                }
+                
+                // There is no local file URL, we should download it.
+                if asset.fileURL == nil {
+                    return true
+                }
+                            
+                // Check if file supports modification date, only download if newer.
+                if let localModifyDate = asset.modifyDate, let fileModifyDate = item.modifyDate {
+                    return fileModifyDate > localModifyDate
+                }
+                
+                // We have local fileURL, no need to download
+                if asset.fileURL != nil {
+                    return false
+                }
 
-            return shouldDownload?(item, options) ?? false
+                return shouldDownload?(item, options) ?? false
+            }
+            
+            return downloadableAssets
         }
-        
-        return downloadableAssets
     }
     
     /// Removes all traces of files in document and cache folder.
