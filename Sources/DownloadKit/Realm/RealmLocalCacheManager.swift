@@ -69,16 +69,14 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         try finalFileUrl.setResourceValues(resourceValues)
         
         // Store file into Realm
-        return autoreleasepool {
-            let localAsset = self.createLocalAsset(for: asset, url: finalFileUrl)
-            let realm = self.realm
-            
-            try? realm.write {
-                realm.add(localAsset, update: .modified)
-            }
-            
-            return localAsset
+        let localAsset = self.createLocalAsset(for: asset, url: finalFileUrl)
+        let realm = self.realm
+        
+        try? realm.write {
+            realm.add(localAsset, update: .modified)
         }
+        
+        return localAsset
     }
     
     
@@ -125,7 +123,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     ///   - options: options
     /// - Returns: assets that are not yet stored locally.
     public func downloads(from assets: [AssetFile], options: RequestOptions) -> [AssetFile] {
-        return autoreleasepool {
+        return autoreleasepool { () -> [AssetFile] in
             let realm = self.realm
             
             // Get assets that need to be downloaded.
@@ -156,7 +154,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
 
                 return shouldDownload?(item, options) ?? false
             }
-            
+         
             return downloadableAssets
         }
     }

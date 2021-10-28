@@ -26,7 +26,7 @@ class AssetManagerTests: XCTestCase {
         downloadQueue.add(processor: WebDownloadProcessor(configuration: .ephemeral))
         
         // Uses weighted mirror policy by default
-        cache = RealmCacheManager<LocalFile>()
+        cache = RealmCacheManager<LocalFile>(configuration: .defaultConfiguration)
         manager = AssetManager(cache: cache, downloadQueue: downloadQueue)
     }
     
@@ -39,7 +39,7 @@ class AssetManagerTests: XCTestCase {
         priorityQueue.simultaneousDownloads = 10
         
         // Uses weighted mirror policy by default
-        cache = RealmCacheManager<LocalFile>()
+        cache = RealmCacheManager<LocalFile>(configuration: .defaultConfiguration)
         manager = AssetManager(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue)
     }
 
