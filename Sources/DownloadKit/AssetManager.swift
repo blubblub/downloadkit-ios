@@ -223,8 +223,10 @@ extension AssetManager: DownloadQueueDelegate {
             
             // store the file to the cache
             processQueue.async {
-                _ = self.cache.download(item, didFinishTo: tempLocation)
-                self.completeProgress(item: item, with: nil)
+                autoreleasepool {
+                    _ = self.cache.download(item, didFinishTo: tempLocation)
+                    self.completeProgress(item: item, with: nil)
+                }
             }
         } catch {
             os_log(.error, log: log, "Error moving temporary file: %@", error.localizedDescription)
