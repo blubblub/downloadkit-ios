@@ -118,7 +118,12 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
     }
     
     public func cleanup(excluding urls: Set<URL>) {
-        localCache.cleanup(excluding: urls)
+        do {
+            try localCache.cleanup(excluding: urls)
+        }
+        catch let error {
+            os_log(.error, log: log, "[RealmCacheManager]: Error Cleaning up: %@", error.localizedDescription)
+        }
     }
     
     // MARK: - AssetFileCacheable

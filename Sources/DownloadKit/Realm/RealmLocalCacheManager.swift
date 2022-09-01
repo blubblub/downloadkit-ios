@@ -22,11 +22,13 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     public var shouldDownload: ((AssetFile, RequestOptions) -> Bool)?
 
     private var realm: Realm {
-        let realm = try! Realm(configuration: configuration)
-        realm.autorefresh = false
-        realm.refresh()
-        
-        return realm
+        get throws {
+            let realm = try Realm(configuration: configuration)
+            realm.autorefresh = false
+            realm.refresh()
+            
+            return realm
+        }
     }
     
     // MARK: - Public
@@ -70,9 +72,9 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         
         // Store file into Realm
         let localAsset = self.createLocalAsset(for: asset, url: finalFileUrl)
-        let realm = self.realm
+        let realm = try self.realm
         
-        try? realm.write {
+        try realm.write {
             realm.add(localAsset, update: .modified)
         }
         
@@ -86,33 +88,40 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     ///   - priority: priority to move to.
     public func updateStorage(assets: [AssetFile], to priority: StoragePriority) {
         autoreleasepool {
-            let realm = self.realm
-            
-            realm.beginWrite()
-            for asset in assets {
-                if var localAsset = realm.object(ofType: L.self, forPrimaryKey: asset.id),
-                   let localURL = localAsset.fileURL {
-                    
-                    // if priorities are the same, skip moving files
-                    if localAsset.storage == priority { continue }
-                    
-                    let targetURL = L.targetUrl(for: asset, mirror: asset.main, // main mirror here?
-                                                at: localURL,
-                                                storagePriority: priority, file: file)
-                    
-                    do {
-                        // move to new location
-                        try file.moveItem(at: localURL, to: targetURL)
+            do {
+                let realm = try self.realm
+                
+                realm.beginWrite()
+                for asset in assets {
+                    if var localAsset = realm.object(ofType: L.self, forPrimaryKey: asset.id),
+                       let localURL = localAsset.fileURL {
                         
-                        // update fileURL with new location and storage
-                        localAsset.fileURL = targetURL
-                        localAsset.storage = priority
-                    } catch {
-                        os_log(.error, log: log, "[RealmLocalCacheManager]: Error moving file from: %@ to %@", localURL.absoluteString, targetURL.absoluteString)
+                        // if priorities are the same, skip moving files
+                        if localAsset.storage == priority { continue }
+                        
+                        let targetURL = L.targetUrl(for: asset, mirror: asset.main, // main mirror here?
+                                                    at: localURL,
+                                                    storagePriority: priority, file: file)
+                        
+                        do {
+                            // move to new location
+                            try file.moveItem(at: localURL, to: targetURL)
+                            
+                            // update fileURL with new location and storage
+                            localAsset.fileURL = targetURL
+                            localAsset.storage = priority
+                        } catch {
+                            os_log(.error, log: log, "[RealmLocalCacheManager]: Error moving file from: %@ to %@", localURL.absoluteString, targetURL.absoluteString)
+                        }
                     }
                 }
+                
+                try realm.commitWrite()
             }
-            try? realm.commitWrite()
+            catch {
+                os_log(.error, log: log, "[RealmLocalCacheManager]: Error updating Realm store for files.")
+            }
+            
         }
     }
     
@@ -124,7 +133,9 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     /// - Returns: assets that are not yet stored locally.
     public func downloads(from assets: [AssetFile], options: RequestOptions) -> [AssetFile] {
         return autoreleasepool { () -> [AssetFile] in
-            let realm = self.realm
+            guard let realm = try? self.realm else {
+                return []
+            }
             
             // Get assets that need to be downloaded.
             let downloadableAssets = assets.filter { item in
@@ -161,7 +172,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     
     /// Removes all traces of files in document and cache folder.
     /// Removes all objects from realm.
-    public func reset() {
+    public func reset() throws {
         let supportFiles = file.cachedFiles(directory: file.supportDirectoryURL,
                                             subdirectory: assetSubdirectory)
         
@@ -171,8 +182,11 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         let filesToRemove = supportFiles + cachedFiles
         removeFiles(filesToRemove)
         
+        let realm = try self.realm
+        
         let objects = realm.objects(L.self)
-        try? realm.write {
+        
+        try realm.write {
             realm.delete(objects)
         }
         
@@ -180,7 +194,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         os_log(.debug, log: log, "[RealmLocalCacheManager]: Removed %lu objects.", objects.count)
     }
     
-    public func cleanup(excluding urls: Set<URL>) {
+    public func cleanup(excluding urls: Set<URL>) throws {
         let files = file.cachedFiles(directory: file.supportDirectoryURL,
                                      subdirectory: assetSubdirectory)
         
@@ -189,7 +203,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         
         os_log(.debug, log: log, "[RealmLocalCacheManager]: Removed %lu files.", filesToRemove.count)
         
-        cleanupRealm(excluding: Set(urls))
+        try cleanupRealm(excluding: Set(urls))
     }
     
     // MARK: - Private
@@ -208,8 +222,8 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         }
     }
     
-    private func cleanupRealm(excluding urls: Set<URL>) {
-        let realm = self.realm
+    private func cleanupRealm(excluding urls: Set<URL>) throws {
+        let realm = try self.realm
         let objects = realm.objects(L.self)
         
         var deleteCounter = 0
@@ -237,8 +251,8 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         os_log(.debug, log: log, "[RealmLocalCacheManager]: Removed %lu objects.", deleteCounter)
     }
     
-    private func removeAssetsWithoutLocalFile(assets: [AssetFile]) {
-        let realm = self.realm
+    private func removeAssetsWithoutLocalFile(assets: [AssetFile]) throws {
+        let realm = try self.realm
         
         let localAssets = assets.compactMap { realm.object(ofType: L.self, forPrimaryKey: $0.id) }
         do {
