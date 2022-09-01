@@ -53,16 +53,19 @@ public class RealmMemoryCache<L: Object>: AssetFileCacheable where L: LocalAsset
     let configuration: Realm.Configuration
     
     private var realm: Realm {
-        let realm = try! Realm(configuration: configuration)
-        realm.autorefresh = false
-        realm.refresh()
-        
-        return realm
+        get throws {
+            let realm = try Realm(configuration: configuration)
+            realm.autorefresh = false
+            realm.refresh()
+            
+            return realm
+        }
     }
     
     public init(configuration: Realm.Configuration, loadURLs: Bool = false) {
         self.configuration = configuration
-        if loadURLs {
+        
+        if let realm = try? realm, loadURLs {
             let assets = realm.objects(L.self)
             
             for asset in assets {
@@ -74,6 +77,10 @@ public class RealmMemoryCache<L: Object>: AssetFileCacheable where L: LocalAsset
     public subscript(id: String) -> URL? {
         if let url = assetURLs[id] {
             return url
+        }
+        
+        guard let realm = try? self.realm else {
+            return nil
         }
         
         autoreleasepool {
