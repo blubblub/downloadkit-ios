@@ -50,6 +50,7 @@ open class WeightedMirrorPolicy: MirrorPolicy {
         
         // If we have tried a mirror and gotten an error, select a lower weight mirror.
         if let mirrorSelection = lastMirrorSelection, error != nil {
+            os_log(.info, log: log, "[WeightedMirrorPolicy]: Mirror errored: %@, searching for next available on asset: %@", mirrorSelection.mirror.location, asset.id)
             
             // Find index of last mirror
             if let index = mirrors.firstIndex(where: { $0.id == mirrorSelection.mirror.id }) {
@@ -63,6 +64,8 @@ open class WeightedMirrorPolicy: MirrorPolicy {
                 downloadable = mirrors[counter].downloadable
                 
                 if downloadable != nil {
+                    os_log(.info, log: log, "[WeightedMirrorPolicy]: Selected next mirror: %@ for asset: %@", mirrors[counter].location, asset.id)
+                    
                     selectedIndex = counter
                     break
                 }
@@ -82,7 +85,9 @@ open class WeightedMirrorPolicy: MirrorPolicy {
         }
         
         // Only ask if we should retry in case there was an error.
-        if error != nil && shouldRetry(mirror: mirrors[selectedIndex], for: asset) {
+        if error != nil && !shouldRetry(mirror: mirrors[selectedIndex], for: asset) {
+            os_log(.debug, log: log, "[WeightedMirrorPolicy]: Exhaused mirrors for asset: %@ Last: %@", asset.id, mirrors[selectedIndex].location)
+            
             delegate?.mirrorPolicy(self, didExhaustMirrorsIn: asset)
             return nil
         }
@@ -92,6 +97,8 @@ open class WeightedMirrorPolicy: MirrorPolicy {
             delegate?.mirrorPolicy(self, didFailToGenerateDownloadableIn: asset, for: mirrors[selectedIndex])
             return nil
         }
+                
+        //os_log(.debug, log: log, "[WeightedMirrorPolicy]: Downloading asset: %@ from: %@", asset.id, mirrors[selectedIndex].location)
 
         return AssetMirrorSelection(id: asset.id, mirror: mirrors[selectedIndex], downloadable: finalDownloadable)
     }

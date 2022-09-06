@@ -26,8 +26,12 @@ class AtomicDictionary<Key: Hashable, Value>: CustomDebugStringConvertible {
         return queue.sync { store.values }
     }
     
-    var count: Int {
+    public var count: Int {
         return queue.sync { store.count }
+    }
+    
+    public var keys : [Key] {
+        return queue.sync { Array(store.keys) }
     }
     
     public var debugDescription: String {

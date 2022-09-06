@@ -96,23 +96,29 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
     }
     
     public func download(_ downloadable: Downloadable, didFailWith error: Error) -> Downloadable? {
-        guard let downloadSelection = downloadableMap[downloadable.identifier] else {
+        guard var downloadSelection = downloadableMap[downloadable.identifier] else {
             os_log(.fault, log: log, "[RealmCacheManager]: NO-OP: Received a downloadable without asset information: %@", downloadable.description)
             return nil
         }
+        
+        // Clear download selection for the identifier.
+        downloadableMap[downloadable.identifier] = nil
         
         guard let mirrorSelection = mirrorPolicy.mirror(for: downloadSelection.asset,
                                                         lastMirrorSelection: downloadSelection.mirror,
                                                         error: error) else {
             os_log(.error, log: log, "[RealmCacheManager]: Download failed: %@ Error: %@",
                    downloadable.description, error.localizedDescription)
-            downloadableMap[downloadable.identifier] = nil
+            
             return nil
         }
         
         os_log(.error, log: log, "[RealmCacheManager]: Retrying download with: %@", mirrorSelection.downloadable.description)
         
-        downloadableMap[downloadable.identifier]?.mirror = mirrorSelection
+        // Replace current mirror in download selection
+        downloadSelection.mirror = mirrorSelection
+        // Write it to downloadable map with new download selection
+        downloadableMap[downloadSelection.mirror.downloadable.identifier] = downloadSelection
 
         return mirrorSelection.downloadable
     }
