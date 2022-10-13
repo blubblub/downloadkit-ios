@@ -113,14 +113,20 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
             return nil
         }
         
-        os_log(.error, log: log, "[RealmCacheManager]: Retrying download with: %@", mirrorSelection.downloadable.description)
+        os_log(.error, log: log, "[RealmCacheManager]: Retrying download of: %@ with: %@", downloadable.description, mirrorSelection.downloadable.description)
         
         // Replace current mirror in download selection
         downloadSelection.mirror = mirrorSelection
         // Write it to downloadable map with new download selection
         downloadableMap[downloadSelection.mirror.downloadable.identifier] = downloadSelection
 
-        return mirrorSelection.downloadable
+        var nextDownloadable = mirrorSelection.downloadable
+        
+        // Increase priority after download fails, so the next attempt is prioritized higher and
+        // not placed at the end of the download queue. We likely want this retry immediately.
+        nextDownloadable.priority += 10
+        
+        return nextDownloadable
     }
     
     public func cleanup(excluding urls: Set<URL>) {

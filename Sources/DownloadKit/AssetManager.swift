@@ -86,7 +86,7 @@ public class AssetManager {
         
         let priorityQueue = DownloadQueue()
         priorityQueue.add(processor: WebDownloadProcessor.priorityProcessor())
-        priorityQueue.simultaneousDownloads = 10
+        priorityQueue.simultaneousDownloads = 30
         
         self.init(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue)
     }

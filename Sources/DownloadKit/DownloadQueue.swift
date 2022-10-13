@@ -63,9 +63,7 @@ public extension DownloadQueue {
 /// and redirect downloadables to several processors.
 ///
 public class DownloadQueue: DownloadQueuable {
-    
-    
-    
+        
     // MARK: - Private Properties
     
     public var log: OSLog = logDK
@@ -90,7 +88,9 @@ public class DownloadQueue: DownloadQueuable {
     // MARK: - Public Properties
     
     public weak var delegate: DownloadQueueDelegate?
-    public var simultaneousDownloads = 4
+    public var simultaneousDownloads = 20
+    
+    public private(set) var processedDownloads = 0
     
     /// Set to false to stop any further downloads.
     public var isActive = true {
@@ -300,6 +300,8 @@ public class DownloadQueue: DownloadQueuable {
             
             self.notificationCenter.post(name: DownloadQueue.downloadErrorNotification, object: error, userInfo: [ "downloadItem": item])
         }
+        
+        os_log(.info, log: self.log, "[DownloadQueue]: Queued: %d In Progress: %d Processed: %d - Processing item: %@", queuedDownloadMap.count, progressDownloadMap.count, processedDownloads, item.description)
     }
 }
 
@@ -340,6 +342,7 @@ extension DownloadQueue: DownloadProcessorDelegate {
         notificationCenter.post(name: DownloadQueue.downloadDidFinishNotification, object: item)
         
         processQueue.async(flags: .barrier) {
+            self.processedDownloads += 1
             self.progressDownloadMap[item.identifier] = nil
             
             // Continue processing downloads.
@@ -352,6 +355,7 @@ extension DownloadQueue: DownloadProcessorDelegate {
         // Call delegate for error.
         processQueue.async(flags: .barrier) {
             // Remove item from current downloads
+            self.processedDownloads += 1
             self.progressDownloadMap[item.identifier] = nil
  
             self.notificationCenter.post(name: DownloadQueue.downloadErrorNotification, object: error, userInfo: [ "downloadItem": item])
