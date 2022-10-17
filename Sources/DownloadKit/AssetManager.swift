@@ -43,6 +43,22 @@ public struct RequestOptions {
     }
 }
 
+public struct AssetManagerMetrics {
+    var requested = 0
+    var downloadBegan = 0
+    var downloadCompleted = 0
+    var priorityIncreased = 0
+    var priorityDecreased = 0
+    var failed = 0
+    var retried = 0
+}
+
+extension AssetManagerMetrics : CustomStringConvertible {
+    public var description: String {
+        return String(format: "Requested: %d Began: %d Completed: %d Priority Inc.: %d Priority Dec.: %d Failed: %d Retried: %d", requested, downloadBegan, downloadCompleted, priorityIncreased, priorityDecreased, failed, retried)
+    }
+}
+
 /// Public API for Asset Manager. Combines all the smaller pieces of the API.
 /// Generally you should only use this API, aside from setting up the system.
 /// Default implementation uses:
@@ -80,6 +96,8 @@ public class AssetManager {
     
     public let progress = AssetDownloadProgress()
     
+    public private(set) var metrics = AssetManagerMetrics()
+    
     public convenience init(cache: AssetCacheable) {
         let downloadQueue = DownloadQueue()
         downloadQueue.add(processor: WebDownloadProcessor())
@@ -112,8 +130,16 @@ public class AssetManager {
     
     @discardableResult
     public func request(assets: [AssetFile], options: RequestOptions) -> [Downloadable] {
+        
+        let uniqueAssets = assets.unique(\.id)
+        
+        os_log(.info, log: log, "Requested assets: %@", uniqueAssets.map({ $0.id }).joined(separator: ", "))
+        
         // Grab Assets we need from file manager, filtering out those that are already downloaded.
-        let downloads = cache.requestDownloads(assets: assets.unique(\.id), options: options)
+        let downloads = cache.requestDownloads(assets: uniqueAssets, options: options)
+        
+        metrics.requested += uniqueAssets.count
+        metrics.downloadBegan += downloads.count
         
         guard downloads.count > 0 else {
             return []
@@ -135,6 +161,9 @@ public class AssetManager {
                 currentPriorityDownload.priority = maxDownloadPriority
             }
             
+            metrics.priorityIncreased += finalDownloads.count
+            metrics.priorityDecreased += currentPriorityDownloads.count
+            
             downloadQueue.download(currentPriorityDownloads)
             
             priorityQueue.download(finalDownloads)
@@ -144,6 +173,8 @@ public class AssetManager {
             let normalQueuedDownloads = finalDownloads.filter { downloadQueue.hasItem(with: $0.identifier) }
             
             downloadQueue.cancel(items: normalQueuedDownloads)
+            
+            os_log(.info, log: log, "Reprioritising assets: %@", finalDownloads.map({ $0.identifier }).joined(separator: ", "))
         }
         else {
             downloadQueue.download(finalDownloads)
@@ -151,6 +182,8 @@ public class AssetManager {
         
         // Add downloads to monitor progresses.
         progress.add(downloadItems: finalDownloads)
+        
+        os_log(.info, log: log, "[AssetManager]: Metrics on request: %@", metrics.description)
         
         return downloads
     }
@@ -223,11 +256,14 @@ extension AssetManager: DownloadQueueDelegate {
             
             // store the file to the cache
             processQueue.async {
+                self.metrics.downloadCompleted += 1
                 autoreleasepool {
                     _ = self.cache.download(item, didFinishTo: tempLocation)
                     self.completeProgress(item: item, with: nil)
                 }
             }
+            
+            os_log(.info, log: log, "[AssetManager]: Metrics on download finished: %@", metrics.description)
         } catch {
             os_log(.error, log: log, "Error moving temporary file: %@", error.localizedDescription)
         }
@@ -239,10 +275,16 @@ extension AssetManager: DownloadQueueDelegate {
         // We cannot switch queues here, if it was put on lower priority, it should stay on lower priority.
         if let retryItem = self.cache.download(item, didFailWith: error) {
             // Put it on the same queue.
+            metrics.retried += 1
+            
             queue.download(retryItem)
         } else {
+            metrics.failed += 1
+            
             self.completeProgress(item: item, with: error)
         }
+        
+        os_log(.info, log: log, "[AssetManager]: Metrics on download failed: %@", metrics.description)
     }
     
     private func completeProgress(item: Downloadable, with error: Error?) {

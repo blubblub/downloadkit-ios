@@ -58,6 +58,18 @@ public extension DownloadQueue {
     static let downloadErrorNotification = Notification.Name("DownloadDidErrorNotification")
 }
 
+public struct DownloadQueueMetrics {
+    var processed = 0
+    var failed = 0
+    var completed = 0
+}
+
+extension DownloadQueueMetrics : CustomStringConvertible {
+    public var description: String {
+        return String(format: "Processed: %d Failed: %d Retried: %d Completed: %d")
+    }
+}
+
 ///
 /// DownloadQueue to process Downloadable items. It's main purpose is to handle different prioritizations,
 /// and redirect downloadables to several processors.
@@ -90,7 +102,7 @@ public class DownloadQueue: DownloadQueuable {
     public weak var delegate: DownloadQueueDelegate?
     public var simultaneousDownloads = 20
     
-    public private(set) var processedDownloads = 0
+    public private(set) var metrics = DownloadQueueMetrics()
     
     /// Set to false to stop any further downloads.
     public var isActive = true {
@@ -301,7 +313,7 @@ public class DownloadQueue: DownloadQueuable {
             self.notificationCenter.post(name: DownloadQueue.downloadErrorNotification, object: error, userInfo: [ "downloadItem": item])
         }
         
-        os_log(.info, log: self.log, "[DownloadQueue]: Queued: %d In Progress: %d Processed: %d - Processing item: %@", queuedDownloadMap.count, progressDownloadMap.count, processedDownloads, item.description)
+        os_log(.info, log: self.log, "[DownloadQueue]: Metrics: %@ - Processing item: %@", metrics.description, item.identifier)
     }
 }
 
@@ -342,7 +354,9 @@ extension DownloadQueue: DownloadProcessorDelegate {
         notificationCenter.post(name: DownloadQueue.downloadDidFinishNotification, object: item)
         
         processQueue.async(flags: .barrier) {
-            self.processedDownloads += 1
+            self.metrics.processed += 1
+            self.metrics.completed += 1
+            
             self.progressDownloadMap[item.identifier] = nil
             
             // Continue processing downloads.
@@ -355,7 +369,9 @@ extension DownloadQueue: DownloadProcessorDelegate {
         // Call delegate for error.
         processQueue.async(flags: .barrier) {
             // Remove item from current downloads
-            self.processedDownloads += 1
+            self.metrics.processed += 1
+            self.metrics.failed += 1
+            
             self.progressDownloadMap[item.identifier] = nil
  
             self.notificationCenter.post(name: DownloadQueue.downloadErrorNotification, object: error, userInfo: [ "downloadItem": item])
