@@ -142,6 +142,7 @@ public class AssetManager {
         metrics.downloadBegan += downloads.count
         
         guard downloads.count > 0 else {
+            os_log(.info, log: log, "[AssetManager]: Metrics on no downloads: %@", metrics.description)
             return []
         }
         
