@@ -261,9 +261,9 @@ extension AssetManager: DownloadQueueDelegate {
                     _ = self.cache.download(item, didFinishTo: tempLocation)
                     self.completeProgress(item: item, with: nil)
                 }
+                
+                os_log(.info, log: self.log, "[AssetManager]: Metrics on download finished: %@", metrics.description)
             }
-            
-            os_log(.info, log: log, "[AssetManager]: Metrics on download finished: %@", metrics.description)
         } catch {
             os_log(.error, log: log, "Error moving temporary file: %@", error.localizedDescription)
         }
