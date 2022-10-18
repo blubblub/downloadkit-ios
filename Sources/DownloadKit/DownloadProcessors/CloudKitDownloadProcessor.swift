@@ -11,6 +11,40 @@ import Foundation
 public enum CloudKitError: Error {
     case noAssetData
     case noRecord
+    case throttled
+}
+
+private class Throttler {
+    var shouldThrottle = false
+    
+    var requestLimit = 10
+    
+    private var inFlight = 0
+    private var timer : Timer? = nil
+    
+    func ping() {
+        guard !shouldThrottle else {
+            return
+        }
+        
+        inFlight += 1
+        
+        timer?.invalidate()
+                
+        timer = Timer.scheduledTimer(timeInterval: 5.0, target: self, selector: #selector(self.reset), userInfo: nil, repeats: false);
+        
+        if inFlight >= requestLimit {
+            shouldThrottle = true
+        }
+    }
+    
+    func pong() {
+        inFlight -= 1
+    }
+    
+    @objc func reset() {
+        shouldThrottle = false
+    }
 }
 
 public class CloudKitDownloadProcessor: DownloadProcessor {
@@ -19,7 +53,11 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
     
     public var isActive = true
     
+    public var throttlingProtectionEnabled = true
+    
     public weak var delegate: DownloadProcessorDelegate?
+    
+    private let throttler = Throttler()
     
     convenience init() {
         self.init(database: CKContainer.default().publicCloudDatabase)
@@ -50,6 +88,16 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
             return
         }
         
+        // CloudKit starts limiting the amount of requests per second.
+        if throttler.shouldThrottle && throttlingProtectionEnabled {
+            self.delegate?.downloadDidError(self, item: item, error: CloudKitError.throttled)
+            return
+        }
+        
+        if self.throttlingProtectionEnabled {
+            self.throttler.ping()
+        }
+                
         self.delegate?.downloadDidBegin(self, item: item)
         
         let fetchOperation = CKFetchRecordsOperation(recordIDs: [ recordID ])
@@ -70,6 +118,13 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
         
         fetchOperation.perRecordCompletionBlock = { [weak self] record, recordID, error in
             guard let self = self else { return }
+            
+            item.finish()
+            
+            // Ping Throttler, so it knows about the request.
+            if self.throttlingProtectionEnabled {
+                self.throttler.pong()
+            }
             
             if let error = error {
                 self.delegate?.downloadDidError(self, item: item, error: error)

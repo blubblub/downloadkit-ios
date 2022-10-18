@@ -103,6 +103,10 @@ public class CloudKitDownloadItem: Codable, Downloadable, CustomStringConvertibl
         
         itemProgress.completedUnitCount = completedUnitCount > itemProgress.totalUnitCount ? itemProgress.totalUnitCount : completedUnitCount
     }
+    
+    func finish() {
+        finishedDate = Date()
+    }
 }
 
 // MARK: - CloudKit Convenience Methods
