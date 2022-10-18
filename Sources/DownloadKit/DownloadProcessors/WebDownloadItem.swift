@@ -146,6 +146,7 @@ open class WebDownloadItem: Codable, Downloadable, CustomStringConvertible {
     func didWriteData(bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         if itemProgress == nil {
             itemProgress = Foundation.Progress(totalUnitCount: totalBytesExpectedToWrite + 1)
+            totalBytes = totalBytesExpectedToWrite
         }
         
         guard let itemProgress = itemProgress else {

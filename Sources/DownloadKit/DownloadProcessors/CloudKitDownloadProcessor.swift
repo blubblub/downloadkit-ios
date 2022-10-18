@@ -86,6 +86,10 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
                 return
             }
             
+            if let urlResourceKeys = try? url.resourceValues(forKeys: [.totalFileSizeKey]) as? [URLResourceKey: Any], let totalBytes = urlResourceKeys[.totalFileSizeKey] as? Int64 {
+                item.totalBytes = totalBytes
+            }
+            
             self.delegate?.downloadDidFinishTransfer(self, item: item, to: url)
         }
         
