@@ -19,10 +19,10 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
     // MARK: - Private Properties
     private let processQueue = DispatchQueue(label: "downloadkit.cloudkit.process-queue",
                                              qos: .background)
-    private var fetchTimer: Timer? = nil
+    private var fetchWorkItem: DispatchWorkItem? = nil
     private var queuedItems: [CloudKitDownloadItem] = []
     
-    private let fetchThrottleTimeout: TimeInterval = 1.0
+    private let fetchThrottleTimeout: TimeInterval = 0.5
     
     // MARK: - Public Properties
     
@@ -73,23 +73,16 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
             self.queuedItems.append(item)
             // Schedule Fetch Timer, which will fetch some records.
             if self.throttlingProtectionEnabled {
-                self.fetchTimer?.invalidate()
+                self.fetchWorkItem?.cancel()
                 
-                let timer = Timer.scheduledTimer(withTimeInterval: self.fetchThrottleTimeout, repeats: false) { _ in
-                    
-                    // Schedule at the end of process queue to fetch
-                    self.processQueue.async {
-                        os_log(.info, log: self.log, "Fetch timer executed.")
-                        self.fetch()
-                    }
+                let workItem = DispatchWorkItem {
+                    os_log(.info, log: self.log, "Fetch timer executed.")
+                    self.fetch()
                 }
                 
-                self.fetchTimer = timer
+                self.processQueue.asyncAfter(deadline: .now() + self.fetchThrottleTimeout, execute: workItem)
                 
-                let runLoop = RunLoop.current
-                runLoop.add(timer, forMode: .default)
-                runLoop.run()
-                
+                self.fetchWorkItem = workItem
             }
             else {
                 // If no protection, fetch immediately!
