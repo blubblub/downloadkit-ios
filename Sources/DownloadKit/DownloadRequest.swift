@@ -28,20 +28,20 @@ public struct DownloadRequest: Identifiable, Equatable {
 /// Returns download selection to retry.
 public struct RetryDownloadRequest: Identifiable, Equatable {
     public var id : String {
-        return retryRequest.id
+        return originalRequest.id
     }
     
-    public var downloadable : Downloadable {
+    public var downloadable : Downloadable? {
         
-        var nextDownloadable = retryRequest.mirror.downloadable
+        var nextDownloadable = retryRequest?.mirror.downloadable
         
         // Increase priority after download fails, so the next attempt is prioritized higher and
         // not placed at the end of the download queue. We likely want this retry immediately.
-        nextDownloadable.priority += 10000
+        nextDownloadable?.priority += 10000
         
         return nextDownloadable
     }
     
-    public let retryRequest: DownloadRequest
+    public let retryRequest: DownloadRequest?
     public let originalRequest: DownloadRequest
 }

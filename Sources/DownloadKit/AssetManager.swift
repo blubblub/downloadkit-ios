@@ -271,8 +271,9 @@ extension AssetManager: DownloadQueueDelegate {
             processQueue.async {
                 self.metrics.downloadCompleted += 1
                 autoreleasepool {
-                    _ = self.cache.download(item, didFinishTo: tempLocation)
-                    self.completeProgress(item: item, with: nil)
+                    if let downloadRequest = self.cache.download(item, didFinishTo: tempLocation) {
+                        self.completeProgress(downloadRequest, item: item, with: nil)
+                    }
                 }
                 
                 os_log(.info, log: self.log, "[AssetManager]: Download finished: %@", item.description)
@@ -286,32 +287,29 @@ extension AssetManager: DownloadQueueDelegate {
     
     // Called when download had failed for any reason, including sessions being invalidated.
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFail item: Downloadable, with error: Error) {
+        let retryRequest = self.cache.download(item, didFailWith: error)
+        
         // Check if we should retry, cache will tell us based on it's internal mirror policy.
         // We cannot switch queues here, if it was put on lower priority, it should stay on lower priority.
-        if let retry = self.cache.download(item, didFailWith: error) {
+        if let retryRequest = retryRequest, let retry = retryRequest.retryRequest, let downloadable = retryRequest.downloadable {
             // Put it on the same queue.
             metrics.retried += 1
             
             observersQueue.async {
-                self.foreachObserver { $0.willRetryFailedDownload(retry.retryRequest, originalDownload: retry.originalRequest, with: error) }
+                self.foreachObserver { $0.willRetryFailedDownload(retry, originalDownload: retryRequest.originalRequest, with: error) }
             }
             
-            queue.download(retry.downloadable)
-        } else {
+            queue.download(downloadable)
+        } else if let originalRequest = retryRequest?.originalRequest {
             metrics.failed += 1
             
-            self.completeProgress(item: item, with: error)
+            self.completeProgress(originalRequest, item: item, with: error)
         }
         
         os_log(.info, log: log, "[AssetManager]: Metrics on download failed: %@", metrics.description)
     }
     
-    private func completeProgress(item: Downloadable, with error: Error?) {
-        guard let downloadRequest = cache.downloadRequest(for: item) else {
-            os_log(.error, log: log, "[AssetManager]: Completing progress for unknown item: %@", item.description)
-            return
-        }
-        
+    private func completeProgress(_ downloadRequest: DownloadRequest, item: Downloadable, with error: Error?) {
         if let completions = self.assetCompletions[downloadRequest.id] {
             for completion in completions {
                 completion(error == nil, downloadRequest.id)
