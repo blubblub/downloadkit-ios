@@ -18,11 +18,6 @@ public protocol AssetCacheable: AssetFileCacheable {
     ///   - assets: assets we're interested in.
     ///   - options: request options.
     func requestDownloads(assets: [AssetFile], options: RequestOptions) -> [DownloadRequest]
-        
-    /// Returns download selection for specific downloadable ID that has failed or completed.
-    /// - Parameter downloadable: downloadable
-    /// - Returns: DownloadRequest
-    func downloadRequest(for downloadable: Downloadable) -> DownloadRequest?
     
     /// Called after the download finishes successfully.
     /// - Parameters:

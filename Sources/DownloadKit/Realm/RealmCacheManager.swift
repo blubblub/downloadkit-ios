@@ -67,7 +67,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         }
         
         do {
-            let localAsset = try localCache.store(asset: downloadRequest.asset,
+            _ = try localCache.store(asset: downloadRequest.asset,
                                                   mirror: downloadRequest.mirror.mirror,
                                                   at: location,
                                                   options: downloadRequest.options)
@@ -82,10 +82,6 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
             
             return nil
         }
-    }
-    
-    public func downloadRequest(for downloadable: Downloadable) -> DownloadRequest? {
-        return downloadableMap[downloadable.identifier]
     }
     
     public func download(_ downloadable: Downloadable, didFailWith error: Error) -> RetryDownloadRequest? {
