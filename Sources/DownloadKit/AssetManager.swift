@@ -63,11 +63,14 @@ public struct AssetManagerMetrics {
     var priorityDecreased = 0
     var failed = 0
     var retried = 0
+    var bytesTransferred: Int64 = 0
 }
 
 extension AssetManagerMetrics : CustomStringConvertible {
     public var description: String {
-        return String(format: "Requested: %d Began: %d Completed: %d Priority Inc.: %d Priority Dec.: %d Failed: %d Retried: %d", requested, downloadBegan, downloadCompleted, priorityIncreased, priorityDecreased, failed, retried)
+        let formatter = ByteCountFormatter()
+        
+        return String(format: "Requested: %d Began: %d Completed: %d Priority Inc.: %d Priority Dec.: %d Failed: %d Retried: %d Transferred: %@", requested, downloadBegan, downloadCompleted, priorityIncreased, priorityDecreased, failed, retried, formatter.string(fromByteCount: bytesTransferred))
     }
 }
 
@@ -270,6 +273,8 @@ extension AssetManager: DownloadQueueDelegate {
             // Store the file to the cache
             processQueue.async {
                 self.metrics.downloadCompleted += 1
+                self.metrics.bytesTransferred += item.totalBytes
+                
                 autoreleasepool {
                     if let downloadRequest = self.cache.download(item, didFinishTo: tempLocation) {
                         self.completeProgress(downloadRequest, item: item, with: nil)
