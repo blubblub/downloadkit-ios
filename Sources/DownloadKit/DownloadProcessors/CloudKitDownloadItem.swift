@@ -34,6 +34,8 @@ public class CloudKitDownloadItem: Codable, Downloadable, CustomStringConvertibl
     
     public var assetFile: AssetMirrorSelection?
     
+    var didSendStartTransferNotification = false
+    
     // MARK: - Codable
     
     private enum CodingKeys: String, CodingKey {

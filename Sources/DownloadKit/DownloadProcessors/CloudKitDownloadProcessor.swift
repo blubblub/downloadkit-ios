@@ -7,47 +7,26 @@
 
 import CloudKit
 import Foundation
+import os
 
 public enum CloudKitError: Error {
     case noAssetData
     case noRecord
-    case throttled
-}
-
-private class Throttler {
-    var shouldThrottle = false
-    
-    var requestLimit = 10
-    
-    private var inFlight = 0
-    private var timer : Timer? = nil
-    
-    func ping() {
-        guard !shouldThrottle else {
-            return
-        }
-        
-        inFlight += 1
-        
-        timer?.invalidate()
-                
-        timer = Timer.scheduledTimer(timeInterval: 5.0, target: self, selector: #selector(self.reset), userInfo: nil, repeats: false);
-        
-        if inFlight >= requestLimit {
-            shouldThrottle = true
-        }
-    }
-    
-    func pong() {
-        inFlight -= 1
-    }
-    
-    @objc func reset() {
-        shouldThrottle = false
-    }
 }
 
 public class CloudKitDownloadProcessor: DownloadProcessor {
+    
+    // MARK: - Private Properties
+    private let processQueue = DispatchQueue(label: "downloadkit.cloudkit.process-queue",
+                                             qos: .background)
+    private var fetchTimer: Timer? = nil
+    private var queuedItems: [CloudKitDownloadItem] = []
+    
+    private let fetchThrottleTimeout: TimeInterval = 1.0
+    
+    // MARK: - Public Properties
+    
+    public var log = OSLog(subsystem: "org.blubblub.downloadkit.cloudkit", category: "CloudKitProcessor")
     
     public var database: CKDatabase
     
@@ -57,8 +36,7 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
     
     public weak var delegate: DownloadProcessorDelegate?
     
-    private let throttler = Throttler()
-    
+    // MARK: - Initialization
     convenience init() {
         self.init(database: CKContainer.default().publicCloudDatabase)
     }
@@ -71,6 +49,7 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
         self.database = database
     }
     
+    // MARK: - DownloadProcessor
     public func canProcess(item: Downloadable) -> Bool {
         return item is CloudKitDownloadItem && isActive
     }
@@ -83,32 +62,73 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
         }
         
         // Fetch CloudKit Record
-        guard let recordID = item.recordID else {
+        guard item.recordID != nil else {
             self.delegate?.downloadDidError(self, item: item, error: CloudKitError.noRecord)
             return
         }
         
-        // CloudKit starts limiting the amount of requests per second.
-        if throttler.shouldThrottle && throttlingProtectionEnabled {
-            self.delegate?.downloadDidError(self, item: item, error: CloudKitError.throttled)
+        processQueue.async {
+            os_log(.info, log: self.log, "Enqueued item: %@", item.identifier)
+            
+            self.queuedItems.append(item)
+            // Schedule Fetch Timer, which will fetch some records.
+            if self.throttlingProtectionEnabled {
+                self.fetchTimer?.invalidate()
+                
+                let timer = Timer.scheduledTimer(withTimeInterval: self.fetchThrottleTimeout, repeats: false) { _ in
+                    
+                    // Schedule at the end of process queue to fetch
+                    self.processQueue.async {
+                        os_log(.info, log: self.log, "Fetch timer executed.")
+                        self.fetch()
+                    }
+                }
+                
+                self.fetchTimer = timer
+                
+                let runLoop = RunLoop.current
+                runLoop.add(timer, forMode: .default)
+                runLoop.run()
+                
+            }
+            else {
+                // If no protection, fetch immediately!
+                self.fetch()
+            }
+        }
+    }
+    
+    // MARK: - Private Methods
+    private func fetch() {
+        
+        let currentItems = self.queuedItems
+        self.queuedItems.removeAll()
+        
+        guard currentItems.count > 0 else {
+            os_log(.error, log: self.log, "No items currently in queue. Why was I called?")
+            
             return
         }
         
-        if self.throttlingProtectionEnabled {
-            self.throttler.ping()
+        os_log(.info, log: self.log, "Downloading items in batch: %@", currentItems.map({ $0.identifier }).joined(separator: ", "))
+        
+        // Build map of current items.
+        var recordMap : [CKRecord.ID : CloudKitDownloadItem] = [:]
+        
+        for item in currentItems {
+            if let recordID = item.recordID {
+                recordMap[recordID] = item
+            }
         }
-                
-        self.delegate?.downloadDidBegin(self, item: item)
         
-        let fetchOperation = CKFetchRecordsOperation(recordIDs: [ recordID ])
-        
-        var didSendStartTransferNotification = false
+        let fetchOperation = CKFetchRecordsOperation(recordIDs: Array(recordMap.keys))
         
         fetchOperation.perRecordProgressBlock = { [weak self] recordID, progress in
             guard let self = self else { return }
+            guard let item = recordMap[recordID] else { return }
             
-            if !didSendStartTransferNotification {
-                didSendStartTransferNotification = true
+            if !item.didSendStartTransferNotification {
+                item.didSendStartTransferNotification = true
                 self.delegate?.downloadDidStartTransfer(self, item: item)
             }
             
@@ -117,14 +137,10 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
         }
         
         fetchOperation.perRecordCompletionBlock = { [weak self] record, recordID, error in
-            guard let self = self else { return }
+            guard let self = self, let recordID = recordID else { return }
+            guard let item = recordMap[recordID] else { return }
             
             item.finish()
-            
-            // Ping Throttler, so it knows about the request.
-            if self.throttlingProtectionEnabled {
-                self.throttler.pong()
-            }
             
             if let error = error {
                 self.delegate?.downloadDidError(self, item: item, error: error)
@@ -148,9 +164,13 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
             self.delegate?.downloadDidFinishTransfer(self, item: item, to: url)
         }
         
-        item.start(with: [:])
+        // Run all start and on delegate.
+        currentItems.forEach { item in
+            item.start(with: [:])
+            self.delegate?.downloadDidBegin(self, item: item)
+        }
         
-        database.add(fetchOperation)
+        self.database.add(fetchOperation)
     }
     
     public func pause() {
