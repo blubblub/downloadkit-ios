@@ -9,23 +9,15 @@ import Foundation
 import RealmSwift
 import os.log
 
-/// Hold references to downloads, so they can be properly handled.
-private struct DownloadSelection: Identifiable {
-    let id: String
-    let options: RequestOptions
-    let asset: AssetFile
-    var mirror: AssetMirrorSelection
-}
-
 public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFile {
-    
+        
     public var log: OSLog = logDK
     
     public var memoryCache: RealmMemoryCache<L>?
     public let localCache: RealmLocalCacheManager<L>
     public var mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()
     
-    private var downloadableMap = AtomicDictionary<String, DownloadSelection>()
+    private var downloadableMap = AtomicDictionary<String, DownloadRequest>()
     
     public init(configuration: Realm.Configuration,
                 mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()) {
@@ -42,29 +34,26 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         self.mirrorPolicy = mirrorPolicy
     }
     
-    public func requestDownloads(assets: [AssetFile], options: RequestOptions) -> [Downloadable] {
+    public func requestDownloads(assets: [AssetFile], options: RequestOptions) -> [DownloadRequest] {
         // Update storage for assets that exists.
         localCache.updateStorage(assets: assets, to: options.storagePriority)
         
         // Filter out binary and existing assets in local asset.
         let downloadableAssets = localCache.downloads(from: assets, options: options)
             
-        let downloadSelections: [DownloadSelection] = downloadableAssets.compactMap { asset in
+        let downloadRequests: [DownloadRequest] = downloadableAssets.compactMap { asset in
             guard let mirrorSelection = mirrorPolicy.mirror(for: asset, lastMirrorSelection: nil, error: nil) else {
                 return nil
             }
             
-            return DownloadSelection(id: asset.id,
-                                     options: options,
-                                     asset: asset,
-                                     mirror: mirrorSelection)
+            return DownloadRequest(asset: asset, options: options, mirror: mirrorSelection)
         }
         
-        downloadSelections.forEach {
-            downloadableMap[$0.mirror.downloadable.identifier] = $0
+        downloadRequests.forEach {
+            downloadableMap[$0.downloadableIdentifier] = $0
         }
         
-        return downloadSelections.map { $0.mirror.downloadable }
+        return downloadRequests
     }
     
     public func download(_ downloadable: Downloadable, didFinishTo location: URL) -> LocalAssetFile? {
@@ -72,19 +61,19 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
             downloadableMap[downloadable.identifier] = nil
         }
 
-        guard let downloadSelection = downloadableMap[downloadable.identifier] else {
+        guard let downloadRequest = downloadableMap[downloadable.identifier] else {
             os_log(.fault, log: log, "[RealmCacheManager]: NO-OP: Received a downloadable without asset information: %@", downloadable.description)
             return nil
         }
         
         do {
-            let localAsset = try localCache.store(asset: downloadSelection.asset,
-                                                  mirror: downloadSelection.mirror.mirror,
+            let localAsset = try localCache.store(asset: downloadRequest.asset,
+                                                  mirror: downloadRequest.mirror.mirror,
                                                   at: location,
-                                                  options: downloadSelection.options)
+                                                  options: downloadRequest.options)
             
             // Let mirror policy know that the download completed, so it can clean up after itself.
-            mirrorPolicy.downloadComplete(for: downloadSelection.asset)
+            mirrorPolicy.downloadComplete(for: downloadRequest.asset)
             
             return localAsset
         }
@@ -95,8 +84,13 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         }
     }
     
-    public func download(_ downloadable: Downloadable, didFailWith error: Error) -> Downloadable? {
-        guard var downloadSelection = downloadableMap[downloadable.identifier] else {
+    public func downloadRequest(for downloadable: Downloadable) -> DownloadRequest? {
+        return downloadableMap[downloadable.identifier]
+    }
+    
+    public func download(_ downloadable: Downloadable, didFailWith error: Error) -> RetryDownloadRequest? {
+
+        guard let downloadRequest = downloadableMap[downloadable.identifier] else {
             os_log(.fault, log: log, "[RealmCacheManager]: NO-OP: Received a downloadable without asset information: %@", downloadable.description)
             return nil
         }
@@ -104,8 +98,8 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         // Clear download selection for the identifier.
         downloadableMap[downloadable.identifier] = nil
         
-        guard let mirrorSelection = mirrorPolicy.mirror(for: downloadSelection.asset,
-                                                        lastMirrorSelection: downloadSelection.mirror,
+        guard let mirrorSelection = mirrorPolicy.mirror(for: downloadRequest.asset,
+                                                        lastMirrorSelection: downloadRequest.mirror,
                                                         error: error) else {
             os_log(.error, log: log, "[RealmCacheManager]: Download failed: %@ Error: %@",
                    downloadable.description, error.localizedDescription)
@@ -115,18 +109,12 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         
         os_log(.error, log: log, "[RealmCacheManager]: Retrying download of: %@ with: %@", downloadable.description, mirrorSelection.downloadable.description)
         
-        // Replace current mirror in download selection
-        downloadSelection.mirror = mirrorSelection
+        let retryDownloadRequest = DownloadRequest(asset: downloadRequest.asset, options: downloadRequest.options, mirror: mirrorSelection)
+        
         // Write it to downloadable map with new download selection
-        downloadableMap[downloadSelection.mirror.downloadable.identifier] = downloadSelection
+        downloadableMap[retryDownloadRequest.downloadableIdentifier] = retryDownloadRequest
 
-        var nextDownloadable = mirrorSelection.downloadable
-        
-        // Increase priority after download fails, so the next attempt is prioritized higher and
-        // not placed at the end of the download queue. We likely want this retry immediately.
-        nextDownloadable.priority += 10
-        
-        return nextDownloadable
+        return RetryDownloadRequest(retryRequest: retryDownloadRequest, originalRequest: downloadRequest)
     }
     
     public func cleanup(excluding urls: Set<URL>) {

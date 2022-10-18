@@ -17,7 +17,12 @@ public protocol AssetCacheable: AssetFileCacheable {
     /// - Parameters:
     ///   - assets: assets we're interested in.
     ///   - options: request options.
-    func requestDownloads(assets: [AssetFile], options: RequestOptions) -> [Downloadable]
+    func requestDownloads(assets: [AssetFile], options: RequestOptions) -> [DownloadRequest]
+        
+    /// Returns download selection for specific downloadable ID that has failed or completed.
+    /// - Parameter downloadable: downloadable
+    /// - Returns: DownloadRequest
+    func downloadRequest(for downloadable: Downloadable) -> DownloadRequest?
     
     /// Called after the download finishes successfully.
     /// - Parameters:
@@ -29,7 +34,9 @@ public protocol AssetCacheable: AssetFileCacheable {
     /// - Parameters:
     ///   - downloadable: item that failed
     ///   - error: error describing why the download failed.
-    func download(_ downloadable: Downloadable, didFailWith error: Error) -> Downloadable?
+    /// - Returns:
+    ///   - RetryDownloadRequest
+    func download(_ downloadable: Downloadable, didFailWith error: Error) -> RetryDownloadRequest?
     
     /// Cleans up cache.
     /// - Parameter urls: urls to ignore while clean up process.

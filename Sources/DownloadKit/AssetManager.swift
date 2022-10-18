@@ -11,8 +11,20 @@ import RealmSwift
 import os.log
 
 public protocol AssetManagerObserver: AnyObject {
-    func didFinishDownloading(assetId: String)
-    func didFailToDownload(assetId: String, with error: Error)
+    // Called when download is finished. The file is already downloaded.
+    func didFinishDownloading(_ download: DownloadRequest)
+    
+    // Called when file fails to download, but will no longer retry, as internal logic had completed.
+    func didFailToDownload(_ download: DownloadRequest, with error: Error)
+    
+    // Called when file download fails, but will still retry again with provided request.
+    func willRetryFailedDownload(_ download: DownloadRequest, originalDownload: DownloadRequest, with error: Error)
+}
+
+public extension AssetManagerObserver {
+    func willRetryFailedDownload(_ download: DownloadRequest, originalDownload: DownloadRequest, with error: Error) {
+        
+    }
 }
 
 /// Completion block, having success flag and item identifier
@@ -124,12 +136,12 @@ public class AssetManager {
     }
     
     @discardableResult
-    public func request(assets: [AssetFile]) -> [Downloadable] {
+    public func request(assets: [AssetFile]) -> [DownloadRequest] {
         return request(assets: assets, options: RequestOptions())
     }
     
     @discardableResult
-    public func request(assets: [AssetFile], options: RequestOptions) -> [Downloadable] {
+    public func request(assets: [AssetFile], options: RequestOptions) -> [DownloadRequest] {
         
         let uniqueAssets = assets.unique(\.id)
         
@@ -148,7 +160,7 @@ public class AssetManager {
         
         // We need to filter the downloads that are in progress, since there's not much we will do
         // in that case. For those that are in queue, we might move them to a higher priority queue.
-        let finalDownloads = downloads.filter { !isDownloading(for: $0.identifier) }
+        let finalDownloads = downloads.filter { !isDownloading(for: $0.downloadableIdentifier) }
         
         if let priorityQueue = priorityQueue, options.downloadPriority == .high {
             // Move current priority queued downloads back to normal queue, because we have
@@ -167,22 +179,22 @@ public class AssetManager {
             
             downloadQueue.download(currentPriorityDownloads)
             
-            priorityQueue.download(finalDownloads)
+            priorityQueue.download(finalDownloads.map(\.mirror.downloadable))
             
             // If those downloads are on download queue and were now moved to priority,
             // we need to cancel them on download, so we do not download them twice.
-            let normalQueuedDownloads = finalDownloads.filter { downloadQueue.hasItem(with: $0.identifier) }
+            let normalQueuedDownloads = finalDownloads.filter { downloadQueue.hasItem(with: $0.downloadableIdentifier) }
             
-            downloadQueue.cancel(items: normalQueuedDownloads)
+            downloadQueue.cancel(items: normalQueuedDownloads.map(\.mirror.downloadable))
             
-            os_log(.info, log: log, "Reprioritising assets: %@", finalDownloads.map({ $0.identifier }).joined(separator: ", "))
+            os_log(.info, log: log, "Reprioritising assets: %@", finalDownloads.map({ $0.downloadableIdentifier }).joined(separator: ", "))
         }
         else {
-            downloadQueue.download(finalDownloads)
+            downloadQueue.download(finalDownloads.map(\.mirror.downloadable))
         }
         
         // Add downloads to monitor progresses.
-        progress.add(downloadItems: finalDownloads)
+        progress.add(downloadItems: finalDownloads.map(\.mirror.downloadable))
         
         os_log(.info, log: log, "[AssetManager]: Metrics on request: %@", metrics.description)
         
@@ -255,7 +267,7 @@ extension AssetManager: DownloadQueueDelegate {
             let tempLocation = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + "-download.tmp")
             try FileManager.default.moveItem(at: location, to: tempLocation)
             
-            // store the file to the cache
+            // Store the file to the cache
             processQueue.async {
                 self.metrics.downloadCompleted += 1
                 autoreleasepool {
@@ -263,10 +275,12 @@ extension AssetManager: DownloadQueueDelegate {
                     self.completeProgress(item: item, with: nil)
                 }
                 
+                os_log(.info, log: self.log, "[AssetManager]: Download finished: %@", item.description)
+                
                 os_log(.info, log: self.log, "[AssetManager]: Metrics on download finished: %@", self.metrics.description)
             }
         } catch {
-            os_log(.error, log: log, "Error moving temporary file: %@", error.localizedDescription)
+            os_log(.error, log: log, "[AssetManager]: Error moving temporary file: %@", error.localizedDescription)
         }
     }
     
@@ -274,11 +288,15 @@ extension AssetManager: DownloadQueueDelegate {
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFail item: Downloadable, with error: Error) {
         // Check if we should retry, cache will tell us based on it's internal mirror policy.
         // We cannot switch queues here, if it was put on lower priority, it should stay on lower priority.
-        if let retryItem = self.cache.download(item, didFailWith: error) {
+        if let retry = self.cache.download(item, didFailWith: error) {
             // Put it on the same queue.
             metrics.retried += 1
             
-            queue.download(retryItem)
+            observersQueue.async {
+                self.foreachObserver { $0.willRetryFailedDownload(retry.retryRequest, originalDownload: retry.originalRequest, with: error) }
+            }
+            
+            queue.download(retry.downloadable)
         } else {
             metrics.failed += 1
             
@@ -289,19 +307,24 @@ extension AssetManager: DownloadQueueDelegate {
     }
     
     private func completeProgress(item: Downloadable, with error: Error?) {
-        if let completions = self.assetCompletions[item.identifier] {
+        guard let downloadRequest = cache.downloadRequest(for: item) else {
+            os_log(.error, log: log, "[AssetManager]: Completing progress for unknown item: %@", item.description)
+            return
+        }
+        
+        if let completions = self.assetCompletions[downloadRequest.id] {
             for completion in completions {
-                completion(error == nil, item.identifier)
+                completion(error == nil, downloadRequest.id)
             }
             
-            removeAssetCompletion(for: item.identifier)
+            removeAssetCompletion(for: downloadRequest.id)
         }
         
         observersQueue.async {
             if let error = error {
-                self.foreachObserver { $0.didFailToDownload(assetId: item.identifier, with: error) }
+                self.foreachObserver { $0.didFailToDownload(downloadRequest, with: error) }
             } else {
-                self.foreachObserver { $0.didFinishDownloading(assetId: item.identifier) }
+                self.foreachObserver { $0.didFinishDownloading(downloadRequest) }
             }
         }
         
