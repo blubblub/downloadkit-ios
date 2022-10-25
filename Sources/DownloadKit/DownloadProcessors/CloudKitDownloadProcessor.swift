@@ -127,6 +127,9 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
             
             // Progress report
             item.update(progress: progress)
+            
+            // Update delegate
+            self.delegate?.downloadDidTransferData(self, item: item)
         }
         
         fetchOperation.perRecordCompletionBlock = { [weak self] record, recordID, error in
