@@ -14,7 +14,15 @@ public protocol DownloadQueueDelegate: AnyObject {
     /// - Parameters:
     ///   - queue: queue on which the item was enqueued.
     ///   - item: item that started downloading.
+    ///   - processor: processor that is processing download.
     func downloadQueue(_ queue: DownloadQueue, downloadDidStart item: Downloadable, with processor: DownloadProcessor)
+    
+    /// Called when download item transfers data.
+    /// - Parameters:
+    ///   - queue: queue on which the item was enqueued.
+    ///   - item: item that transferred data.
+    ///   - processor: processor that is processing download.
+    func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData item: Downloadable, using processor: DownloadProcessor)
     
     /// Called when the download item finishes downloading. URL is provided as a parameter.
     /// - Parameters:
@@ -326,6 +334,9 @@ public class DownloadQueue: DownloadQueuable {
 }
 
 extension DownloadQueue: DownloadProcessorDelegate {
+    public func downloadDidTransferData(_ processor: DownloadProcessor, item: Downloadable) {
+        self.delegate?.downloadQueue(self, downloadDidTransferData: item, using: processor)
+    }
 
     public func downloadDidBegin(_ processor: DownloadProcessor, item: Downloadable) {
         processQueue.async(flags: .barrier) {
