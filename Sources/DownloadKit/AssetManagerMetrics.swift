@@ -33,13 +33,15 @@ public class AssetManagerMetrics {
     /// - Parameters:
     ///   - item: downloadable
     ///   - isFinished: if item finished downloading
-    func updateDownloadSpeed(item: Downloadable, isFinished: Bool) {
+    public func updateDownloadSpeed(item: Downloadable? = nil) {
         
-        if startBytesMap[item.identifier] == nil {
-            startBytesMap[item.identifier] = item.transferredBytes
+        if let item = item {
+            if startBytesMap[item.identifier] == nil {
+                startBytesMap[item.identifier] = item.transferredBytes
+            }
+            
+            currentBytesMap[item.identifier] = item.transferredBytes
         }
-        
-        currentBytesMap[item.identifier] = item.transferredBytes
         
         if let downloadSpeed = calculateDownloadSpeed(lastUpdateDate: updateDate) {
             downloadSpeedBytes = downloadSpeed

@@ -265,7 +265,7 @@ extension AssetManager: DownloadQueueDelegate {
     
     public func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData item: Downloadable, using processor: DownloadProcessor) {
         
-        self.metrics.updateDownloadSpeed(item: item, isFinished: true)
+        self.metrics.updateDownloadSpeed(item: item)
     }
             
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFinish item: Downloadable, to location: URL) {
@@ -278,7 +278,7 @@ extension AssetManager: DownloadQueueDelegate {
             processQueue.async {
                 self.metrics.downloadCompleted += 1
                 self.metrics.bytesTransferred += item.totalBytes
-                self.metrics.updateDownloadSpeed(item: item, isFinished: true)
+                self.metrics.updateDownloadSpeed(item: item)
                 
                 autoreleasepool {
                     if let downloadRequest = self.cache.download(item, didFinishTo: tempLocation) {
@@ -303,7 +303,7 @@ extension AssetManager: DownloadQueueDelegate {
         // We cannot switch queues here, if it was put on lower priority, it should stay on lower priority.
         if let retryRequest = retryRequest, let retry = retryRequest.retryRequest, let downloadable = retryRequest.downloadable {
             metrics.retried += 1
-            metrics.updateDownloadSpeed(item: item, isFinished: true)
+            metrics.updateDownloadSpeed(item: item)
             
             // Put it on the same queue.
             observersQueue.async {
