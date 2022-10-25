@@ -274,6 +274,14 @@ public class AssetManager {
 // MARK: - DownloadQueueDelegate
 
 extension AssetManager: DownloadQueueDelegate {
+    public func downloadQueue(_ queue: DownloadQueue, downloadDidStart item: Downloadable, with processor: DownloadProcessor) {
+        guard let downloadRequest = cache.downloadRequest(for: item) else {
+            return
+        }
+        
+        self.foreachObserver { $0.didStartDownloading(downloadRequest) }
+    }
+        
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFinish item: Downloadable, to location: URL) {
         do {
             // Move the file to a temporary location, otherwise it gets removed by the system immediately after this function completes

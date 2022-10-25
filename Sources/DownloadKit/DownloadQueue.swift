@@ -10,6 +10,12 @@ import Foundation
 import os.log
 
 public protocol DownloadQueueDelegate: AnyObject {
+    /// Called when download item starts downloading.
+    /// - Parameters:
+    ///   - queue: queue on which the item was enqueued.
+    ///   - item: item that started downloading.
+    func downloadQueue(_ queue: DownloadQueue, downloadDidStart item: Downloadable, with processor: DownloadProcessor)
+    
     /// Called when the download item finishes downloading. URL is provided as a parameter.
     /// - Parameters:
     ///   - queue: queue on which the item was downloaded.
@@ -300,6 +306,8 @@ public class DownloadQueue: DownloadQueuable {
             self.progressDownloadMap[item.identifier] = item
             processor.process(item)
             
+            self.delegate?.downloadQueue(self, downloadDidStart: item, with: processor)
+                        
             self.notificationCenter.post(name: DownloadQueue.downloadDidStartNotification, object: item)
         }
         else {

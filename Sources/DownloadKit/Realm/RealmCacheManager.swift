@@ -10,6 +10,7 @@ import RealmSwift
 import os.log
 
 public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFile {
+    
         
     public var log: OSLog = logDK
     
@@ -34,6 +35,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         self.mirrorPolicy = mirrorPolicy
     }
     
+    // MARK: - AssetCachable
     public func requestDownloads(assets: [AssetFile], options: RequestOptions) -> [DownloadRequest] {
         // Update storage for assets that exists.
         localCache.updateStorage(assets: assets, to: options.storagePriority)
@@ -54,6 +56,10 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         }
         
         return downloadRequests
+    }
+    
+    public func downloadRequest(for downloadable: Downloadable) -> DownloadRequest? {
+        return downloadableMap[downloadable.identifier]
     }
     
     public func download(_ downloadable: Downloadable, didFinishTo location: URL) -> DownloadRequest? {
