@@ -39,6 +39,9 @@ open class WebDownloadItem: Codable, Downloadable, CustomStringConvertible {
     /// Total bytes, if known ahead of time.
     public var totalSize: Int64 = 0
     
+    /// Bytes already transferred.
+    public var transferredBytes: Int64 = 0
+    
     /// Download start date
     public var startDate: Date?
     
@@ -148,6 +151,8 @@ open class WebDownloadItem: Codable, Downloadable, CustomStringConvertible {
             itemProgress = Foundation.Progress(totalUnitCount: totalBytesExpectedToWrite + 1)
             totalBytes = totalBytesExpectedToWrite
         }
+        
+        transferredBytes = totalBytesWritten
         
         guard let itemProgress = itemProgress else {
             return

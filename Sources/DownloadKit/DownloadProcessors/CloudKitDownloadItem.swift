@@ -26,6 +26,9 @@ public class CloudKitDownloadItem: Codable, Downloadable, CustomStringConvertibl
     /// Total bytes, if known ahead of time.
     public var totalSize: Int64 = 0
     
+    /// Bytes already transferred.
+    public var transferredBytes: Int64 = 0
+    
     /// Download start date
     public var startDate: Date?
     
@@ -99,6 +102,13 @@ public class CloudKitDownloadItem: Codable, Downloadable, CustomStringConvertibl
         
         guard let itemProgress = itemProgress else {
             return
+        }
+        
+        // Update transferred bytes.
+        transferredBytes = Int64(Double(totalSize) * progress)
+        
+        if progress >= 1.0 {
+            transferredBytes = totalSize
         }
         
         let completedUnitCount = Int64(Double(itemProgress.totalUnitCount) * progress)
