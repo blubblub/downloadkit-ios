@@ -63,26 +63,6 @@ public struct RequestOptions {
     }
 }
 
-public struct AssetManagerMetrics {
-    public var requested = 0
-    public var downloadBegan = 0
-    public var downloadCompleted = 0
-    public var priorityIncreased = 0
-    public var priorityDecreased = 0
-    public var failed = 0
-    public var retried = 0
-    
-    public var bytesTransferred: Int64 = 0
-    public var downloadSpeedBytes: Int64 = 0
-}
-
-extension AssetManagerMetrics : CustomStringConvertible {
-    public var description: String {
-        let formatter = ByteCountFormatter()
-        
-        return String(format: "Requested: %d Began: %d Completed: %d Priority Inc.: %d Priority Dec.: %d Failed: %d Retried: %d Transferred: %@", requested, downloadBegan, downloadCompleted, priorityIncreased, priorityDecreased, failed, retried, formatter.string(fromByteCount: bytesTransferred))
-    }
-}
 
 /// Public API for Asset Manager. Combines all the smaller pieces of the API.
 /// Generally you should only use this API, aside from setting up the system.
@@ -285,6 +265,7 @@ extension AssetManager: DownloadQueueDelegate {
     
     public func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData item: Downloadable, using processor: DownloadProcessor) {
         
+        self.metrics.updateDownloadSpeed(item: item, isFinished: true)
     }
             
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFinish item: Downloadable, to location: URL) {
@@ -297,6 +278,7 @@ extension AssetManager: DownloadQueueDelegate {
             processQueue.async {
                 self.metrics.downloadCompleted += 1
                 self.metrics.bytesTransferred += item.totalBytes
+                self.metrics.updateDownloadSpeed(item: item, isFinished: true)
                 
                 autoreleasepool {
                     if let downloadRequest = self.cache.download(item, didFinishTo: tempLocation) {
@@ -320,9 +302,10 @@ extension AssetManager: DownloadQueueDelegate {
         // Check if we should retry, cache will tell us based on it's internal mirror policy.
         // We cannot switch queues here, if it was put on lower priority, it should stay on lower priority.
         if let retryRequest = retryRequest, let retry = retryRequest.retryRequest, let downloadable = retryRequest.downloadable {
-            // Put it on the same queue.
             metrics.retried += 1
+            metrics.updateDownloadSpeed(item: item, isFinished: true)
             
+            // Put it on the same queue.
             observersQueue.async {
                 self.foreachObserver { $0.willRetryFailedDownload(retry, originalDownload: retryRequest.originalRequest, with: error) }
             }
