@@ -11,6 +11,9 @@ import RealmSwift
 import os.log
 
 public protocol AssetManagerObserver: AnyObject {
+    // Called when certain download starts downloading
+    func didStartDownloading(_ download: DownloadRequest)
+    
     // Called when download is finished. The file is already downloaded.
     func didFinishDownloading(_ download: DownloadRequest)
     
@@ -21,7 +24,12 @@ public protocol AssetManagerObserver: AnyObject {
     func willRetryFailedDownload(_ download: DownloadRequest, originalDownload: DownloadRequest, with error: Error)
 }
 
+/// Optional observer parameters
 public extension AssetManagerObserver {
+    func didStartDownloading(_ download: DownloadRequest) {
+        
+    }
+    
     func willRetryFailedDownload(_ download: DownloadRequest, originalDownload: DownloadRequest, with error: Error) {
         
     }
@@ -56,14 +64,16 @@ public struct RequestOptions {
 }
 
 public struct AssetManagerMetrics {
-    var requested = 0
-    var downloadBegan = 0
-    var downloadCompleted = 0
-    var priorityIncreased = 0
-    var priorityDecreased = 0
-    var failed = 0
-    var retried = 0
-    var bytesTransferred: Int64 = 0
+    public var requested = 0
+    public var downloadBegan = 0
+    public var downloadCompleted = 0
+    public var priorityIncreased = 0
+    public var priorityDecreased = 0
+    public var failed = 0
+    public var retried = 0
+    
+    public var bytesTransferred: Int64 = 0
+    public var downloadSpeedBytes: Int64 = 0
 }
 
 extension AssetManagerMetrics : CustomStringConvertible {
