@@ -111,7 +111,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                             localAsset.fileURL = targetURL
                             localAsset.storage = priority
                         } catch {
-                            os_log(.error, log: log, "[RealmLocalCacheManager]: Error moving file from: %@ to %@", localURL.absoluteString, targetURL.absoluteString)
+                            os_log(.error, log: log, "[RealmLocalCacheManager]: Error %@ moving file from: %@ to %@", error.localizedDescription, localURL.absoluteString, targetURL.absoluteString)
                         }
                     }
                 }
