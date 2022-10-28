@@ -102,9 +102,13 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                         let targetURL = L.targetUrl(for: asset, mirror: asset.main, // main mirror here?
                                                     at: localURL,
                                                     storagePriority: priority, file: file)
-                        
+                        let directoryURL = targetURL.deletingLastPathComponent()
+                                                
                         do {
-                            try file.createDirectory(at: targetURL, withIntermediateDirectories: true)
+                            if !file.fileExists(atPath: directoryURL.path) {
+                                try file.createDirectory(atPath: directoryURL.path, withIntermediateDirectories: true)
+                            }
+                            
                             // move to new location
                             try file.moveItem(at: localURL, to: targetURL)
                             
