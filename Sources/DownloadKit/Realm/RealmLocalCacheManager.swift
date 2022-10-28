@@ -104,6 +104,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                                                     storagePriority: priority, file: file)
                         
                         do {
+                            try file.createDirectory(at: targetURL, withIntermediateDirectories: true)
                             // move to new location
                             try file.moveItem(at: localURL, to: targetURL)
                             
