@@ -42,7 +42,9 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         
         // Filter out binary and existing assets in local asset.
         let downloadableAssets = localCache.downloads(from: assets, options: options)
-            
+        
+        os_log(.info, log: log, "Downloading from cache asset count: %d", downloadableAssets.count)
+        
         let downloadRequests: [DownloadRequest] = downloadableAssets.compactMap { asset in
             guard let mirrorSelection = mirrorPolicy.mirror(for: asset, lastMirrorSelection: nil, error: nil) else {
                 return nil

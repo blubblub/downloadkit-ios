@@ -9,6 +9,13 @@ import Foundation
 import os.log
 import RealmSwift
 
+public class RLMCounter {
+    static let shared = RLMCounter()
+    
+    var moveCount = 0
+    var downloadCount = 0
+}
+
 public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     public var file = FileManager.default
     public var log: OSLog = logDK
@@ -50,6 +57,8 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         
         let directoryUrl = targetUrl.deletingLastPathComponent()
         
+        RLMCounter.shared.downloadCount += 1
+        
         let filename = targetUrl.lastPathComponent
         
         // Create directory and intermediate directories if it does not exist.
@@ -77,6 +86,10 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         try realm.write {
             realm.add(localAsset, update: .modified)
         }
+        
+        RLMCounter.shared.moveCount += 1
+        
+        print("RLMCOUNTER: FINAL URL: \(finalFileUrl)")
         
         return localAsset
     }
@@ -144,9 +157,6 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
             
             // Get assets that need to be downloaded.
             let downloadableAssets = assets.filter { item in
-                if shouldDownload?(item, options) == false {
-                    return false
-                }
                 
                 // No local asset, let's download.
                 guard let asset = realm.object(ofType: L.self, forPrimaryKey: item.id) else {
@@ -163,11 +173,8 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                     return fileModifyDate > localModifyDate
                 }
                 
-                // We have local fileURL, no need to download
-                if asset.fileURL != nil {
-                    return false
-                }
-
+                print("HOW DO I HAVE THIS FILE: \(asset)")
+                
                 return shouldDownload?(item, options) ?? false
             }
          

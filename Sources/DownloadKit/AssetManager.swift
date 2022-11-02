@@ -138,14 +138,13 @@ public class AssetManager {
         
         let uniqueAssets = assets.unique(\.id)
         
-        os_log(.info, log: log, "Requested assets: %@", uniqueAssets.map({ $0.id }).joined(separator: ", "))
-        
         // Grab Assets we need from file manager, filtering out those that are already downloaded.
         let downloads = cache.requestDownloads(assets: uniqueAssets, options: options)
         
         metrics.requested += uniqueAssets.count
-        metrics.downloadBegan += downloads.count
-        
+                
+        os_log(.info, log: log, "Requested unique asset count: %d Downloads: %d", uniqueAssets.count, downloads.count)
+                
         guard downloads.count > 0 else {
             os_log(.info, log: log, "[AssetManager]: Metrics on no downloads: %@", metrics.description)
             return []
@@ -154,6 +153,10 @@ public class AssetManager {
         // We need to filter the downloads that are in progress, since there's not much we will do
         // in that case. For those that are in queue, we might move them to a higher priority queue.
         let finalDownloads = downloads.filter { !isDownloading(for: $0.downloadableIdentifier) }
+        
+        if downloads.count != finalDownloads.count {
+            os_log(.error, log: log, "[AssetManager]: Final downloads mismatch: %d %d", downloads.count, finalDownloads.count)
+        }
         
         if let priorityQueue = priorityQueue, options.downloadPriority == .high {
             // Move current priority queued downloads back to normal queue, because we have
@@ -258,6 +261,10 @@ extension AssetManager: DownloadQueueDelegate {
     public func downloadQueue(_ queue: DownloadQueue, downloadDidStart item: Downloadable, with processor: DownloadProcessor) {
         guard let downloadRequest = cache.downloadRequest(for: item) else {
             return
+        }
+        
+        processQueue.async {
+            self.metrics.downloadBegan += 1
         }
         
         self.foreachObserver { $0.didStartDownloading(downloadRequest) }
