@@ -44,17 +44,17 @@ public enum DownloadPriority {
 }
 
 public enum StoragePriority: String {
+    /// Cache Manager should permanently store the file. This should be used for offline mode.
+    case permanent
+    
     /// Cache Manager should place the file in temporary folder. Once system clears the folder
     /// due to space constraints, it will have to be redownloaded.
     case cached
-    
-    /// Cache Manager should permanently store the file. This should be used for offline mode.
-    case permanent
 }
 
 public struct RequestOptions {
-    var downloadPriority: DownloadPriority = .normal
-    var storagePriority: StoragePriority = .cached
+    public var downloadPriority: DownloadPriority = .normal
+    public var storagePriority: StoragePriority = .cached
     
     public init(downloadPriority: DownloadPriority = .normal,
                 storagePriority: StoragePriority = .cached) {
@@ -317,11 +317,18 @@ extension AssetManager: DownloadQueueDelegate {
                 self.foreachObserver { $0.willRetryFailedDownload(retry, originalDownload: retryRequest.originalRequest, with: error) }
             }
             
+            os_log(.error, log: log, "[AssetManager]: Download failed, retrying: %@ Error: %@", item.identifier, error.localizedDescription)
+            
             queue.download(downloadable)
         } else if let originalRequest = retryRequest?.originalRequest {
             metrics.failed += 1
             
+            os_log(.error, log: log, "[AssetManager]: Download failed, done: %@ Error: %@", item.identifier, error.localizedDescription)
+                
             self.completeProgress(originalRequest, item: item, with: error)
+        }
+        else {
+            os_log(.error, log: log, "[AssetManager]: Download failed, unknown: %@ Error: %@", item.identifier, error.localizedDescription)
         }
         
         os_log(.info, log: log, "[AssetManager]: Metrics on download failed: %@", metrics.description)

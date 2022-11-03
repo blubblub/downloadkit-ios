@@ -70,16 +70,14 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
             // Emit unable to generate valid local url, because of too many duplicates.
             throw NSError(domain: "org.blubblub.downloadkit", code: 1001, userInfo: [NSLocalizedDescriptionKey: "Unable to generate local path, file already exists."])
         }
-        
+                
         // Update local path from finalFileUrl back to task, so it can be correctly saved.
         try file.moveItem(at: url, to: finalFileUrl)
         
-        if options.storagePriority == .cached {
-            var resourceValues = URLResourceValues()
-            resourceValues.isExcludedFromBackup = excludeFilesFromBackup
-            
-            try finalFileUrl.setResourceValues(resourceValues)
-        }
+        var resourceValues = URLResourceValues()
+        resourceValues.isExcludedFromBackup = excludeFilesFromBackup
+        
+        try finalFileUrl.setResourceValues(resourceValues)
         
         // Store file into Realm
         let localAsset = self.createLocalAsset(for: asset, url: finalFileUrl)
@@ -126,7 +124,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                             
                             // move to new location
                             try file.moveItem(at: localURL, to: targetURL)
-                            
+                                                        
                             // update fileURL with new location and storage
                             localAsset.fileURL = targetURL
                             localAsset.storage = priority
