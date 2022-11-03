@@ -74,10 +74,12 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         // Update local path from finalFileUrl back to task, so it can be correctly saved.
         try file.moveItem(at: url, to: finalFileUrl)
         
-        var resourceValues = URLResourceValues()
-        resourceValues.isExcludedFromBackup = excludeFilesFromBackup
-        
-        try finalFileUrl.setResourceValues(resourceValues)
+        if options.storagePriority == .cached {
+            var resourceValues = URLResourceValues()
+            resourceValues.isExcludedFromBackup = excludeFilesFromBackup
+            
+            try finalFileUrl.setResourceValues(resourceValues)
+        }
         
         // Store file into Realm
         let localAsset = self.createLocalAsset(for: asset, url: finalFileUrl)
@@ -154,17 +156,16 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
             guard let realm = try? self.realm else {
                 return []
             }
-            
+                        
             // Get assets that need to be downloaded.
             let downloadableAssets = assets.filter { item in
                 
-                // No local asset, let's download.
-                guard let asset = realm.object(ofType: L.self, forPrimaryKey: item.id) else {
-                    return true
+                if let shouldDownload = shouldDownload {
+                    return shouldDownload(item, options)
                 }
                 
-                // There is no local file URL, we should download it.
-                if asset.fileURL == nil {
+                // No local asset, let's download.
+                guard let asset = realm.object(ofType: L.self, forPrimaryKey: item.id), asset.fileURL != nil else {
                     return true
                 }
                             
@@ -173,9 +174,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                     return fileModifyDate > localModifyDate
                 }
                 
-                print("HOW DO I HAVE THIS FILE: \(asset)")
-                
-                return shouldDownload?(item, options) ?? false
+                return false
             }
          
             return downloadableAssets
