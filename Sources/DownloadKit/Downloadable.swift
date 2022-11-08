@@ -31,6 +31,9 @@ public protocol Downloadable: CustomStringConvertible {
     /// Total bytes, if known ahead of time.
     var totalSize: Int64 { get }
     
+    /// Bytes already transferred.
+    var transferredBytes: Int64 { get }
+    
     /// Download start date, empty if in queue.
     var startDate: Date? { get }
     

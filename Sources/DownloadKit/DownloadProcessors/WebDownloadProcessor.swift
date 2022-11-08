@@ -195,6 +195,8 @@ extension WebDownloadProcessor: URLSessionDownloadDelegate {
         if totalBytesWritten > 0 && shouldSendStartTransferNotification {
             delegate?.downloadDidStartTransfer(self, item: item)
         }
+        
+        delegate?.downloadDidTransferData(self, item: item)
     }
     
     public func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {

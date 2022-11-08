@@ -37,4 +37,8 @@ class AtomicDictionary<Key: Hashable, Value>: CustomDebugStringConvertible {
     public var debugDescription: String {
         return store.debugDescription
     }
+    
+    public func removeAll() {
+        return queue.sync { store.removeAll() }
+    }
 }

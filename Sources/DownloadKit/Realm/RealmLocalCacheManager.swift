@@ -61,7 +61,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
             // Emit unable to generate valid local url, because of too many duplicates.
             throw NSError(domain: "org.blubblub.downloadkit", code: 1001, userInfo: [NSLocalizedDescriptionKey: "Unable to generate local path, file already exists."])
         }
-        
+                
         // Update local path from finalFileUrl back to task, so it can be correctly saved.
         try file.moveItem(at: url, to: finalFileUrl)
         
@@ -77,6 +77,8 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         try realm.write {
             realm.add(localAsset, update: .modified)
         }
+        
+        os_log(.info, log: log, "[RealmLocalCacheManager]: Stored: %@ at: %@", asset.id, finalFileUrl.absoluteString)
         
         return localAsset
     }
@@ -102,16 +104,23 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                         let targetURL = L.targetUrl(for: asset, mirror: asset.main, // main mirror here?
                                                     at: localURL,
                                                     storagePriority: priority, file: file)
-                        
+                        let directoryURL = targetURL.deletingLastPathComponent()
+                                                
                         do {
+                            if !file.fileExists(atPath: directoryURL.path) {
+                                try file.createDirectory(atPath: directoryURL.path, withIntermediateDirectories: true)
+                            }
+                            
                             // move to new location
                             try file.moveItem(at: localURL, to: targetURL)
-                            
+                                                        
                             // update fileURL with new location and storage
                             localAsset.fileURL = targetURL
                             localAsset.storage = priority
+                            
+                            os_log(.info, log: log, "[RealmLocalCacheManager]: Moved %@ from to %@", localURL.absoluteString, targetURL.absoluteString)
                         } catch {
-                            os_log(.error, log: log, "[RealmLocalCacheManager]: Error moving file from: %@ to %@", localURL.absoluteString, targetURL.absoluteString)
+                            os_log(.error, log: log, "[RealmLocalCacheManager]: Error %@ moving file from: %@ to %@", error.localizedDescription, localURL.absoluteString, targetURL.absoluteString)
                         }
                     }
                 }
@@ -136,20 +145,16 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
             guard let realm = try? self.realm else {
                 return []
             }
-            
+                        
             // Get assets that need to be downloaded.
             let downloadableAssets = assets.filter { item in
-                if shouldDownload?(item, options) == false {
-                    return false
+                
+                if let shouldDownload = shouldDownload {
+                    return shouldDownload(item, options)
                 }
                 
                 // No local asset, let's download.
-                guard let asset = realm.object(ofType: L.self, forPrimaryKey: item.id) else {
-                    return true
-                }
-                
-                // There is no local file URL, we should download it.
-                if asset.fileURL == nil {
+                guard let asset = realm.object(ofType: L.self, forPrimaryKey: item.id), asset.fileURL != nil else {
                     return true
                 }
                             
@@ -158,12 +163,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                     return fileModifyDate > localModifyDate
                 }
                 
-                // We have local fileURL, no need to download
-                if asset.fileURL != nil {
-                    return false
-                }
-
-                return shouldDownload?(item, options) ?? false
+                return false
             }
          
             return downloadableAssets
