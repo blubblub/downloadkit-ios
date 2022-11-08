@@ -9,13 +9,6 @@ import Foundation
 import os.log
 import RealmSwift
 
-public class RLMCounter {
-    static let shared = RLMCounter()
-    
-    var moveCount = 0
-    var downloadCount = 0
-}
-
 public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     public var file = FileManager.default
     public var log: OSLog = logDK
@@ -57,8 +50,6 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         
         let directoryUrl = targetUrl.deletingLastPathComponent()
         
-        RLMCounter.shared.downloadCount += 1
-        
         let filename = targetUrl.lastPathComponent
         
         // Create directory and intermediate directories if it does not exist.
@@ -87,9 +78,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
             realm.add(localAsset, update: .modified)
         }
         
-        RLMCounter.shared.moveCount += 1
-        
-        print("RLMCOUNTER: FINAL URL: \(finalFileUrl)")
+        os_log(.info, log: log, "[RealmLocalCacheManager]: Stored: %@ at: %@", asset.id, finalFileUrl.absoluteString)
         
         return localAsset
     }
