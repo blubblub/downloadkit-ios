@@ -128,6 +128,8 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                             // update fileURL with new location and storage
                             localAsset.fileURL = targetURL
                             localAsset.storage = priority
+                            
+                            os_log(.info, log: log, "[RealmLocalCacheManager]: Moved %@ from to %@", localURL.absoluteString, targetURL.absoluteString)
                         } catch {
                             os_log(.error, log: log, "[RealmLocalCacheManager]: Error %@ moving file from: %@ to %@", error.localizedDescription, localURL.absoluteString, targetURL.absoluteString)
                         }
