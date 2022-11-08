@@ -10,12 +10,14 @@ import Foundation
 
 /// Measured metrics on AssetManager
 public class AssetManagerMetrics {
+    private let syncQueue = DispatchQueue(label: "org.blubblub.asset.manager.metrics.queue")
+    
     // MARK: - Private Properties
     private var updateDate = Date()
     private var transferredSinceLastDate = 0
     
-    private var startBytesMap = AtomicDictionary<String, Int64>()
-    private var currentBytesMap = AtomicDictionary<String, Int64>()
+    private var startBytesMap: [String: Int64] = [:]
+    private var currentBytesMap: [String: Int64] = [:]
     
     // MARK: - Public Properties
     public var requested = 0
@@ -34,21 +36,26 @@ public class AssetManagerMetrics {
     ///   - item: downloadable
     ///   - isFinished: if item finished downloading
     public func updateDownloadSpeed(item: Downloadable? = nil) {
-        
-        if let item = item {
-            if startBytesMap[item.identifier] == nil {
-                startBytesMap[item.identifier] = item.transferredBytes
+        syncQueue.async { [weak self] in
+            guard let self = self else {
+                return
             }
             
-            currentBytesMap[item.identifier] = item.transferredBytes
-        }
-        
-        if let downloadSpeed = calculateDownloadSpeed(lastUpdateDate: updateDate) {
-            downloadSpeedBytes = downloadSpeed
-            updateDate = Date()
+            if let item = item {
+                if self.startBytesMap[item.identifier] == nil {
+                    self.startBytesMap[item.identifier] = item.transferredBytes
+                }
+                
+                self.currentBytesMap[item.identifier] = item.transferredBytes
+            }
             
-            startBytesMap.removeAll()
-            currentBytesMap.removeAll()
+            if let downloadSpeed = self.calculateDownloadSpeed(lastUpdateDate: self.updateDate) {
+                self.downloadSpeedBytes = downloadSpeed
+                self.updateDate = Date()
+                
+                self.startBytesMap.removeAll()
+                self.currentBytesMap.removeAll()
+            }
         }
     }
     
