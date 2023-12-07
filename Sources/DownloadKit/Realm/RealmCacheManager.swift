@@ -64,7 +64,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
         return downloadableMap[downloadable.identifier]
     }
     
-    public func download(_ downloadable: Downloadable, didFinishTo location: URL) -> DownloadRequest? {
+    public func download(_ downloadable: Downloadable, didFinishTo location: URL) throws -> DownloadRequest? {
         defer {
             downloadableMap[downloadable.identifier] = nil
         }
@@ -74,22 +74,15 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
             return nil
         }
         
-        do {
-            _ = try localCache.store(asset: downloadRequest.asset,
-                                                  mirror: downloadRequest.mirror.mirror,
-                                                  at: location,
-                                                  options: downloadRequest.options)
-            
-            // Let mirror policy know that the download completed, so it can clean up after itself.
-            mirrorPolicy.downloadComplete(for: downloadRequest.asset)
-            
-            return downloadRequest
-        }
-        catch {
-            os_log(.error, log: log, "[RealmCacheManager]: Unable to cache file: %@", downloadable.description)
-            
-            return nil
-        }
+        _ = try localCache.store(asset: downloadRequest.asset,
+                                              mirror: downloadRequest.mirror.mirror,
+                                              at: location,
+                                              options: downloadRequest.options)
+        
+        // Let mirror policy know that the download completed, so it can clean up after itself.
+        mirrorPolicy.downloadComplete(for: downloadRequest.asset)
+        
+        return downloadRequest
     }
     
     public func download(_ downloadable: Downloadable, didFailWith error: Error) -> RetryDownloadRequest? {

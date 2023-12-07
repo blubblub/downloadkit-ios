@@ -283,22 +283,33 @@ extension AssetManager: DownloadQueueDelegate {
             
             // Store the file to the cache
             processQueue.async {
-                self.metrics.downloadCompleted += 1
-                self.metrics.bytesTransferred += item.totalBytes
-                self.metrics.updateDownloadSpeed(item: item)
-                
                 autoreleasepool {
-                    if let downloadRequest = self.cache.download(item, didFinishTo: tempLocation) {
-                        self.completeProgress(downloadRequest, item: item, with: nil)
+                    do {
+                        if let downloadRequest = try self.cache.download(item, didFinishTo: tempLocation) {
+                            self.metrics.downloadCompleted += 1
+                            self.metrics.bytesTransferred += item.totalBytes
+                            self.metrics.updateDownloadSpeed(item: item)
+                            
+                            self.completeProgress(downloadRequest, item: item, with: nil)
+                            
+                            os_log(.info, log: self.log, "[AssetManager]: Download finished: %@", item.description)
+                            
+                            os_log(.info, log: self.log, "[AssetManager]: Metrics on download finished: %@", self.metrics.description)
+                        }
+                    }
+                    catch let error {
+                        os_log(.error, log: self.log, "[AssetManager]: Error caching file: %@", error.localizedDescription)
+                        self.downloadQueue(queue, downloadDidFail: item, with: error)
                     }
                 }
                 
-                os_log(.info, log: self.log, "[AssetManager]: Download finished: %@", item.description)
-                
-                os_log(.info, log: self.log, "[AssetManager]: Metrics on download finished: %@", self.metrics.description)
             }
-        } catch {
+        } catch let error {
             os_log(.error, log: log, "[AssetManager]: Error moving temporary file: %@", error.localizedDescription)
+            processQueue.async {
+                // Ensure error is handled, download actually did fail.
+                self.downloadQueue(queue, downloadDidFail: item, with: error)
+            }
         }
     }
     
