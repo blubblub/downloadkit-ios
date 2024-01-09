@@ -82,11 +82,11 @@ class MockPolicyDelegate: MirrorPolicyDelegate {
     var exhaustedAllMirrors = false
     var failedToGenerateDownloadable = false
     
-    func mirrorPolicy(_ mirrorPolicy: MirrorPolicy, didExhaustMirrorsIn file: AssetFile) {
+    func mirrorPolicy(_ mirrorPolicy: MirrorPolicy, didExhaustMirrorsIn file: ResourceFile) {
         exhaustedAllMirrors = true
     }
     
-    func mirrorPolicy(_ mirrorPolicy: MirrorPolicy, didFailToGenerateDownloadableIn file: AssetFile, for mirror: AssetFileMirror) {
+    func mirrorPolicy(_ mirrorPolicy: MirrorPolicy, didFailToGenerateDownloadableIn file: ResourceFile, for mirror: ResourceFileMirror) {
         failedToGenerateDownloadable = true
     }
 }

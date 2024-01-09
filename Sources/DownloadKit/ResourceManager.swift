@@ -69,7 +69,7 @@ public struct RequestOptions {
 /// Default implementation uses:
 ///  - 1 Priority Queue (with priority Web Processor) and 1 normal queue (with normal Web Processor).
 ///  - Weighted Mirror Policy (going from Mirror to Mirror, before retrying last one 3 times).
-public class AssetManager {
+public class ResourceManager {
     
     private struct Observer {
         private(set) weak var instance: AssetManagerObserver?
@@ -101,7 +101,7 @@ public class AssetManager {
     
     public let progress = AssetDownloadProgress()
     
-    public private(set) var metrics = AssetManagerMetrics()
+    public private(set) var metrics = ResourceManagerMetrics()
     
     public convenience init(cache: AssetCacheable) {
         let downloadQueue = DownloadQueue()
@@ -129,12 +129,12 @@ public class AssetManager {
     }
     
     @discardableResult
-    public func request(assets: [AssetFile]) -> [DownloadRequest] {
+    public func request(assets: [ResourceFile]) -> [DownloadRequest] {
         return request(assets: assets, options: RequestOptions())
     }
     
     @discardableResult
-    public func request(assets: [AssetFile], options: RequestOptions) -> [DownloadRequest] {
+    public func request(assets: [ResourceFile], options: RequestOptions) -> [DownloadRequest] {
         
         let uniqueAssets = assets.unique(\.id)
         
@@ -256,7 +256,7 @@ public class AssetManager {
 
 // MARK: - DownloadQueueDelegate
 
-extension AssetManager: DownloadQueueDelegate {
+extension ResourceManager: DownloadQueueDelegate {
     
     public func downloadQueue(_ queue: DownloadQueue, downloadDidStart item: Downloadable, with processor: DownloadProcessor) {
         guard let downloadRequest = cache.downloadRequest(for: item) else {
@@ -366,7 +366,7 @@ extension AssetManager: DownloadQueueDelegate {
     }
 }
 
-extension AssetManager {
+extension ResourceManager {
     public func addAssetCompletion(for identifier: String, with completion: @escaping ProgressCompletion) {
         // If this asset is not downloading at all, call the closure immediately!
         guard hasItem(with: identifier) else {
@@ -393,7 +393,7 @@ extension AssetManager {
 
 // MARK: - Convenience Methods to downloads
 
-extension AssetManager: DownloadQueuable {
+extension ResourceManager: DownloadQueuable {
     
     public var isActive: Bool {
         get {

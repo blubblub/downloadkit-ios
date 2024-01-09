@@ -30,11 +30,11 @@ open class WeightedMirrorPolicy: MirrorPolicy {
     /// for the file mirrors need to be added (for example a file is not supported by the system).
     /// - Parameter asset: asset to sort mirrors for
     /// - Returns: sorted mirrors
-    open func sortMirrors(for asset: AssetFile) -> [AssetFileMirror] {
+    open func sortMirrors(for asset: ResourceFile) -> [ResourceFileMirror] {
         return asset.sortedMirrors()
     }
     
-    public func mirror(for asset: AssetFile, lastMirrorSelection: AssetMirrorSelection?, error: Error?) -> AssetMirrorSelection? {
+    public func mirror(for asset: ResourceFile, lastMirrorSelection: AssetMirrorSelection?, error: Error?) -> AssetMirrorSelection? {
         
         // if download was cancelled, no need to retry or return new mirror
         if (error as NSError?)?.code == NSURLErrorCancelled {
@@ -103,7 +103,7 @@ open class WeightedMirrorPolicy: MirrorPolicy {
         return AssetMirrorSelection(id: asset.id, mirror: mirrors[selectedIndex], downloadable: finalDownloadable)
     }
     
-    public func downloadComplete(for asset: AssetFile) {
+    public func downloadComplete(for asset: ResourceFile) {
         // Download was completed for file, clean up the local cache for retries.
         
         for mirror in asset.sortedMirrors() {
@@ -115,7 +115,7 @@ open class WeightedMirrorPolicy: MirrorPolicy {
     /// Holds a small retry access
     private var retryCounters = AtomicDictionary<String, Int>()
     
-    private func shouldRetry(mirror: AssetFileMirror, for asset: AssetFile) -> Bool {
+    private func shouldRetry(mirror: ResourceFileMirror, for asset: ResourceFile) -> Bool {
         let mirrorKey = "\(asset.id)-\(mirror.id)"
         
         var retryCounter = retryCounters[mirrorKey] ?? 0
@@ -136,14 +136,14 @@ extension WeightedMirrorPolicy {
     /// For testing purposes.
     /// - Parameter asset: asset file
     /// - Returns: Array of retry counters for each mirror the asset has.
-    func retryCounters(for asset: AssetFile) -> [Int] {
+    func retryCounters(for asset: ResourceFile) -> [Int] {
         let keys = asset.sortedMirrors().map { "\(asset.id)-\($0.id)" }
         return keys.compactMap { retryCounters[$0] }
     }
 }
 
-private extension AssetFile {
-    func sortedMirrors() -> [AssetFileMirror] {
+private extension ResourceFile {
+    func sortedMirrors() -> [ResourceFileMirror] {
         var mirrors = self.alternatives.sorted(by: { $0.weight > $1.weight })
         
         // Add main mirror on the end.
@@ -153,7 +153,7 @@ private extension AssetFile {
     }
 }
 
-public extension AssetFileMirror {
+public extension ResourceFileMirror {
     var weight: Int {
         return (info[WeightedMirrorPolicy.weightKey] as? Int) ?? 0
     }
