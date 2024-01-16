@@ -31,7 +31,7 @@ public protocol AssetFileCacheable {
 /// Images are stored as `UIImage`
 /// Note:
 /// Cache Manager will load the image into memory after downloading it.
-public class RealmMemoryCache<L: Object>: AssetFileCacheable where L: LocalAssetFile {
+public class RealmMemoryCache<L: Object>: AssetFileCacheable where L: LocalResourceFile {
     private var cacheQueue = DispatchQueue(label: "org.blubblub.downloadkit.memorycache.queue")
     private var _assetURLs = [String: URL]()
     private var assetURLs: [String: URL] {
