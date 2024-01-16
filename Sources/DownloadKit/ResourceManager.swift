@@ -10,7 +10,7 @@ import Foundation
 import RealmSwift
 import os.log
 
-public protocol AssetManagerObserver: AnyObject {
+public protocol ResourceManagerObserver: AnyObject {
     // Called when certain download starts downloading
     func didStartDownloading(_ download: DownloadRequest)
     
@@ -25,7 +25,7 @@ public protocol AssetManagerObserver: AnyObject {
 }
 
 /// Optional observer parameters
-public extension AssetManagerObserver {
+public extension ResourceManagerObserver {
     func didStartDownloading(_ download: DownloadRequest) {
         
     }
@@ -72,7 +72,7 @@ public struct RequestOptions {
 public class ResourceManager {
     
     private struct Observer {
-        private(set) weak var instance: AssetManagerObserver?
+        private(set) weak var instance: ResourceManagerObserver?
     }
     
     // MARK: - Private Properties
@@ -129,14 +129,14 @@ public class ResourceManager {
     }
     
     @discardableResult
-    public func request(assets: [ResourceFile]) -> [DownloadRequest] {
-        return request(assets: assets, options: RequestOptions())
+    public func request(resources: [ResourceFile]) -> [DownloadRequest] {
+        return request(resources: resources, options: RequestOptions())
     }
     
     @discardableResult
-    public func request(assets: [ResourceFile], options: RequestOptions) -> [DownloadRequest] {
+    public func request(resources: [ResourceFile], options: RequestOptions) -> [DownloadRequest] {
         
-        let uniqueAssets = assets.unique(\.id)
+        let uniqueAssets = resources.unique(\.id)
         
         // Grab Assets we need from file manager, filtering out those that are already downloaded.
         let downloads = cache.requestDownloads(assets: uniqueAssets, options: options)
@@ -232,19 +232,19 @@ public class ResourceManager {
         assetCompletions.removeAll()
     }
     
-    public func add(observer: AssetManagerObserver) {
+    public func add(observer: ResourceManagerObserver) {
         observersQueue.sync {
             self.observers[ObjectIdentifier(observer)] = Observer(instance: observer)
         }
     }
     
-    public func remove(observer: AssetManagerObserver) {
+    public func remove(observer: ResourceManagerObserver) {
         observersQueue.sync {
             self.observers[ObjectIdentifier(observer)] = nil
         }
     }
     
-    private func foreachObserver(action: (AssetManagerObserver) -> Void) {
+    private func foreachObserver(action: (ResourceManagerObserver) -> Void) {
         observers.forEach { $0.value.instance.flatMap(action) }
         
         // cleanup deallocated observer wrappers

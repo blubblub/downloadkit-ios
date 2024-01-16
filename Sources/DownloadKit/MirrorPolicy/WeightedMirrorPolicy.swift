@@ -30,8 +30,8 @@ open class WeightedMirrorPolicy: MirrorPolicy {
     /// for the file mirrors need to be added (for example a file is not supported by the system).
     /// - Parameter asset: asset to sort mirrors for
     /// - Returns: sorted mirrors
-    open func sortMirrors(for asset: ResourceFile) -> [ResourceFileMirror] {
-        return asset.sortedMirrors()
+    open func sortMirrors(for resource: ResourceFile) -> [ResourceFileMirror] {
+        return resource.sortedMirrors()
     }
     
     public func mirror(for asset: ResourceFile, lastMirrorSelection: AssetMirrorSelection?, error: Error?) -> AssetMirrorSelection? {
