@@ -9,7 +9,7 @@
 import Foundation
 
 /// Measured metrics on AssetManager
-public class AssetManagerMetrics {
+public class ResourceManagerMetrics {
     private let syncQueue = DispatchQueue(label: "org.blubblub.asset.manager.metrics.queue")
     
     // MARK: - Private Properties
@@ -78,7 +78,7 @@ public class AssetManagerMetrics {
     }
 }
 
-extension AssetManagerMetrics : CustomStringConvertible {
+extension ResourceManagerMetrics : CustomStringConvertible {
     public var description: String {
         let formatter = ByteCountFormatter()
         

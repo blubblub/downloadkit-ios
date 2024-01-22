@@ -1,7 +1,7 @@
 import Foundation
 import DownloadKit
 
-struct FileMirror: AssetFileMirror {
+struct FileMirror: ResourceFileMirror {
     var id: String
     
     var location: String
@@ -15,18 +15,18 @@ struct FileMirror: AssetFileMirror {
     }
 }
 
-struct Asset: AssetFile {
+struct Asset: ResourceFile {
     var id: String
     
-    var main: AssetFileMirror = FileMirror.random(weight: 0)
+    var main: ResourceFileMirror = FileMirror.random(weight: 0)
     
-    var alternatives: [AssetFileMirror] = [FileMirror]()
+    var alternatives: [ResourceFileMirror] = [FileMirror]()
     
     var fileURL: URL?
 }
 
 extension Asset {
-    static func sample(mirrorCount: Int) -> AssetFile {
+    static func sample(mirrorCount: Int) -> ResourceFile {
         return Asset(id: "sample-id",
                      main: FileMirror.random(weight: 0),
                      alternatives: (1...mirrorCount).map { FileMirror.random(weight: $0) },

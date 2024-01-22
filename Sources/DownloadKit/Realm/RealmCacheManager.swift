@@ -9,7 +9,7 @@ import Foundation
 import RealmSwift
 import os.log
 
-public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFile {
+public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalResourceFile {
     
         
     public var log: OSLog = logDK
@@ -36,7 +36,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
     }
     
     // MARK: - AssetCachable
-    public func requestDownloads(assets: [AssetFile], options: RequestOptions) -> [DownloadRequest] {
+    public func requestDownloads(assets: [ResourceFile], options: RequestOptions) -> [DownloadRequest] {
         // Update storage for assets that exists.
         localCache.updateStorage(assets: assets, to: options.storagePriority)
         

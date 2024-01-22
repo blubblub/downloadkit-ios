@@ -10,7 +10,7 @@ import Foundation
 import RealmSwift
 import os.log
 
-public protocol AssetManagerObserver: AnyObject {
+public protocol ResourceManagerObserver: AnyObject {
     // Called when certain download starts downloading
     func didStartDownloading(_ download: DownloadRequest)
     
@@ -25,7 +25,7 @@ public protocol AssetManagerObserver: AnyObject {
 }
 
 /// Optional observer parameters
-public extension AssetManagerObserver {
+public extension ResourceManagerObserver {
     func didStartDownloading(_ download: DownloadRequest) {
         
     }
@@ -69,10 +69,10 @@ public struct RequestOptions {
 /// Default implementation uses:
 ///  - 1 Priority Queue (with priority Web Processor) and 1 normal queue (with normal Web Processor).
 ///  - Weighted Mirror Policy (going from Mirror to Mirror, before retrying last one 3 times).
-public class AssetManager {
+public class ResourceManager {
     
     private struct Observer {
-        private(set) weak var instance: AssetManagerObserver?
+        private(set) weak var instance: ResourceManagerObserver?
     }
     
     // MARK: - Private Properties
@@ -101,7 +101,7 @@ public class AssetManager {
     
     public let progress = AssetDownloadProgress()
     
-    public private(set) var metrics = AssetManagerMetrics()
+    public private(set) var metrics = ResourceManagerMetrics()
     
     public convenience init(cache: AssetCacheable) {
         let downloadQueue = DownloadQueue()
@@ -129,14 +129,14 @@ public class AssetManager {
     }
     
     @discardableResult
-    public func request(assets: [AssetFile]) -> [DownloadRequest] {
-        return request(assets: assets, options: RequestOptions())
+    public func request(resources: [ResourceFile]) -> [DownloadRequest] {
+        return request(resources: resources, options: RequestOptions())
     }
     
     @discardableResult
-    public func request(assets: [AssetFile], options: RequestOptions) -> [DownloadRequest] {
+    public func request(resources: [ResourceFile], options: RequestOptions) -> [DownloadRequest] {
         
-        let uniqueAssets = assets.unique(\.id)
+        let uniqueAssets = resources.unique(\.id)
         
         // Grab Assets we need from file manager, filtering out those that are already downloaded.
         let downloads = cache.requestDownloads(assets: uniqueAssets, options: options)
@@ -232,19 +232,19 @@ public class AssetManager {
         assetCompletions.removeAll()
     }
     
-    public func add(observer: AssetManagerObserver) {
+    public func add(observer: ResourceManagerObserver) {
         observersQueue.sync {
             self.observers[ObjectIdentifier(observer)] = Observer(instance: observer)
         }
     }
     
-    public func remove(observer: AssetManagerObserver) {
+    public func remove(observer: ResourceManagerObserver) {
         observersQueue.sync {
             self.observers[ObjectIdentifier(observer)] = nil
         }
     }
     
-    private func foreachObserver(action: (AssetManagerObserver) -> Void) {
+    private func foreachObserver(action: (ResourceManagerObserver) -> Void) {
         observers.forEach { $0.value.instance.flatMap(action) }
         
         // cleanup deallocated observer wrappers
@@ -256,7 +256,7 @@ public class AssetManager {
 
 // MARK: - DownloadQueueDelegate
 
-extension AssetManager: DownloadQueueDelegate {
+extension ResourceManager: DownloadQueueDelegate {
     
     public func downloadQueue(_ queue: DownloadQueue, downloadDidStart item: Downloadable, with processor: DownloadProcessor) {
         guard let downloadRequest = cache.downloadRequest(for: item) else {
@@ -366,7 +366,7 @@ extension AssetManager: DownloadQueueDelegate {
     }
 }
 
-extension AssetManager {
+extension ResourceManager {
     public func addAssetCompletion(for identifier: String, with completion: @escaping ProgressCompletion) {
         // If this asset is not downloading at all, call the closure immediately!
         guard hasItem(with: identifier) else {
@@ -393,7 +393,7 @@ extension AssetManager {
 
 // MARK: - Convenience Methods to downloads
 
-extension AssetManager: DownloadQueuable {
+extension ResourceManager: DownloadQueuable {
     
     public var isActive: Bool {
         get {

@@ -16,7 +16,7 @@ public struct DownloadRequest: Identifiable, Equatable {
         return asset.id
     }
     
-    public let asset: AssetFile
+    public let asset: ResourceFile
     public let options: RequestOptions
     public let mirror: AssetMirrorSelection
     

@@ -17,7 +17,7 @@ public protocol AssetCacheable: AssetFileCacheable {
     /// - Parameters:
     ///   - assets: assets we're interested in.
     ///   - options: request options.
-    func requestDownloads(assets: [AssetFile], options: RequestOptions) -> [DownloadRequest]
+    func requestDownloads(assets: [ResourceFile], options: RequestOptions) -> [DownloadRequest]
     
     /// Returns download request for certain downloadable, if cache created it.
     /// - Parameter downloadable: item that we need request for.

@@ -12,7 +12,7 @@ public struct AssetMirrorSelection {
     public let id: String
     
     /// Mirror to retry
-    public let mirror: AssetFileMirror
+    public let mirror: ResourceFileMirror
     
     /// Downloadable
     public let downloadable: Downloadable
@@ -49,11 +49,11 @@ public protocol MirrorPolicy {
     ///   - asset: asset to download.
     ///   - mirror: mirror that the transfer failed.
     ///   - error: error that might have appeared.
-    func mirror(for asset: AssetFile, lastMirrorSelection: AssetMirrorSelection?, error: Error?) -> AssetMirrorSelection?
+    func mirror(for asset: ResourceFile, lastMirrorSelection: AssetMirrorSelection?, error: Error?) -> AssetMirrorSelection?
     
     /// Call this method on MirrorPolicy to let it know the file is ready.
     /// - Parameter asset: asset
-    func downloadComplete(for asset: AssetFile)
+    func downloadComplete(for asset: ResourceFile)
 }
 
 public protocol MirrorPolicyDelegate: AnyObject {
@@ -62,7 +62,7 @@ public protocol MirrorPolicyDelegate: AnyObject {
     /// - Parameters:
     ///   - mirrorPolicy: mirror policy
     ///   - file: asset file
-    func mirrorPolicy(_ mirrorPolicy: MirrorPolicy, didExhaustMirrorsIn file: AssetFile)
+    func mirrorPolicy(_ mirrorPolicy: MirrorPolicy, didExhaustMirrorsIn file: ResourceFile)
     
     /// Will be called if it is impossible to generate a downloadable from selected mirror.
     /// Policy should continue according to settings.
@@ -70,5 +70,5 @@ public protocol MirrorPolicyDelegate: AnyObject {
     ///   - mirrorPolicy: mirror
     ///   - file: file
     ///   - mirror: mirror
-    func mirrorPolicy(_ mirrorPolicy: MirrorPolicy, didFailToGenerateDownloadableIn file: AssetFile, for mirror: AssetFileMirror)
+    func mirrorPolicy(_ mirrorPolicy: MirrorPolicy, didFailToGenerateDownloadableIn file: ResourceFile, for mirror: ResourceFileMirror)
 }
