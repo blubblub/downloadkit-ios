@@ -290,7 +290,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
     }
 }
 
-private extension FileManager {
+public extension FileManager {
     
     func cachedFiles(directory: URL, subdirectory: String) -> [URL] {
         do {
