@@ -97,6 +97,8 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                 for asset in assets {
                     if var localAsset = realm.object(ofType: L.self, forPrimaryKey: asset.id),
                        let localURL = localAsset.fileURL {
+
+                        print("[RealmLocalCacheManager]: CHECKING IF FILE EXISTS \(localURL) \(self.file.fileExists(atPath: localURL.path)) ")
                         guard file.fileExists(atPath: localURL.path) else {
                             realm.delete(localAsset)
                             continue
@@ -116,7 +118,6 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                             
                             // move to new location
                             try file.moveItem(at: localURL, to: targetURL)
-                            print("[RealmLocalCacheManager]: CHECKING IF FILE EXISTS AFTER MOVE: fromFileUrl  \(self.file.fileExists(atPath: localURL.path))  target: \(self.file.fileExists(atPath: targetURL.path)) ")
                             // update fileURL with new location and storage
                             localAsset.fileURL = targetURL
                             localAsset.storage = priority
