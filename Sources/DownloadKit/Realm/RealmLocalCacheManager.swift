@@ -118,9 +118,11 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                             // move to new location
                             try file.moveItem(at: localURL, to: targetURL)
                             // update fileURL with new location and storage
+                            realm.beginWrite()
                             localAsset.fileURL = targetURL
                             localAsset.storage = priority
                             realm.add(localAsset, update: .modified)
+                            try realm.commitWrite()
                             print("[RealmLocalCacheManager]: CHECKING IF FILE EXISTS after move \(targetURL) \(self.file.fileExists(atPath: targetURL.path)) ")
                             os_log(.info, log: log, "[RealmLocalCacheManager]: Moved %@ from to %@", localURL.absoluteString, targetURL.absoluteString)
                         } catch {
