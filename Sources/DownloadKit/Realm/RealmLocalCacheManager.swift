@@ -93,7 +93,6 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
             do {
                 let realm = try self.realm
                 
-                realm.beginWrite()
                 for asset in assets {
                     if var localAsset = realm.object(ofType: L.self, forPrimaryKey: asset.id),
                        let localURL = localAsset.fileURL {
@@ -121,6 +120,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                             // update fileURL with new location and storage
                             localAsset.fileURL = targetURL
                             localAsset.storage = priority
+                            realm.add(localAsset, update: .modified)
                             print("[RealmLocalCacheManager]: CHECKING IF FILE EXISTS after move \(targetURL) \(self.file.fileExists(atPath: targetURL.path)) ")
                             os_log(.info, log: log, "[RealmLocalCacheManager]: Moved %@ from to %@", localURL.absoluteString, targetURL.absoluteString)
                         } catch {
@@ -128,8 +128,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                         }
                     }
                 }
-                
-                try realm.commitWrite()
+
             }
             catch {
                 os_log(.error, log: log, "[RealmLocalCacheManager]: Error updating Realm store for files.")
