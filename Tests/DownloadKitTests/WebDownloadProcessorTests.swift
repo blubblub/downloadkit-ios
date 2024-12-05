@@ -2,6 +2,8 @@ import XCTest
 @testable import DownloadKit
 
 struct MockItem: Downloadable {
+    var transferredBytes: Int64 = .zero
+    
     var priority: Int = 0
     
     var identifier: String = "identifier"

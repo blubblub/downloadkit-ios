@@ -66,7 +66,7 @@ class AssetManagerTests: XCTestCase {
     func testRequestingDownloads() throws {
         let requests = manager.request(assets: assets)
         XCTAssertEqual(requests.count, 1)
-        XCTAssertEqual(requests.first?.identifier, "asset-id", "First downloadable should be the mirror with highest weight")
+        XCTAssertEqual(requests.first?.downloadableIdentifier, "asset-id", "First downloadable should be the mirror with highest weight")
     }
     
     func testRequestingDownloadsWithPriorityQueue() throws {
@@ -74,7 +74,7 @@ class AssetManagerTests: XCTestCase {
         
         let requests = manager.request(assets: assets)
         XCTAssertEqual(requests.count, 1)
-        XCTAssertEqual(requests.first?.identifier, "asset-id", "First downloadable should be the mirror with highest weight")
+        XCTAssertEqual(requests.first?.downloadableIdentifier, "asset-id", "First downloadable should be the mirror with highest weight")
     }
     
     func testAssetCompletionIsCalled() throws {
