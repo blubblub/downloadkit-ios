@@ -92,8 +92,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         autoreleasepool {
             do {
                 let realm = try self.realm
-                
-                realm.beginWrite()
+
                 for asset in assets {
                     if var localAsset = realm.object(ofType: L.self, forPrimaryKey: asset.id),
                        let localURL = localAsset.fileURL {
@@ -115,21 +114,20 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                             if !file.fileExists(atPath: directoryURL.path) {
                                 try file.createDirectory(atPath: directoryURL.path, withIntermediateDirectories: true)
                             }
-                            
                             // move to new location
                             try file.moveItem(at: localURL, to: targetURL)
                             // update fileURL with new location and storage
+
+                            realm.beginWrite()
                             localAsset.fileURL = targetURL
                             localAsset.storage = priority
-                            
+                            try realm.commitWrite()
                             os_log(.info, log: log, "[RealmLocalCacheManager]: Moved %@ from to %@", localURL.absoluteString, targetURL.absoluteString)
                         } catch {
                             os_log(.error, log: log, "[RealmLocalCacheManager]: Error %@ moving file from: %@ to %@", error.localizedDescription, localURL.absoluteString, targetURL.absoluteString)
                         }
                     }
                 }
-                
-                try realm.commitWrite()
             }
             catch {
                 os_log(.error, log: log, "[RealmLocalCacheManager]: Error updating Realm store for files.")
