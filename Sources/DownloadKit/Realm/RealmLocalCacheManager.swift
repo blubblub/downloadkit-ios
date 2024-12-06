@@ -88,7 +88,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     /// - Parameters:
     ///   - assets: assets to operate on
     ///   - priority: priority to move to.
-    public func updateStorage(assets: [AssetFile], to priority: StoragePriority) {
+    public func updateStorage(assets: [AssetFile], to priority: StoragePriority, onAssetChange: ((L) -> Void)?) {
         autoreleasepool {
             do {
                 let realm = try self.realm
@@ -122,6 +122,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
                             localAsset.fileURL = targetURL
                             localAsset.storage = priority
                             realm.add(localAsset, update: .modified)
+                            onAssetChange?(localAsset)
                             try realm.commitWrite()
                             print("[RealmLocalCacheManager]: CHECKING IF FILE EXISTS after move \(targetURL) \(self.file.fileExists(atPath: targetURL.path)) ")
                             os_log(.info, log: log, "[RealmLocalCacheManager]: Moved %@ from to %@", localURL.absoluteString, targetURL.absoluteString)
