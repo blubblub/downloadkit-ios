@@ -38,7 +38,8 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalAssetFil
     // MARK: - AssetCachable
     public func requestDownloads(assets: [AssetFile], options: RequestOptions) -> [DownloadRequest] {
         // Update storage for assets that exists.
-        localCache.updateStorage(assets: assets, to: options.storagePriority) { [unowned self] asset in
+        localCache.updateStorage(assets: assets, to: options.storagePriority) { [weak self] asset in
+            guard let self else { return }
             self.memoryCache?.update(for: asset)
         }
 
