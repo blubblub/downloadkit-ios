@@ -20,7 +20,7 @@ class LocalCacheManagerTests: XCTestCase {
     }
 
     override func tearDownWithError() throws {
-        manager.cleanup(excluding: [])
+        try manager.cleanup(excluding: [])
         manager = nil
     }
     
@@ -62,7 +62,7 @@ class LocalCacheManagerTests: XCTestCase {
         }
         
         // update stored assets and move them to permanent storage
-        manager.updateStorage(assets: assets, to: .permanent)
+        manager.updateStorage(assets: assets, to: .permanent, onAssetChange: nil)
         
         let requests = manager.downloads(from: assets, options: permanentOptions)
         XCTAssertEqual(requests.count, 0, "All assets should be stored locally in permanent storage")
@@ -77,7 +77,7 @@ class LocalCacheManagerTests: XCTestCase {
         }
         
         // reset local cache
-        manager.reset()
+        try manager.reset()
         
         let requests = manager.downloads(from: assets, options: permanentOptions)
         XCTAssertEqual(requests.count, 5, "Manager should return 5 requests, since everything was removed.")
@@ -92,8 +92,8 @@ class LocalCacheManagerTests: XCTestCase {
         }
         
         // clean up everything except the first asset
-        manager.cleanup(excluding: Set([localAssets.first!.fileURL!]))
-        
+        try manager.cleanup(excluding: Set([localAssets.first!.fileURL!]))
+
         
         let requested = manager.downloads(from: assets, options: permanentOptions)
         

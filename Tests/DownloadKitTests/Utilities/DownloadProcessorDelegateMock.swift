@@ -38,4 +38,8 @@ class DownloadProcessorDelegateMock: DownloadProcessorDelegate {
     func downloadDidFinish(_ processor: DownloadProcessor, item: Downloadable) {
         finishCallback?()
     }
+
+    func downloadDidTransferData(_ processor: any DownloadKit.DownloadProcessor, item: any DownloadKit.Downloadable) {
+    }
+   
 }
