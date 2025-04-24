@@ -1,11 +1,15 @@
-// swift-tools-version:5.3
+// swift-tools-version:6.0
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 
 let package = Package(
     name: "DownloadKit",
-    platforms: [.iOS(.v12), .macOS(.v10_15)],
+    platforms: [
+        .iOS(.v14),
+        .macOS(.v10_15),
+        .watchOS(.v5)
+    ],
     products: [
         .library(
             name: "DownloadKit",
@@ -19,6 +23,14 @@ let package = Package(
             name: "DownloadKit",
             dependencies: [
                 .product(name: "RealmSwift", package: "Realm")
+            ],
+            swiftSettings: [
+                .unsafeFlags([
+                    "-enable-upcoming-feature", "StrictConcurrency",
+                    "-enable-upcoming-feature", "ConciseMagicFile",
+                    "-Xfrontend", "-warn-concurrency",
+                    "-Xfrontend", "-enable-actor-data-race-checks"
+                ])
             ]),
         .testTarget(
             name: "DownloadKitTests",
@@ -27,6 +39,14 @@ let package = Package(
             ],
             resources: [
                 .process("Data")
+            ],
+            swiftSettings: [
+                .unsafeFlags([
+                    "-enable-upcoming-feature", "StrictConcurrency",
+                    "-enable-upcoming-feature", "ConciseMagicFile",
+                    "-Xfrontend", "-warn-concurrency",
+                    "-Xfrontend", "-enable-actor-data-race-checks"
+                ])
             ])
     ]
 )
