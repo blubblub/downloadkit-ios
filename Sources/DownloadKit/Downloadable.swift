@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct DownloadParameter: Codable, Hashable, Equatable, RawRepresentable {
+public struct DownloadParameter: Codable, Hashable, Equatable, RawRepresentable, Sendable {
     public let rawValue: String
     
     public init(rawValue: String) {
@@ -18,10 +18,10 @@ public struct DownloadParameter: Codable, Hashable, Equatable, RawRepresentable 
 public typealias DownloadParameters = [DownloadParameter: Any]
 
 
-public protocol Downloadable: CustomStringConvertible {
+public protocol Downloadable: CustomStringConvertible, Sendable {
     /// Identifier of the download, usually an id
     var identifier: String { get }
-    
+
     /// Task priority in download queue (if needed), higher number means higher priority.
     var priority: Int { get set }
     

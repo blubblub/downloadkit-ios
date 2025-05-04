@@ -7,37 +7,37 @@
 
 import Foundation
 
-public protocol DownloadProcessor: AnyObject {
-    var isActive: Bool { get }
+public protocol DownloadProcessor: Sendable {
+    var isActive: Bool { get async }
     var delegate: DownloadProcessorDelegate? { get set }
 
-    func canProcess(item: Downloadable) -> Bool
-    func process(_ item: Downloadable)
-    
+    func canProcess(item: Downloadable) async -> Bool
+    func process(_ item: Downloadable) async
+
     /// If DownloadProcessor has any pending downloads left.
-    func enqueuePending(completion: (() -> Void)?)
-    
+    func enqueuePending() async
+
     /// Pause and resume DownloadProcessor.
-    func pause()
-    func resume()
+    func pause() async
+    func resume() async
 }
 
-public protocol DownloadProcessorDelegate: AnyObject {
+public protocol DownloadProcessorDelegate: Sendable {
     /// Sent when a Downloadable is being worked on.
-    func downloadDidBegin(_ processor: DownloadProcessor, item: Downloadable)
-    
+    func downloadDidBegin(_ processor: DownloadProcessor, item: Downloadable) async
+
     /// Sent when a Downloadable starts transferring data.
-    func downloadDidStartTransfer(_ processor: DownloadProcessor, item: Downloadable)
-    
+    func downloadDidStartTransfer(_ processor: DownloadProcessor, item: Downloadable) async
+
     /// Sent when a Downloadable did receive some data.
-    func downloadDidTransferData(_ processor: DownloadProcessor, item: Downloadable)
-    
+    func downloadDidTransferData(_ processor: DownloadProcessor, item: Downloadable) async
+
     /// Sent when a Downloadable fails for any reason.
-    func downloadDidError(_ processor: DownloadProcessor, item: Downloadable, error: Error)
-    
+    func downloadDidError(_ processor: DownloadProcessor, item: Downloadable, error: Error) async
+
     /// Sent when a Downloadable finishes transferring data.
-    func downloadDidFinishTransfer(_ processor: DownloadProcessor, item: Downloadable, to url: URL)
-    
+    func downloadDidFinishTransfer(_ processor: DownloadProcessor, item: Downloadable, to url: URL) async
+
     /// Sent when a Downloadable is completely finished.
-    func downloadDidFinish(_ processor: DownloadProcessor, item: Downloadable)
+    func downloadDidFinish(_ processor: DownloadProcessor, item: Downloadable) async
 }
