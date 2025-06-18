@@ -12,7 +12,7 @@ let package = Package(
             targets: ["DownloadKit"]),
     ],
     dependencies: [
-        .package(name: "Realm", url: "https://github.com/realm/realm-swift.git", .upToNextMajor(from: "10.18.0")),
+        .package(name: "Realm", url: "https://github.com/realm/realm-swift.git", .upToNextMajor(from: 20.0.3")),
     ],
     targets: [
         .target(
