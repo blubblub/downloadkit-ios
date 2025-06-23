@@ -4,11 +4,11 @@ import RealmSwift
 
 class AssetManagerTests: XCTestCase {
     
-    var manager: AssetManager!
+    var manager: ResourceManager!
     var cache: RealmCacheManager<LocalFile>!
     
-    var assets: [Asset] {
-        let assets = [
+    var resources: [Asset] {
+        let resources = [
             Asset(id: "asset-id",
                   main: FileMirror(id: "asset-id", location: "https://picsum.photos/10", info: [:]),
                   alternatives: [
@@ -18,7 +18,7 @@ class AssetManagerTests: XCTestCase {
                   fileURL: nil)
         ]
         
-        return assets
+        return resources
     }
     
     override func setUpWithError() throws {
@@ -27,7 +27,7 @@ class AssetManagerTests: XCTestCase {
         
         // Uses weighted mirror policy by default
         cache = RealmCacheManager<LocalFile>(configuration: .defaultConfiguration)
-        manager = AssetManager(cache: cache, downloadQueue: downloadQueue)
+        manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
     }
     
     func setupWithPriorityQueue() {
@@ -40,7 +40,7 @@ class AssetManagerTests: XCTestCase {
         
         // Uses weighted mirror policy by default
         cache = RealmCacheManager<LocalFile>(configuration: .defaultConfiguration)
-        manager = AssetManager(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue)
+        manager = ResourceManager(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue)
     }
 
     override func tearDownWithError() throws {
@@ -50,7 +50,7 @@ class AssetManagerTests: XCTestCase {
     }
     
     func testRequestingEmptyArray() throws {
-        let requests = manager.request(assets: [])
+        let requests = manager.request(resources: [])
         XCTAssertEqual(requests.count, 0)
         XCTAssertEqual(manager.isActive, true)
         XCTAssertEqual(manager.currentDownloadCount, 0, "Manager should be empty.")
@@ -64,7 +64,7 @@ class AssetManagerTests: XCTestCase {
     }
     
     func testRequestingDownloads() throws {
-        let requests = manager.request(assets: assets)
+        let requests = manager.request(resources: resources)
         XCTAssertEqual(requests.count, 1)
         XCTAssertEqual(requests.first?.downloadableIdentifier, "asset-id", "First downloadable should be the mirror with highest weight")
     }
@@ -72,7 +72,7 @@ class AssetManagerTests: XCTestCase {
     func testRequestingDownloadsWithPriorityQueue() throws {
         setupWithPriorityQueue()
         
-        let requests = manager.request(assets: assets)
+        let requests = manager.request(resources: resources)
         XCTAssertEqual(requests.count, 1)
         XCTAssertEqual(requests.first?.downloadableIdentifier, "asset-id", "First downloadable should be the mirror with highest weight")
     }
@@ -80,7 +80,7 @@ class AssetManagerTests: XCTestCase {
     func testAssetCompletionIsCalled() throws {
         let expectation = XCTestExpectation(description: "Requesting downloads should call completion.")
         
-        manager.request(assets: assets)
+        manager.request(resources: resources)
         manager.addAssetCompletion(for: "asset-id") { (success, assetID) in
             XCTAssertTrue(success)
             expectation.fulfill()
@@ -94,7 +94,7 @@ class AssetManagerTests: XCTestCase {
         expectation.expectedFulfillmentCount = 2
         
         var callCount = 0
-        manager.request(assets: assets)
+        manager.request(resources: resources)
         manager.addAssetCompletion(for: "asset-id") { (success, assetID) in
             callCount += 1
             expectation.fulfill()
@@ -118,7 +118,7 @@ class AssetManagerTests: XCTestCase {
             expectation.fulfill()
         }
         
-        manager.request(assets: assets)
+        manager.request(resources: resources)
 
         wait(for: [expectation], timeout: 2)
     }
@@ -131,7 +131,7 @@ class AssetManagerTests: XCTestCase {
                                                                 info: [:]),
                           alternatives: [],
                           fileURL: nil)
-        manager.request(assets: [asset])
+        manager.request(resources: [asset])
         manager.addAssetCompletion(for: "invalid-asset") { (success, assetID) in
             XCTAssertFalse(success)
             XCTAssertEqual("invalid-asset", assetID)
@@ -144,7 +144,7 @@ class AssetManagerTests: XCTestCase {
     func testCancelingAllDownloads() {
         let expectation = self.expectation(description: "Canceling all downloads should call completion.")
         
-        manager.request(assets: assets)
+        manager.request(resources: resources)
         manager.addAssetCompletion(for: "asset-id") { (success, assetID) in
             XCTAssertFalse(success)
             XCTAssertEqual("asset-id", assetID)
@@ -160,7 +160,7 @@ class AssetManagerTests: XCTestCase {
         expectation.isInverted = true // we don't want the expectation to be fulfilled
         
         manager.isActive = false
-        let requests = manager.request(assets: assets)
+        let requests = manager.request(resources: resources)
         manager.addAssetCompletion(for: "asset-id") { (success, assetID) in
             expectation.fulfill()
         }
@@ -175,7 +175,7 @@ class AssetManagerTests: XCTestCase {
         let expectation = self.expectation(description: "Completion should not be called.")
         
         manager.isActive = false
-        let requests = manager.request(assets: assets)
+        let requests = manager.request(resources: resources)
         manager.addAssetCompletion(for: "asset-id") { (success, assetID) in
             XCTAssertTrue(success)
             expectation.fulfill()
