@@ -88,16 +88,18 @@ public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
     /// - Parameters:
     ///   - assets: assets to operate on
     ///   - priority: priority to move to.
-    public func updateStorage(assets: [ResourceFile], to priority: StoragePriority) {
+    public func updateStorage(assets: [ResourceFile], to priority: StoragePriority, onAssetChange: ((L) -> Void)?) {
         autoreleasepool {
             do {
                 let realm = try self.realm
                 
-                realm.beginWrite()
                 for asset in assets {
                     if var localAsset = realm.object(ofType: L.self, forPrimaryKey: asset.id),
                        let localURL = localAsset.fileURL {
-                        
+                        guard file.fileExists(atPath: localURL.path) else {
+                            realm.delete(localAsset)
+                            continue
+                        }
                         // if priorities are the same, skip moving files
                         if localAsset.storage == priority { continue }
                         
@@ -113,19 +115,20 @@ public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
                             
                             // move to new location
                             try file.moveItem(at: localURL, to: targetURL)
-                                                        
                             // update fileURL with new location and storage
+                            realm.beginWrite()
                             localAsset.fileURL = targetURL
                             localAsset.storage = priority
-                            
+                            realm.add(localAsset, update: .modified)
+                            onAssetChange?(localAsset)
+                            try realm.commitWrite()
                             os_log(.info, log: log, "[RealmLocalCacheManager]: Moved %@ from to %@", localURL.absoluteString, targetURL.absoluteString)
                         } catch {
                             os_log(.error, log: log, "[RealmLocalCacheManager]: Error %@ moving file from: %@ to %@", error.localizedDescription, localURL.absoluteString, targetURL.absoluteString)
                         }
                     }
                 }
-                
-                try realm.commitWrite()
+
             }
             catch {
                 os_log(.error, log: log, "[RealmLocalCacheManager]: Error updating Realm store for files.")
