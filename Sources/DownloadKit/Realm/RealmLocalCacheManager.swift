@@ -9,7 +9,7 @@ import Foundation
 import os.log
 import RealmSwift
 
-public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
+public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
     public var file = FileManager.default
     public var log: OSLog = logDK
     
@@ -19,7 +19,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     public var assetSubdirectory = "assets/"
     public var excludeFilesFromBackup = true
     
-    public var shouldDownload: ((AssetFile, RequestOptions) -> Bool)?
+    public var shouldDownload: ((ResourceFile, RequestOptions) -> Bool)?
 
     private var realm: Realm {
         get throws {
@@ -45,7 +45,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     ///   - options: request options.
     /// - Throws: in case the file already exists at the target url.
     /// - Returns: local asset.
-    public func store(asset: AssetFile, mirror: AssetFileMirror, at url: URL, options: RequestOptions) throws -> L {
+    public func store(asset: ResourceFile, mirror: ResourceFileMirror, at url: URL, options: RequestOptions) throws -> L {
         let targetUrl = L.targetUrl(for: asset, mirror: mirror, at: url, storagePriority: options.storagePriority, file: file)
         
         let directoryUrl = targetUrl.deletingLastPathComponent()
@@ -88,7 +88,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     /// - Parameters:
     ///   - assets: assets to operate on
     ///   - priority: priority to move to.
-    public func updateStorage(assets: [AssetFile], to priority: StoragePriority, onAssetChange: ((L) -> Void)?) {
+    public func updateStorage(assets: [ResourceFile], to priority: StoragePriority, onAssetChange: ((L) -> Void)?) {
         autoreleasepool {
             do {
                 let realm = try self.realm
@@ -143,8 +143,8 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     ///   - assets: assets we filter through.
     ///   - options: options
     /// - Returns: assets that are not yet stored locally.
-    public func downloads(from assets: [AssetFile], options: RequestOptions) -> [AssetFile] {
-        return autoreleasepool { () -> [AssetFile] in
+    public func downloads(from assets: [ResourceFile], options: RequestOptions) -> [ResourceFile] {
+        return autoreleasepool { () -> [ResourceFile] in
             guard let realm = try? self.realm else {
                 return []
             }
@@ -254,7 +254,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
         os_log(.debug, log: log, "[RealmLocalCacheManager]: Removed %lu objects.", deleteCounter)
     }
     
-    private func removeAssetsWithoutLocalFile(assets: [AssetFile]) throws {
+    private func removeAssetsWithoutLocalFile(assets: [ResourceFile]) throws {
         let realm = try self.realm
         
         let localAssets = assets.compactMap { realm.object(ofType: L.self, forPrimaryKey: $0.id) }
@@ -283,7 +283,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     ///   - asset: asset to create record for
     ///   - url: url where file is located
     /// - Returns: local asset
-    private func createLocalAsset(for asset: AssetFile, url: URL) -> L {
+    private func createLocalAsset(for asset: ResourceFile, url: URL) -> L {
         var localAsset = L()
         localAsset.id = asset.id
         localAsset.fileURL = url
@@ -293,7 +293,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalAssetFile {
     }
 }
 
-private extension FileManager {
+public extension FileManager {
     
     func cachedFiles(directory: URL, subdirectory: String) -> [URL] {
         do {

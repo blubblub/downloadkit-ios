@@ -10,22 +10,22 @@ import Foundation
 public typealias AssetFileInfo = [String: Any]
 
 /// Base DownloadKit Asset that can be downloaded.
-public protocol AssetFile {
+public protocol ResourceFile {
     var id: String { get }
-    var main: AssetFileMirror { get }
-    var alternatives: [AssetFileMirror] { get }
+    var main: ResourceFileMirror { get }
+    var alternatives: [ResourceFileMirror] { get }
     var fileURL: URL? { get }
     
     var modifyDate: Date? { get }
 }
 
-public extension AssetFile {
+public extension ResourceFile {
     var modifyDate: Date? {
         return nil
     }
 }
 
-public protocol AssetFileMirror {
+public protocol ResourceFileMirror {
     /// File Mirror has a specific identifier as well.
     var id: String { get }
     
@@ -39,7 +39,7 @@ public protocol AssetFileMirror {
     var downloadable: Downloadable? { get }
 }
 
-public protocol LocalAssetFile {
+public protocol LocalResourceFile {
     var id: String { get set }
     
     var fileURL: URL? { get set }
@@ -49,17 +49,17 @@ public protocol LocalAssetFile {
     /// Storage priority when the file was saved locally.
     var storage: StoragePriority { get set }
     
-    static func targetUrl(for asset: AssetFile, mirror: AssetFileMirror, at url: URL, storagePriority: StoragePriority, file: FileManager) -> URL
+    static func targetUrl(for asset: ResourceFile, mirror: ResourceFileMirror, at url: URL, storagePriority: StoragePriority, file: FileManager) -> URL
 }
 
-public extension LocalAssetFile {
+public extension LocalResourceFile {
     var modifyDate: Date? {
         get { return nil }
         set { }
     }
 }
 
-public extension AssetFileMirror {
+public extension ResourceFileMirror {
     var downloadable: Downloadable? {
         return createDownloadable()
     }
