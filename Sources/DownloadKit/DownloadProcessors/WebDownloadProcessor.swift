@@ -8,11 +8,6 @@
 import Foundation
 import os.log
 
-extension WebDownloadItem {
-    static let decoder = JSONDecoder()
-    static let encoder = JSONEncoder()
-}
-
 public extension WebDownloadProcessor {
     enum ProcessorError: Error {
         case cannotProcess(String)
@@ -21,7 +16,7 @@ public extension WebDownloadProcessor {
 
 /// Wrapper for NSURLSession delegate, between DownloadQueue and Downloadable,
 /// so we can correctly track.
-public class WebDownloadProcessor: NSObject, DownloadProcessor {
+public actor WebDownloadProcessor: NSObject, DownloadProcessor, URLSessionDelegate {
     
     // MARK: - Private Properties
     
@@ -29,7 +24,7 @@ public class WebDownloadProcessor: NSObject, DownloadProcessor {
     private var session: URLSession!
     
     /// Holds properties to current items for quick access.
-    private var items = Set<WebDownloadItem>()
+    private var items = Array<WebDownloadItem>()
     private var downloadTasks = [URLSessionDownloadTask]()
     
     private lazy var queue: OperationQueue = {
@@ -45,7 +40,7 @@ public class WebDownloadProcessor: NSObject, DownloadProcessor {
     
     public weak var delegate: DownloadProcessorDelegate?
     
-    public var log = logDK
+    private let log = logDK
     
     public var isActive = true
     
@@ -53,25 +48,16 @@ public class WebDownloadProcessor: NSObject, DownloadProcessor {
     // MARK: - Initialization
     
     public init(identifier: String = "org.blubblub.downloadkit.websession") {
-        super.init()
-        
         let sessionConfiguration = URLSessionConfiguration.background(withIdentifier: identifier)
         
-        // TURNED THIS ON EXPERIMENTALLY. TEST THOROUGHLY DOWNLOADING!
         sessionConfiguration.waitsForConnectivity = true
+        sessionConfiguration.allowsConstrainedNetworkAccess = true
         
-        if #available(iOS 13.0, *) {
-            sessionConfiguration.allowsConstrainedNetworkAccess = true
-        }
-        
-        self.session = URLSession(configuration: sessionConfiguration,
-                                  delegate: self, delegateQueue: self.queue)
+        self.init(configuration: sessionConfiguration)
     }
     
     public init(configuration: URLSessionConfiguration) {
-        super.init()
-        self.session = URLSession(configuration: configuration,
-                                  delegate: self, delegateQueue: self.queue)
+        self.session = URLSession(configuration: configuration)
     }
     
     // MARK: - DownloadProcessor
@@ -82,30 +68,26 @@ public class WebDownloadProcessor: NSObject, DownloadProcessor {
     
     public func process(_ item: Downloadable) {
         guard let webItem = item as? WebDownloadItem else {
-            let error = "Cannot process the unsupported download type. Item: \(item.description)"
+            let error = "Cannot process the unsupported download type. Item: \(item)"
             delegate?.downloadDidError(self,
                                        item: item,
                                        error: ProcessorError.cannotProcess(error))
             return
         }
-        
-        queue.addOperation { [weak self] in
-            guard let self = self else { return }
             
-            // we're already processing item with the same identifier
-            guard !self.items.contains(webItem) else {
-                return
-            }
-            
-            let task = self.createTask(for: webItem)
-            webItem.start(with: [DownloadParameter.urlDownloadTask: task])
-            
-            self.downloadTasks.append(task)
-            self.items.insert(webItem)
-            
-            self.delegate?.downloadDidBegin(self, item: webItem)
+        // we're already processing item with the same identifier
+        guard !self.items.contains(where: { $0.identifier == webItem.identifier }) else {
+            return
         }
-    }
+        
+        let task = self.createTask(for: webItem)
+        webItem.start(with: [DownloadParameter.urlDownloadTask: task])
+        
+        self.downloadTasks.append(task)
+        self.items.insert(webItem)
+        
+        self.delegate?.downloadDidBegin(self, item: webItem)
+            
     
     public func pause() {
         isActive = false
@@ -125,43 +107,45 @@ public class WebDownloadProcessor: NSObject, DownloadProcessor {
         }
     }
     
-    public func enqueuePending(completion: (() -> Void)? = nil) {
-        session.getTasksWithCompletionHandler { _, _, downloadTasks in
-            for task in downloadTasks {
-                let item: WebDownloadItem?
-                
-                if let downloadItem = self.item(for: task) {
-                    item = downloadItem
-                } else {
-                    item = WebDownloadItem(task: task)
-                }
-                
-                // If we were unable to decode the item from task completion,
-                // it is likely a task that we did not start. We shouldn't handle it.
-                if let item = item {
-                    self.items.insert(item)
-                    self.downloadTasks.append(task)
-                    
-                    self.delegate?.downloadDidBegin(self, item: item)
-                }
+    public func enqueuePending() async {
+        let (_, _, downloadTasks) = await session.tasks
+        
+        for task in downloadTasks {
+            let item: WebDownloadItem?
+            
+            if let downloadItem = self.item(for: task) {
+                item = downloadItem
+            } else {
+                item = WebDownloadItem(task: task)
             }
             
-            completion?()
+            // If we were unable to decode the item from task completion,
+            // it is likely a task that we did not start. We shouldn't handle it.
+            if let item = item {
+                self.items.append(item)
+                self.downloadTasks.append(task)
+                
+                self.delegate?.downloadDidBegin(self, item: item)
+            }
         }
     }
     
-    private func createTask(for item: WebDownloadItem) -> URLSessionDownloadTask {
-        let task = session.downloadTask(with: URLRequest(url: item.url))
+    private func createTask(for item: WebDownloadItem) async -> URLSessionDownloadTask {
         
-        if item.priority > 0 {
+        
+        let task = session.downloadTask(with: URLRequest(url: await item.url))
+        
+        if await item.priority > 0 {
             task.priority = URLSessionDownloadTask.highPriority
         }
         
-        if item.totalSize > 0 {
-            task.countOfBytesClientExpectsToReceive = item.totalSize
+        if await item.totalSize > 0 {
+            task.countOfBytesClientExpectsToReceive = await item.totalSize
         }
         
-        task.taskDescription = String(data: try! WebDownloadItem.encoder.encode(item), encoding: .utf8)
+        let data = await item.data
+        
+        task.taskDescription = String(data: try! DownloadItemData.encoder.encode(data), encoding: .utf8)
         return task
     }
     
@@ -211,7 +195,7 @@ extension WebDownloadProcessor: URLSessionDownloadDelegate {
         items.removeAll()
     }
     
-    public func urlSession(_ session: Foundation.URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+    public func urlSession(_ session: Foundation.URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) async {
         guard let item = self.item(for: downloadTask) else {
             os_log(.fault, log: log, "[WebDownloadProcessor]: Consistency Error: Item for download task not found.")
             return
@@ -223,7 +207,7 @@ extension WebDownloadProcessor: URLSessionDownloadDelegate {
 
     // MARK: - URLSessionTaskDelegate
     
-    public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+    public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) async {
         // Will get this callback once the task is completed, so cleanup.
         downloadTasks.removeAll(where: { $0.taskIdentifier == task.taskIdentifier })
         

@@ -7,33 +7,37 @@
 
 import Foundation
 
-public class CloudKitDownloadItem: Codable, Downloadable, CustomStringConvertible {
+public actor CloudKitDownloadItem: Downloadable {
     
-    /// CloudKit URL to download from
-    public var url: URL
-    
-    // MARK: - Downloadable Properties
-
-    /// Task identifier, usually asset identifier. Must not be nil.
-    public var identifier: String
+    private var data: DownloadItemData
+        
+    // MARK: - Downloadable
+    /// Identifier of the download, usually an id
+    public var identifier: String { return data.identifier }
     
     /// Task priority in download queue (if needed), higher number means higher priority.
-    public var priority: Int
+    public var priority: Int {
+        get {
+            return data.priority }
+        set {
+            data.priority = newValue
+        }
+    }
     
     /// Total bytes reported by download agent
-    public var totalBytes: Int64 = 0
+    public var totalBytes: Int64 { return data.totalBytes }
     
     /// Total bytes, if known ahead of time.
-    public var totalSize: Int64 = 0
+    public var totalSize: Int64 { return data.totalSize }
     
     /// Bytes already transferred.
-    public var transferredBytes: Int64 = 0
+    public var transferredBytes: Int64 { return data.transferredBytes }
     
-    /// Download start date
-    public var startDate: Date?
+    /// Download start date, empty if in queue.
+    public var startDate: Date? { return data.startDate }
     
-    /// Download finished date
-    public var finishedDate: Date?
+    /// Download finished date, empty until completed
+    public var finishedDate: Date? { return data.finishedDate }
     
     public var assetFile: AssetMirrorSelection?
     
@@ -54,9 +58,8 @@ public class CloudKitDownloadItem: Codable, Downloadable, CustomStringConvertibl
     }
     
     public init(identifier: String, url: URL, priority: Int = 0) {
-        self.identifier = identifier
-        self.url = url
-        self.priority = priority
+        self.data = .init(url: url, identifier: identifier)
+        self.data.priority = priority
     }
     
     private var itemProgress: Foundation.Progress?
@@ -76,7 +79,7 @@ public class CloudKitDownloadItem: Codable, Downloadable, CustomStringConvertibl
     }
     
     public func start(with parameters: DownloadParameters) {
-        startDate = Date()
+        data.startDate = Date()
     }
     
     public func pause() {
@@ -90,10 +93,10 @@ public class CloudKitDownloadItem: Codable, Downloadable, CustomStringConvertibl
     public var description: String {
         return "[CloudKitItem]: \(identifier)"
     }
-    
-    public static func == (lhs: CloudKitDownloadItem, rhs: CloudKitDownloadItem) -> Bool {
-        return lhs.identifier == rhs.identifier
-    }
+//    
+//    public static func == (lhs: CloudKitDownloadItem, rhs: CloudKitDownloadItem) -> Bool {
+//        return lhs.identifier == rhs.identifier
+//    }
     
     func update(progress: Double) {
         if itemProgress == nil && totalSize > 0 {
@@ -105,10 +108,10 @@ public class CloudKitDownloadItem: Codable, Downloadable, CustomStringConvertibl
         }
         
         // Update transferred bytes.
-        transferredBytes = Int64(Double(totalSize) * progress)
+        data.transferredBytes = Int64(Double(totalSize) * progress)
         
         if progress >= 1.0 {
-            transferredBytes = totalSize
+            data.transferredBytes = totalSize
         }
         
         let completedUnitCount = Int64(Double(itemProgress.totalUnitCount) * progress)
@@ -117,7 +120,7 @@ public class CloudKitDownloadItem: Codable, Downloadable, CustomStringConvertibl
     }
     
     func finish() {
-        finishedDate = Date()
+        data.finishedDate = Date()
     }
 }
 
@@ -129,7 +132,7 @@ public extension CloudKitDownloadItem {
         // Parse from URL: cloudkit://<container>:<zone_id>:<zone_owner>:<record_type>:<record_id>
         // Parse from URL: cloudkit://<container>:<record_type>:<record_id>
         
-        let urlComponents = url.absoluteString.replacingOccurrences(of: "cloudkit://", with: "").split(separator: "/").map { String($0) }
+        let urlComponents = data.url.absoluteString.replacingOccurrences(of: "cloudkit://", with: "").split(separator: "/").map { String($0) }
         
         if urlComponents.count == 3 {
             return CKRecord.ID(recordName: urlComponents.last!)

@@ -7,4 +7,4 @@
 import Foundation
 import os.log
 
-public let logDK = OSLog(subsystem: "org.blubblub.downloadkit", category: "DownloadKit")
+public let logDK = Logger(subsystem: "org.blubblub.downloadkit", category: "DownloadKit")

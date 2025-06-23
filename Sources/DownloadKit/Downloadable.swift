@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct DownloadParameter: Codable, Hashable, Equatable, RawRepresentable {
+public struct DownloadParameter: Codable, Sendable, Hashable, Equatable, RawRepresentable {
     public let rawValue: String
     
     public init(rawValue: String) {
@@ -18,7 +18,7 @@ public struct DownloadParameter: Codable, Hashable, Equatable, RawRepresentable 
 public typealias DownloadParameters = [DownloadParameter: Any]
 
 
-public protocol Downloadable: CustomStringConvertible {
+public protocol Downloadable: Actor {
     /// Identifier of the download, usually an id
     var identifier: String { get }
     
@@ -58,8 +58,8 @@ public extension Downloadable {
     var totalBytes: Int64 { return 0 }
     var totalSize: Int64 { return 0 }
     
-    func isEqual(to downloadable: Downloadable) -> Bool {
-        return identifier == downloadable.identifier
+    func isEqual(to downloadable: Downloadable) async -> Bool {
+        return await identifier == downloadable.identifier
     }
 }
 
@@ -67,6 +67,49 @@ public extension Downloadable {
     static var highestPriority: Int { return Int.max }
 }
 
-func ==<L: Downloadable, R: Downloadable>(l: L, r: R) -> Bool {
-    return l.identifier == r.identifier
+public struct DownloadItemData : Codable, Sendable {
+    static let decoder = JSONDecoder()
+    static let encoder = JSONEncoder()
+    
+    // MARK: - Downloadable Properties
+    public var url: URL
+    
+    /// JSON Serialized Metadata
+    public var serializedMetadata: String?
+    
+    /// Task identifier, usually asset identifier. Must not be nil.
+    public var identifier: String
+    
+    /// Task priority in download queue (if needed), higher number means higher priority.
+    public var priority: Int = 0
+    
+    /// Total bytes reported by download agent
+    public var totalBytes: Int64 = 0
+    
+    /// Total bytes, if known ahead of time.
+    public var totalSize: Int64 = 0
+    
+    /// Bytes already transferred.
+    public var transferredBytes: Int64 = 0
+    
+    /// Download start date
+    public var startDate: Date?
+    
+    /// Download finished date
+    public var finishedDate: Date?
+    
+    // MARK: - Codable
+    
+    private enum CodingKeys: String, CodingKey {
+        case identifier
+        case url
+        case totalBytes
+        case totalSize
+        case startDate
+        case finishedDate
+    }
 }
+
+//func ==<L: Downloadable, R: Downloadable>(l: L, r: R) -> Bool {
+//    return l.identifier == r.identifier
+//}

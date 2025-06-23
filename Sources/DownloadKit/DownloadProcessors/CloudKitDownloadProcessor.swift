@@ -14,7 +14,7 @@ public enum CloudKitError: Error {
     case noRecord
 }
 
-public class CloudKitDownloadProcessor: DownloadProcessor {
+public actor CloudKitDownloadProcessor: DownloadProcessor {
     
     // MARK: - Private Properties
     private let processQueue = DispatchQueue(label: "downloadkit.cloudkit.process-queue",
@@ -25,8 +25,7 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
     private let fetchThrottleTimeout: TimeInterval = 0.5
     
     // MARK: - Public Properties
-    
-    public var log = OSLog(subsystem: "org.blubblub.downloadkit.cloudkit", category: "CloudKitProcessor")
+    public let log = Logger(subsystem: "org.blubblub.downloadkit.cloudkit", category: "CloudKitProcessor")
     
     public var database: CKDatabase
     
@@ -37,11 +36,11 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
     public weak var delegate: DownloadProcessorDelegate?
     
     // MARK: - Initialization
-    convenience init() {
+    init() {
         self.init(database: CKContainer.default().publicCloudDatabase)
     }
     
-    convenience init(container: CKContainer) {
+    init(container: CKContainer) {
         self.init(database: container.publicCloudDatabase)
     }
     
@@ -67,27 +66,26 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
             return
         }
         
-        processQueue.async {
-            os_log(.info, log: self.log, "Enqueued item: %@", item.identifier)
+        log.info("Enqueued item: \(item.identifier)")
+        
+        self.queuedItems.append(item)
+        // Schedule Fetch Timer, which will fetch some records.
+        if self.throttlingProtectionEnabled {
+            self.fetchWorkItem?.cancel()
             
-            self.queuedItems.append(item)
-            // Schedule Fetch Timer, which will fetch some records.
-            if self.throttlingProtectionEnabled {
-                self.fetchWorkItem?.cancel()
+            let workItem = DispatchWorkItem {
                 
-                let workItem = DispatchWorkItem {
-                    os_log(.info, log: self.log, "Fetch timer executed.")
-                    self.fetch()
-                }
-                
-                self.processQueue.asyncAfter(deadline: .now() + self.fetchThrottleTimeout, execute: workItem)
-                
-                self.fetchWorkItem = workItem
-            }
-            else {
-                // If no protection, fetch immediately!
+                self.log.info("Fetch timer executed.")
                 self.fetch()
             }
+            
+            self.processQueue.asyncAfter(deadline: .now() + self.fetchThrottleTimeout, execute: workItem)
+            
+            self.fetchWorkItem = workItem
+        }
+        else {
+            // If no protection, fetch immediately!
+            self.fetch()
         }
     }
     
@@ -98,12 +96,12 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
         self.queuedItems.removeAll()
         
         guard currentItems.count > 0 else {
-            os_log(.error, log: self.log, "No items currently in queue. Why was I called?")
+            self.log.warning("No items currently in queue. Why was I called?")
             
             return
         }
         
-        os_log(.info, log: self.log, "Downloading items in batch: %@", currentItems.map({ $0.identifier }).joined(separator: ", "))
+        log.info("Downloading items in batch: \(currentItems.map({ $0.identifier }).joined(separator: ", "))")
         
         // Build map of current items.
         var recordMap : [CKRecord.ID : CloudKitDownloadItem] = [:]
@@ -122,14 +120,18 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
             
             if !item.didSendStartTransferNotification {
                 item.didSendStartTransferNotification = true
-                self.delegate?.downloadDidStartTransfer(self, item: item)
+                Task {
+                    await self.delegate?.downloadDidStartTransfer(self, item: item)
+                }
             }
             
             // Progress report
             item.update(progress: progress)
             
             // Update delegate
-            self.delegate?.downloadDidTransferData(self, item: item)
+            Task {
+                await self.delegate?.downloadDidTransferData(self, item: item)
+            }
         }
         
         fetchOperation.perRecordCompletionBlock = { [weak self] record, recordID, error in
@@ -139,7 +141,9 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
             item.finish()
             
             if let error = error {
-                self.delegate?.downloadDidError(self, item: item, error: error)
+                Task {
+                    await self.delegate?.downloadDidError(self, item: item, error: error)
+                }
                 return
             }
             
@@ -149,7 +153,9 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
                 let asset = record.allKeys().compactMap({ record[$0] as? CKAsset }).first,
                 let url = asset.fileURL
             else {
-                self.delegate?.downloadDidError(self, item: item, error: CloudKitError.noAssetData)
+                Task {
+                    await self.delegate?.downloadDidError(self, item: item, error: CloudKitError.noAssetData)
+                }
                 return
             }
             
@@ -157,7 +163,10 @@ public class CloudKitDownloadProcessor: DownloadProcessor {
                 item.totalBytes = Int64(totalBytes)
             }
             
-            self.delegate?.downloadDidFinishTransfer(self, item: item, to: url)
+            Task {
+                await self.delegate?.downloadDidFinishTransfer(self, item: item, to: url)
+            }
+            
         }
         
         // Run all start and on delegate.

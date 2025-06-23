@@ -7,22 +7,22 @@
 
 import Foundation
 
-public protocol DownloadProcessor: AnyObject {
+public protocol DownloadProcessor: Actor {
     var isActive: Bool { get }
     var delegate: DownloadProcessorDelegate? { get set }
 
     func canProcess(item: Downloadable) -> Bool
-    func process(_ item: Downloadable)
+    func process(_ item: Downloadable) async
     
     /// If DownloadProcessor has any pending downloads left.
-    func enqueuePending(completion: (() -> Void)?)
+    func enqueuePending() async
     
     /// Pause and resume DownloadProcessor.
     func pause()
     func resume()
 }
 
-public protocol DownloadProcessorDelegate: AnyObject {
+public protocol DownloadProcessorDelegate: AnyObject, Sendable {
     /// Sent when a Downloadable is being worked on.
     func downloadDidBegin(_ processor: DownloadProcessor, item: Downloadable)
     

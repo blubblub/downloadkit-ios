@@ -13,55 +13,47 @@ public extension DownloadParameter {
     static let urlDownloadTask = DownloadParameter(rawValue: "urlDownloadTask")
 }
 
-open class WebDownloadItem: Codable, Downloadable, CustomStringConvertible {
-    
-    // MARK: - Public Properties
-    
-    public var log: OSLog = logDK
-    
-    /// Url to download.
-    public var url: URL
-    
-    /// URLSessionDownloadTask created for this download item
-    public private(set) var task: URLSessionDownloadTask?
-    
-    // MARK: - Downloadable Properties
-    
-    /// Task identifier, usually asset identifier. Must not be nil.
-    public var identifier: String
-    
-    /// Task priority in download queue (if needed), higher number means higher priority.
-    public var priority: Int = 0
-    
-    /// Total bytes reported by download agent
-    public var totalBytes: Int64 = 0
-    
-    /// Total bytes, if known ahead of time.
-    public var totalSize: Int64 = 0
-    
-    /// Bytes already transferred.
-    public var transferredBytes: Int64 = 0
-    
-    /// Download start date
-    public var startDate: Date?
-    
-    /// Download finished date
-    public var finishedDate: Date?
-    
-    
-    // MARK: - Codable
-    
-    private enum CodingKeys: String, CodingKey {
-        case identifier
-        case url
-        case totalBytes
-        case totalSize
-        case startDate
-        case finishedDate
-    }
-    
+public actor WebDownloadItem : Downloadable {
+        private var log: Logger = logDK
     /// Progress for older versions, before 11.0, stored internally and exposed via progress property.
     private var itemProgress: Foundation.Progress?
+    
+    public var url: URL {
+        return data.url
+    }
+    
+    // MARK: - Downloadable
+    
+    /// Identifier of the download, usually an id
+    public var identifier: String { return data.identifier }
+    
+    /// Task priority in download queue (if needed), higher number means higher priority.
+    public var priority: Int {
+        get {
+            return data.priority }
+        set {
+            data.priority = newValue
+        }
+    }
+    
+    /// Total bytes reported by download agent
+    public var totalBytes: Int64 { return data.totalBytes }
+    
+    /// Total bytes, if known ahead of time.
+    public var totalSize: Int64 { return data.totalSize }
+    
+    /// Bytes already transferred.
+    public var transferredBytes: Int64 { return data.transferredBytes }
+    
+    /// Download start date, empty if in queue.
+    public var startDate: Date? { return data.startDate }
+    
+    /// Download finished date, empty until completed
+    public var finishedDate: Date? { return data.finishedDate }
+    
+    // MARK: - Public Properties
+    public private(set) var data: DownloadItemData
+    public private(set) var task: URLSessionDownloadTask?
     
     public var progress: Foundation.Progress? {
         if let itemProgress = itemProgress {
@@ -78,17 +70,10 @@ open class WebDownloadItem: Codable, Downloadable, CustomStringConvertible {
         
         return itemProgress
     }
-    
-    // MARK: - CustomStringConvertible
-    
-    public var description: String {
-        return "[WebDownloadItem]: \(identifier) url: \(url.absoluteString)"
-    }
-    
+        
     public init(identifier: String, url: URL, priority: Int = 0) {
-        self.identifier = identifier
-        self.url = url
-        self.priority = priority
+        self.data = .init(url: url, identifier: identifier)
+        self.data.priority = priority
     }
     
     public init?(task: URLSessionDownloadTask) {
@@ -96,26 +81,22 @@ open class WebDownloadItem: Codable, Downloadable, CustomStringConvertible {
         // Try to decode an item out of this, yes, we do create another instance here, but this way we ensure session
         // is initialized as it should be, without any crashes happening later on.
         guard let data = task.taskDescription?.data(using: .utf8),
-              let item = try? WebDownloadItem.decoder.decode(WebDownloadItem.self, from: data) else {
+              let item = try? DownloadItemData.decoder.decode(DownloadItemData.self, from: data) else {
             return nil
         }
         
+        self.data = item
         self.task = task
-        self.identifier = item.identifier
-        self.url = item.url
-        self.totalBytes = item.totalBytes
-        self.totalSize = item.totalSize
-        self.startDate = item.startDate
     }
     
     public func start(with parameters: DownloadParameters) {
-        startDate = Date()
+        data.startDate = Date()
         
         if let task = task {
             task.resume()
         } else {
             guard let task = parameters[.urlDownloadTask] as? URLSessionDownloadTask else {
-                os_log(.fault, log: log, "Cannot start an WebDownloadItem without URLSessionDownloadTask: %@", identifier)
+                log.fault("Cannot start an WebDownloadItem without URLSessionDownloadTask: \(self.data.identifier)")
                 return
             }
             
@@ -149,10 +130,10 @@ open class WebDownloadItem: Codable, Downloadable, CustomStringConvertible {
     func didWriteData(bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         if itemProgress == nil {
             itemProgress = Foundation.Progress(totalUnitCount: totalBytesExpectedToWrite + 1)
-            totalBytes = totalBytesExpectedToWrite
+            data.totalBytes = totalBytesExpectedToWrite
         }
         
-        transferredBytes = totalBytesWritten
+        data.transferredBytes = totalBytesWritten
         
         guard let itemProgress = itemProgress else {
             return
@@ -163,14 +144,14 @@ open class WebDownloadItem: Codable, Downloadable, CustomStringConvertible {
 }
 
 // MARK: - Hashable
-
-extension WebDownloadItem: Hashable {
-    
-    public static func == (l: WebDownloadItem, r: WebDownloadItem) -> Bool {
-        return l.isEqual(to: r)
-    }
-    
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(identifier)
-    }
-}
+//
+//extension WebDownloadItem: @MainActor Hashable {
+//    
+//    public static func == (l: WebDownloadItem, r: WebDownloadItem) async -> Bool {
+//        return await l.isEqual(to: r)
+//    }
+//    
+//    public func hash(into hasher: inout Hasher) {
+//        hasher.combine(identifier)
+//    }
+//}
