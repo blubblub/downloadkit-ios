@@ -7,10 +7,15 @@ DownloadKit is a Swift library for managing file downloads in the background on 
 ## Key features
 
 • Background downloads: Uses background URL sessions and CloudKit operations so downloads can continue even if the app is suspended.
+
 • Multiple sources: Unified interface to download from URLs or CloudKit (e.g. fetching CKAsset files from an iCloud database).
+
 • Local caching: Files are stored locally once downloaded, avoiding redundant network fetches for the same resource.
+
 • Priority queue: Each download can be assigned a priority. Higher-priority downloads will be executed first, ensuring important files download before less critical ones.
+
 • Large batch support: The queue and cache management are optimized to handle many files at once (hundreds or thousands) without blocking your app’s UI.
+
 
 ## Installation
 
