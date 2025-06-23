@@ -54,9 +54,10 @@ Now you’re ready to use the library in your app.
 ## Usage
 
 Using DownloadKit typically involves three steps:
-	1.	Create a Resource reference for each file you want to download (this could be an URL or a CloudKit record reference).
-	2.	Enqueue the download using the shared download manager.
-	3.	Handle completion or progress via a completion callback, delegate, or observer.
+
+1. Create a Resource reference for each file you want to download (this could be an URL or a CloudKit record reference).
+2. Enqueue the download using the shared download manager.
+3. Handle completion or progress via a completion callback, delegate, or observer.
 
 Below is an example of downloading a file from an URL:
 
