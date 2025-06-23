@@ -10,10 +10,12 @@ import Foundation
 import os.log
 
 public extension DownloadParameter {
-    static let urlDownloadTask = DownloadParameter(rawValue: "urlDownloadTask")
+    //static let urlDownloadTask = DownloadParameter(rawValue: "urlDownloadTask")
+    static let urlSession = DownloadParameter(rawValue: "urlSession")
 }
 
-public actor WebDownloadItem : Downloadable {
+// Actor can inherit NSObject, as a special exception.
+public actor WebDownloadItem : NSObject, Downloadable {
         private var log: Logger = logDK
     /// Progress for older versions, before 11.0, stored internally and exposed via progress property.
     private var itemProgress: Foundation.Progress?
@@ -52,7 +54,8 @@ public actor WebDownloadItem : Downloadable {
     public var finishedDate: Date? { return data.finishedDate }
     
     // MARK: - Public Properties
-    public private(set) var data: DownloadItemData
+    private var data: DownloadItemData
+    
     public private(set) var task: URLSessionDownloadTask?
     
     public var progress: Foundation.Progress? {
@@ -95,12 +98,12 @@ public actor WebDownloadItem : Downloadable {
         if let task = task {
             task.resume()
         } else {
-            guard let task = parameters[.urlDownloadTask] as? URLSessionDownloadTask else {
+            guard let session = parameters[.urlSession] as? URLSession else {
                 log.fault("Cannot start an WebDownloadItem without URLSessionDownloadTask: \(self.data.identifier)")
                 return
             }
             
-            self.task = task
+            self.task = createTask(with: session)
             self.task?.resume()
         }
     }
@@ -141,6 +144,28 @@ public actor WebDownloadItem : Downloadable {
         
         itemProgress.completedUnitCount = totalBytesWritten > itemProgress.totalUnitCount ? itemProgress.totalUnitCount - 1 : totalBytesWritten
     }
+    
+    private func createTask(with session: URLSession) -> URLSessionDownloadTask {
+        
+        let task = session.downloadTask(with: URLRequest(url: url))
+        
+        task.delegate = self
+        
+        if priority > 0 {
+            task.priority = URLSessionDownloadTask.highPriority
+        }
+        
+        if totalSize > 0 {
+            task.countOfBytesClientExpectsToReceive = totalSize
+        }
+        
+        task.taskDescription = String(data: try! DownloadItemData.encoder.encode(data), encoding: .utf8)
+        return task
+    }
+}
+
+extension WebDownloadItem : URLSessionDownloadDelegate {
+    
 }
 
 // MARK: - Hashable

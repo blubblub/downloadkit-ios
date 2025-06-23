@@ -16,25 +16,17 @@ public extension WebDownloadProcessor {
 
 /// Wrapper for NSURLSession delegate, between DownloadQueue and Downloadable,
 /// so we can correctly track.
-public actor WebDownloadProcessor: NSObject, DownloadProcessor, URLSessionDelegate {
+public actor WebDownloadProcessor: NSObject, DownloadProcessor {
     
     // MARK: - Private Properties
     
     /// URLSession that does the download.
-    private var session: URLSession!
+    private let session: URLSession
     
     /// Holds properties to current items for quick access.
-    private var items = Array<WebDownloadItem>()
-    private var downloadTasks = [URLSessionDownloadTask]()
+    private var downloadables = Array<WebDownloadItem>()
     
-    private lazy var queue: OperationQueue = {
-        let queue = OperationQueue()
-        queue.maxConcurrentOperationCount = 1
-        queue.qualityOfService = .background
-        queue.name = "org.blubblub.downloadkit.processor.web"
-        
-        return queue
-    }()
+    private var downloadTasks = [URLSessionDownloadTask]()
     
     // MARK: - Public Properties
     
@@ -43,7 +35,6 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor, URLSessionDelega
     private let log = logDK
     
     public var isActive = true
-    
     
     // MARK: - Initialization
     
@@ -62,48 +53,44 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor, URLSessionDelega
     
     // MARK: - DownloadProcessor
     
-    public func canProcess(item: Downloadable) -> Bool {
-        return item is WebDownloadItem && isActive
+    public func canProcess(downloadable: Downloadable) -> Bool {
+        return downloadable is WebDownloadItem && isActive
     }
     
-    public func process(_ item: Downloadable) {
-        guard let webItem = item as? WebDownloadItem else {
-            let error = "Cannot process the unsupported download type. Item: \(item)"
+    public func process(_ downloadable: Downloadable) async {
+        guard let webItem = downloadable as? WebDownloadItem else {
+            let error = "Cannot process the unsupported download type. Item: \(downloadable)"
             delegate?.downloadDidError(self,
-                                       item: item,
+                                       downloadable: downloadable,
                                        error: ProcessorError.cannotProcess(error))
             return
         }
-            
+        
         // we're already processing item with the same identifier
-        guard !self.items.contains(where: { $0.identifier == webItem.identifier }) else {
+        let webItemIdentifier = await webItem.identifier
+        
+        guard await item(for: webItemIdentifier) == nil else {
             return
         }
         
-        let task = self.createTask(for: webItem)
-        webItem.start(with: [DownloadParameter.urlDownloadTask: task])
+        let task = await self.createTask(for: webItem)
+        await webItem.start(with: [DownloadParameter.urlDownloadTask: task])
         
         self.downloadTasks.append(task)
-        self.items.insert(webItem)
+        self.downloadables.append(webItem)
         
-        self.delegate?.downloadDidBegin(self, item: webItem)
-            
+        self.delegate?.downloadDidBegin(self, downloadable: webItem)
+    }
     
     public func pause() {
-        isActive = false
-        queue.addOperation { [downloadTasks] in
-            for task in downloadTasks {
-                task.suspend()
-            }
+        for task in downloadTasks {
+            task.suspend()
         }
     }
     
     public func resume() {
-        isActive = true
-        queue.addOperation { [downloadTasks] in
-            for task in downloadTasks {
-                task.resume()
-            }
+        for task in downloadTasks {
+            task.resume()
         }
     }
     
@@ -113,7 +100,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor, URLSessionDelega
         for task in downloadTasks {
             let item: WebDownloadItem?
             
-            if let downloadItem = self.item(for: task) {
+            if let downloadItem = await self.item(for: task) {
                 item = downloadItem
             } else {
                 item = WebDownloadItem(task: task)
@@ -122,40 +109,43 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor, URLSessionDelega
             // If we were unable to decode the item from task completion,
             // it is likely a task that we did not start. We shouldn't handle it.
             if let item = item {
-                self.items.append(item)
+                self.downloadables.append(item)
                 self.downloadTasks.append(task)
                 
-                self.delegate?.downloadDidBegin(self, item: item)
+                self.delegate?.downloadDidBegin(self, downloadable: item)
             }
         }
     }
     
-    private func createTask(for item: WebDownloadItem) async -> URLSessionDownloadTask {
-        
-        
-        let task = session.downloadTask(with: URLRequest(url: await item.url))
-        
-        if await item.priority > 0 {
-            task.priority = URLSessionDownloadTask.highPriority
+    private func item(for identifier: String) async -> WebDownloadItem? {
+        for item in downloadables {
+            let itemIdentifier = await item.identifier
+            if itemIdentifier == identifier {
+                return item
+            }
         }
         
-        if await item.totalSize > 0 {
-            task.countOfBytesClientExpectsToReceive = await item.totalSize
-        }
-        
-        let data = await item.data
-        
-        task.taskDescription = String(data: try! DownloadItemData.encoder.encode(data), encoding: .utf8)
-        return task
+        return nil
     }
     
-    private func item(for task: URLSessionTask) -> WebDownloadItem? {
-        return items.first(where: { $0.task?.taskIdentifier == task.taskIdentifier })
+    private func item(for task: URLSessionTask) async -> WebDownloadItem? {
+        for item in downloadables {
+            let itemIdentifier = await item.task?.taskIdentifier
+            if itemIdentifier == task.taskIdentifier {
+                return item
+            }
+        }
+        
+        return nil
     }
 }
 
 
 extension WebDownloadProcessor: URLSessionDownloadDelegate {
+    public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        <#code#>
+    }
+    
     
     #if os(iOS)
     public func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
@@ -177,22 +167,22 @@ extension WebDownloadProcessor: URLSessionDownloadDelegate {
         
         // Ensure there was at least some progress written.
         if totalBytesWritten > 0 && shouldSendStartTransferNotification {
-            delegate?.downloadDidStartTransfer(self, item: item)
+            delegate?.downloadDidStartTransfer(self, downloadable: item)
         }
         
-        delegate?.downloadDidTransferData(self, item: item)
+        delegate?.downloadDidTransferData(self, downloadable: item)
     }
     
-    public func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
+    @objc(URLSession:didBecomeInvalidWithError:) public func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
         // Invalidate and clean up all transfers
-        for item in self.items {
+        for item in self.downloadables {
             if let error = error {
                 delegate?.downloadDidError(self, item: item, error: error)
             }
         }
         
         downloadTasks.removeAll()
-        items.removeAll()
+        downloadables.removeAll()
     }
     
     public func urlSession(_ session: Foundation.URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) async {
@@ -214,9 +204,9 @@ extension WebDownloadProcessor: URLSessionDownloadDelegate {
         if let item = self.item(for: task) {
             if let error = error {
                 os_log(.debug, log: log, "[DownloadQueue] Failed downloading error: %@", error.localizedDescription)
-                delegate?.downloadDidError(self, item: item, error: error)
+                delegate?.downloadDidError(self, downloadable: item, error: error)
             } else {
-                delegate?.downloadDidFinish(self, item: item)
+                delegate?.downloadDidFinish(self, downloadable: item)
             }
             
             // Update states.
