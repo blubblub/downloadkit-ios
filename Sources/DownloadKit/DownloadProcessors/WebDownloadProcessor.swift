@@ -24,7 +24,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
     private let session: URLSession
     
     /// Holds properties to current items for quick access.
-    private var downloadables = Array<WebDownloadItem>()
+    private var downloadables = Array<WebDownload>()
     
     // MARK: - Public Properties
     
@@ -52,11 +52,11 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
     // MARK: - DownloadProcessor
     
     public func canProcess(downloadable: Downloadable) -> Bool {
-        return downloadable is WebDownloadItem && isActive
+        return downloadable is WebDownload && isActive
     }
     
     public func process(_ downloadable: Downloadable) async {
-        guard let webItem = downloadable as? WebDownloadItem else {
+        guard let webDownload = downloadable as? WebDownload else {
             let error = "Cannot process the unsupported download type. Item: \(downloadable)"
             delegate?.downloadDidError(self,
                                        downloadable: downloadable,
@@ -65,17 +65,19 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
         }
         
         // we're already processing item with the same identifier
-        let webItemIdentifier = await webItem.identifier
+        let webDownloadIdentifier = await webDownload.identifier
         
-        guard await item(for: webItemIdentifier) == nil else {
+        guard await item(for: webDownloadIdentifier) == nil else {
             return
         }
         
-        await webItem.start(with: [DownloadParameter.urlSession: session])
+        await prepare(downloadable: webDownload)
         
-        self.downloadables.append(webItem)
+        await webDownload.start(with: [DownloadParameter.urlSession: session])
         
-        self.delegate?.downloadDidBegin(self, downloadable: webItem)
+        self.downloadables.append(webDownload)
+        
+        self.delegate?.downloadDidBegin(self, downloadable: webDownload)
     }
     
     public func pause() async {
@@ -94,12 +96,13 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
         let (_, _, downloadTasks) = await session.tasks
         
         for task in downloadTasks {
-            let item: WebDownloadItem?
+            let item: WebDownload?
             
             if let downloadItem = await self.item(for: task) {
                 item = downloadItem
             } else {
-                item = WebDownloadItem(task: task)
+                item = WebDownload(task: task)
+                await prepare(downloadable: item!)
             }
             
             // If we were unable to decode the item from task completion,
@@ -112,8 +115,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
         }
     }
     
-    private func resume(downloadable: WebDownloadItem) async {
-        
+    private func prepare(downloadable: WebDownload) async {
         await downloadable.addCompletion { result in
             Task {
                 
@@ -140,11 +142,11 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
         }
     }
     
-    private func remove(downloadable: WebDownloadItem) {
+    private func remove(downloadable: WebDownload) {
         self.downloadables.removeAll { $0 === downloadable }
     }
     
-    private func item(for identifier: String) async -> WebDownloadItem? {
+    private func item(for identifier: String) async -> WebDownload? {
         for item in downloadables {
             let itemIdentifier = await item.identifier
             if itemIdentifier == identifier {
@@ -155,7 +157,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
         return nil
     }
     
-    private func item(for task: URLSessionTask) async -> WebDownloadItem? {
+    private func item(for task: URLSessionTask) async -> WebDownload? {
         for item in downloadables {
             let itemIdentifier = await item.task?.taskIdentifier
             if itemIdentifier == task.taskIdentifier {
@@ -173,12 +175,10 @@ public extension WebDownloadProcessor {
     static func priorityProcessor() -> WebDownloadProcessor {
         let priorityConfiguration = URLSessionConfiguration.background(withIdentifier: "org.blubblub.downloadkit.session.priority")
         priorityConfiguration.allowsCellularAccess = true
-        
-        if #available(iOS 13.0, *) {
-            priorityConfiguration.allowsExpensiveNetworkAccess = true
-            priorityConfiguration.allowsConstrainedNetworkAccess = true
-        }
-        
+
+        priorityConfiguration.allowsExpensiveNetworkAccess = true
+        priorityConfiguration.allowsConstrainedNetworkAccess = true
+
         priorityConfiguration.waitsForConnectivity = true
         
         return WebDownloadProcessor(configuration: priorityConfiguration)

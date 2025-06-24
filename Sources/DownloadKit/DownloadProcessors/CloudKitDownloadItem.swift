@@ -39,7 +39,7 @@ public actor CloudKitDownloadItem: Downloadable {
     /// Download finished date, empty until completed
     public var finishedDate: Date? { return data.finishedDate }
     
-    public var assetFile: AssetMirrorSelection?
+    public var assetFile: ResourceMirrorSelection?
     
     var didSendStartTransferNotification = false
     

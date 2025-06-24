@@ -34,7 +34,7 @@ open class WeightedMirrorPolicy: MirrorPolicy {
         return resource.sortedMirrors()
     }
     
-    public func mirror(for asset: ResourceFile, lastMirrorSelection: AssetMirrorSelection?, error: Error?) -> AssetMirrorSelection? {
+    public func mirror(for asset: ResourceFile, lastMirrorSelection: ResourceMirrorSelection?, error: Error?) -> ResourceMirrorSelection? {
         
         // if download was cancelled, no need to retry or return new mirror
         if (error as NSError?)?.code == NSURLErrorCancelled {
@@ -100,7 +100,7 @@ open class WeightedMirrorPolicy: MirrorPolicy {
                 
         //os_log(.debug, log: log, "[WeightedMirrorPolicy]: Downloading asset: %@ from: %@", asset.id, mirrors[selectedIndex].location)
 
-        return AssetMirrorSelection(id: asset.id, mirror: mirrors[selectedIndex], downloadable: finalDownloadable)
+        return ResourceMirrorSelection(id: asset.id, mirror: mirrors[selectedIndex], downloadable: finalDownloadable)
     }
     
     public func downloadComplete(for asset: ResourceFile) {

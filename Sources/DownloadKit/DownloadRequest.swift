@@ -13,16 +13,16 @@ public struct DownloadRequest: Identifiable, Equatable {
     }
         
     public var id: String {
-        return asset.id
+        return resource.id
     }
     
-    public let asset: ResourceFile
+    public let resource: ResourceFile
     public let options: RequestOptions
-    public let mirror: AssetMirrorSelection
+    public let mirror: ResourceMirrorSelection
     
-    public var downloadableIdentifier : String {
-        return mirror.downloadable.identifier
-    }
+//    public var downloadableIdentifier : String {
+//        return mirror.downloadable.identifier
+//    }
 }
 
 /// Returns download selection to retry.

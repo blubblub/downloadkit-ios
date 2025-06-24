@@ -10,7 +10,7 @@ import Foundation
 public typealias AssetFileInfo = [String: Any]
 
 /// Base DownloadKit Asset that can be downloaded.
-public protocol ResourceFile {
+public protocol ResourceFile : Sendable {
     var id: String { get }
     var main: ResourceFileMirror { get }
     var alternatives: [ResourceFileMirror] { get }
@@ -25,7 +25,7 @@ public extension ResourceFile {
     }
 }
 
-public protocol ResourceFileMirror {
+public protocol ResourceFileMirror : Sendable {
     /// File Mirror has a specific identifier as well.
     var id: String { get }
     
@@ -39,7 +39,7 @@ public protocol ResourceFileMirror {
     var downloadable: Downloadable? { get }
 }
 
-public protocol LocalResourceFile {
+public protocol LocalResourceFile : Sendable {
     var id: String { get set }
     
     var fileURL: URL? { get set }
@@ -70,7 +70,7 @@ public extension ResourceFileMirror {
         }
         
         if location.starts(with: "http") {
-            return WebDownloadItem(identifier: id, url: url)
+            return WebDownloadRequest(identifier: id, url: url)
         }
         
         if location.starts(with: "cloudkit://") {

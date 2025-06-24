@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct AssetMirrorSelection {
+public struct ResourceMirrorSelection {
     
     public let id: String
     
@@ -21,7 +21,7 @@ public struct AssetMirrorSelection {
     public var option = QueueOption.normal
 }
 
-extension AssetMirrorSelection {
+extension ResourceMirrorSelection {
     
     public enum QueueOption {
         /// The Mirror should enqueue normally.
@@ -49,7 +49,7 @@ public protocol MirrorPolicy {
     ///   - asset: asset to download.
     ///   - mirror: mirror that the transfer failed.
     ///   - error: error that might have appeared.
-    func mirror(for asset: ResourceFile, lastMirrorSelection: AssetMirrorSelection?, error: Error?) -> AssetMirrorSelection?
+    func mirror(for asset: ResourceFile, lastMirrorSelection: ResourceMirrorSelection?, error: Error?) -> ResourceMirrorSelection?
     
     /// Call this method on MirrorPolicy to let it know the file is ready.
     /// - Parameter asset: asset

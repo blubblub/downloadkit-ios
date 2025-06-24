@@ -53,7 +53,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalResource
                 return nil
             }
             
-            return DownloadRequest(asset: asset, options: options, mirror: mirrorSelection)
+            return DownloadRequest(resource: asset, options: options, mirror: mirrorSelection)
         }
         
         downloadRequests.forEach {
@@ -77,13 +77,13 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalResource
             return nil
         }
         
-        _ = try localCache.store(asset: downloadRequest.asset,
+        _ = try localCache.store(asset: downloadRequest.resource,
                                               mirror: downloadRequest.mirror.mirror,
                                               at: location,
                                               options: downloadRequest.options)
         
         // Let mirror policy know that the download completed, so it can clean up after itself.
-        mirrorPolicy.downloadComplete(for: downloadRequest.asset)
+        mirrorPolicy.downloadComplete(for: downloadRequest.resource)
         
         return downloadRequest
     }
@@ -98,7 +98,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalResource
         // Clear download selection for the identifier.
         downloadableMap[downloadable.identifier] = nil
         
-        guard let mirrorSelection = mirrorPolicy.mirror(for: downloadRequest.asset,
+        guard let mirrorSelection = mirrorPolicy.mirror(for: downloadRequest.resource,
                                                         lastMirrorSelection: downloadRequest.mirror,
                                                         error: error) else {
             os_log(.error, log: log, "[RealmCacheManager]: Download failed: %@ Error: %@",
@@ -109,7 +109,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalResource
         
         os_log(.error, log: log, "[RealmCacheManager]: Retrying download of: %@ with: %@", downloadable.description, mirrorSelection.downloadable.description)
         
-        let retryDownloadRequest = DownloadRequest(asset: downloadRequest.asset, options: downloadRequest.options, mirror: mirrorSelection)
+        let retryDownloadRequest = DownloadRequest(resource: downloadRequest.resource, options: downloadRequest.options, mirror: mirrorSelection)
         
         // Write it to downloadable map with new download selection
         downloadableMap[retryDownloadRequest.downloadableIdentifier] = retryDownloadRequest

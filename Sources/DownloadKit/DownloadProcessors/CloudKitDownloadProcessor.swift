@@ -16,6 +16,7 @@ public enum CloudKitError: Error {
 
 public actor CloudKitDownloadProcessor: DownloadProcessor {
     
+    
     // MARK: - Private Properties
     private let processQueue = DispatchQueue(label: "downloadkit.cloudkit.process-queue",
                                              qos: .background)
@@ -49,24 +50,23 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
     }
     
     // MARK: - DownloadProcessor
-    public func canProcess(item: Downloadable) -> Bool {
-        return item is CloudKitDownloadItem && isActive
+    public func canProcess(downloadable: Downloadable) -> Bool {
+        return downloadable is CloudKitDownloadItem && isActive
     }
     
-    public func process(_ item: Downloadable) {
-        let itemDescription = item.description
-        
-        guard let item = item as? CloudKitDownloadItem else {
-            fatalError("CloudKitDownloadProcessor: Cannot process the unsupported download type. Item: \(itemDescription)")
+    public func process(_ downloadable: Downloadable) async {
+        guard let item = downloadable as? CloudKitDownloadItem else {
+            fatalError("CloudKitDownloadProcessor: Cannot process the unsupported download type. Item: \(downloadable)")
         }
         
         // Fetch CloudKit Record
-        guard item.recordID != nil else {
-            self.delegate?.downloadDidError(self, item: item, error: CloudKitError.noRecord)
+        guard await item.recordID != nil else {
+            self.delegate?.downloadDidError(self, downloadable: downloadable, error: CloudKitError.noRecord)
             return
         }
         
-        log.info("Enqueued item: \(item.identifier)")
+        let identifier = await downloadable.identifier
+        log.info("Enqueued item: \(identifier)")
         
         self.queuedItems.append(item)
         // Schedule Fetch Timer, which will fetch some records.
@@ -74,9 +74,10 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
             self.fetchWorkItem?.cancel()
             
             let workItem = DispatchWorkItem {
-                
-                self.log.info("Fetch timer executed.")
-                self.fetch()
+                Task {
+                    self.log.info("Fetch timer executed.")
+                    await self.fetch()
+                }
             }
             
             self.processQueue.asyncAfter(deadline: .now() + self.fetchThrottleTimeout, execute: workItem)
@@ -85,12 +86,12 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
         }
         else {
             // If no protection, fetch immediately!
-            self.fetch()
+            await self.fetch()
         }
     }
     
     // MARK: - Private Methods
-    private func fetch() {
+    private func fetch() async {
         
         let currentItems = self.queuedItems
         self.queuedItems.removeAll()
@@ -101,13 +102,13 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
             return
         }
         
-        log.info("Downloading items in batch: \(currentItems.map({ $0.identifier }).joined(separator: ", "))")
+        //log.info("Downloading items in batch: \(currentItems.map({ $0.identifier }).joined(separator: ", "))")
         
         // Build map of current items.
         var recordMap : [CKRecord.ID : CloudKitDownloadItem] = [:]
         
         for item in currentItems {
-            if let recordID = item.recordID {
+            if let recordID = await item.recordID {
                 recordMap[recordID] = item
             }
         }
@@ -115,22 +116,23 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
         let fetchOperation = CKFetchRecordsOperation(recordIDs: Array(recordMap.keys))
         
         fetchOperation.perRecordProgressBlock = { [weak self] recordID, progress in
-            guard let self = self else { return }
-            guard let item = recordMap[recordID] else { return }
-            
-            if !item.didSendStartTransferNotification {
-                item.didSendStartTransferNotification = true
-                Task {
-                    await self.delegate?.downloadDidStartTransfer(self, item: item)
-                }
-            }
-            
-            // Progress report
-            item.update(progress: progress)
-            
-            // Update delegate
             Task {
-                await self.delegate?.downloadDidTransferData(self, item: item)
+                guard let self = self else { return }
+                guard let item = recordMap[recordID] else { return }
+                
+                let itemDidStartTransferNotificationSent = await item.didSendStartTransferNotification
+                
+                if !itemDidStartTransferNotificationSent {
+                    await item.didSendStartTransferNotification = true
+                    
+                    await self.delegate?.downloadDidStartTransfer(self, downloadable: item)
+                }
+                
+                // Progress report
+                await item.update(progress: progress)
+                
+                // Update delegate
+                await self.delegate?.downloadDidTransferData(self, downloadable: item)
             }
         }
         
@@ -142,7 +144,7 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
             
             if let error = error {
                 Task {
-                    await self.delegate?.downloadDidError(self, item: item, error: error)
+                    await self.delegate?.downloadDidError(self, downloadable: item, error: error)
                 }
                 return
             }
@@ -154,7 +156,7 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
                 let url = asset.fileURL
             else {
                 Task {
-                    await self.delegate?.downloadDidError(self, item: item, error: CloudKitError.noAssetData)
+                    await self.delegate?.downloadDidError(self, downloadable: item, error: CloudKitError.noAssetData)
                 }
                 return
             }
@@ -171,8 +173,8 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
         
         // Run all start and on delegate.
         currentItems.forEach { item in
-            item.start(with: [:])
-            self.delegate?.downloadDidBegin(self, item: item)
+            await item.start(with: [:])
+            self.delegate?.downloadDidBegin(self, downloadable: item)
         }
         
         self.database.add(fetchOperation)
@@ -186,7 +188,7 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
         
     }
     
-    public func enqueuePending(completion: (() -> Void)?) {
+    public func enqueuePending() async {
         // TODO: Resume previous CloudKit downloads from database, which is likely not possible directly.
     }
 }

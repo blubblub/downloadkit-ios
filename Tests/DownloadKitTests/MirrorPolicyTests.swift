@@ -38,7 +38,7 @@ class WeightedMirrorPolicyTests: XCTestCase {
         let numberOfMirrors = 5
         let asset = Asset.sample(mirrorCount: numberOfMirrors)
         
-        var previousSelection: AssetMirrorSelection?
+        var previousSelection: ResourceMirrorSelection?
         let error = NSError(domain: "mirror.policy.error", code: 10, userInfo: nil)
         
         for _ in 0...(numberOfMirrors + retries) {
@@ -64,7 +64,7 @@ class WeightedMirrorPolicyTests: XCTestCase {
         let numberOfMirrors = 1
         let asset = Asset.sample(mirrorCount: numberOfMirrors)
         
-        var previousSelection: AssetMirrorSelection?
+        var previousSelection: ResourceMirrorSelection?
         let error = NSError(domain: "mirror.policy.error", code: 10, userInfo: nil)
         for _ in 0...(numberOfMirrors) {
             previousSelection = policy.mirror(for: asset, lastMirrorSelection: previousSelection, error: error)

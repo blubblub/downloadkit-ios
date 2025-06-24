@@ -10,15 +10,15 @@ import Foundation
 import os.log
 
 public extension DownloadParameter {
-    //static let urlDownloadTask = DownloadParameter(rawValue: "urlDownloadTask")
     static let urlSession = DownloadParameter(rawValue: "urlSession")
 }
 
 // Actor can inherit NSObject, as a special exception.
-public actor WebDownloadItem : NSObject, Downloadable {
-        private var log: Logger = logDK
+public actor WebDownload : NSObject, Downloadable {
+    private var log: Logger = logDK
+    
     /// Progress for older versions, before 11.0, stored internally and exposed via progress property.
-    private var itemProgress: Foundation.Progress?
+    private var downloadProgress: Foundation.Progress?
     
     private var data: DownloadItemData
     
@@ -62,19 +62,19 @@ public actor WebDownloadItem : NSObject, Downloadable {
     public private(set) var task: URLSessionDownloadTask?
     
     public var progress: Foundation.Progress? {
-        if let itemProgress = itemProgress {
-            return itemProgress
+        if let downloadProgress = downloadProgress {
+            return downloadProgress
         }
         
         // One is added, so the file move operation is counted in the progress.
         if totalSize > 0 {
-            itemProgress = Foundation.Progress(totalUnitCount: totalSize + 1)
+            downloadProgress = Foundation.Progress(totalUnitCount: totalSize + 1)
         }
         else if totalBytes > 0 {
-            itemProgress = Foundation.Progress(totalUnitCount: totalBytes + 1)
+            downloadProgress = Foundation.Progress(totalUnitCount: totalBytes + 1)
         }
         
-        return itemProgress
+        return downloadProgress
     }
     
     // MARK: - Constructors
@@ -118,17 +118,20 @@ public actor WebDownloadItem : NSObject, Downloadable {
     public func start(with parameters: DownloadParameters) {
         data.startDate = Date()
         
-        if let task = task {
-            task.resume()
-        } else {
+        var downloadTask = task
+        
+        if downloadTask == nil {
             guard let session = parameters[.urlSession] as? URLSession else {
                 log.fault("Cannot start an WebDownloadItem without URLSessionDownloadTask: \(self.data.identifier)")
                 return
             }
             
-            self.task = createTask(with: session)
-            self.task?.resume()
+            downloadTask = createTask(with: session)
+            self.task = downloadTask
         }
+        
+        downloadTask?.delegate = self
+        downloadTask?.resume()
     }
 
     public func pause() {
@@ -162,25 +165,23 @@ public actor WebDownloadItem : NSObject, Downloadable {
     // MARK: - Private Methods
     
     private func didWriteData(bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-        if itemProgress == nil {
-            itemProgress = Foundation.Progress(totalUnitCount: totalBytesExpectedToWrite + 1)
+        if downloadProgress == nil {
+            downloadProgress = Foundation.Progress(totalUnitCount: totalBytesExpectedToWrite + 1)
             data.totalBytes = totalBytesExpectedToWrite
         }
         
         data.transferredBytes = totalBytesWritten
         
-        guard let itemProgress = itemProgress else {
+        guard let downloadProgress = downloadProgress else {
             return
         }
         
-        itemProgress.completedUnitCount = totalBytesWritten > itemProgress.totalUnitCount ? itemProgress.totalUnitCount - 1 : totalBytesWritten
+        downloadProgress.completedUnitCount = totalBytesWritten > downloadProgress.totalUnitCount ? downloadProgress.totalUnitCount - 1 : totalBytesWritten
     }
     
     private func createTask(with session: URLSession) -> URLSessionDownloadTask {
         
         let task = session.downloadTask(with: URLRequest(url: url))
-        
-        task.delegate = self
         
         if priority > 0 {
             task.priority = URLSessionDownloadTask.highPriority
@@ -195,7 +196,7 @@ public actor WebDownloadItem : NSObject, Downloadable {
     }
 }
 
-extension WebDownloadItem : URLSessionDownloadDelegate {
+extension WebDownload : URLSessionDownloadDelegate {
     nonisolated public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         Task {
             // TODO: Check this. Previously, we needed to finish the MOVE operation on the same thread before
