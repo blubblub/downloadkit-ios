@@ -26,8 +26,6 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
     /// Holds properties to current items for quick access.
     private var downloadables = Array<WebDownloadItem>()
     
-    private var downloadTasks = [URLSessionDownloadTask]()
-    
     // MARK: - Public Properties
     
     public weak var delegate: DownloadProcessorDelegate?
@@ -73,24 +71,22 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
             return
         }
         
-        let task = await self.createTask(for: webItem)
-        await webItem.start(with: [DownloadParameter.urlDownloadTask: task])
+        await webItem.start(with: [DownloadParameter.urlSession: session])
         
-        self.downloadTasks.append(task)
         self.downloadables.append(webItem)
         
         self.delegate?.downloadDidBegin(self, downloadable: webItem)
     }
     
-    public func pause() {
-        for task in downloadTasks {
-            task.suspend()
+    public func pause() async {
+        for task in downloadables {
+            await task.pause()
         }
     }
     
-    public func resume() {
-        for task in downloadTasks {
-            task.resume()
+    public func resume() async {
+        for downloadable in downloadables {
+            await downloadable.start(with: [DownloadParameter.urlSession: session])
         }
     }
     
@@ -110,11 +106,42 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
             // it is likely a task that we did not start. We shouldn't handle it.
             if let item = item {
                 self.downloadables.append(item)
-                self.downloadTasks.append(task)
                 
                 self.delegate?.downloadDidBegin(self, downloadable: item)
             }
         }
+    }
+    
+    private func resume(downloadable: WebDownloadItem) async {
+        
+        await downloadable.addCompletion { result in
+            Task {
+                
+                switch result {
+                case .failure(let error):
+                    // Remove
+                    
+                    await self.delegate?.downloadDidError(self, downloadable: downloadable, error: error)
+                case .success(let url):
+                    await self.delegate?.downloadDidFinishTransfer(self, downloadable: downloadable, to: url)
+                }
+            }
+        }
+        
+        await downloadable.addProgressUpdate { totalBytesWritten, totalSize in
+            Task {
+                // Ensure there was at least some progress written.
+                if totalBytesWritten > 0 && totalSize == 0 {
+                    await self.delegate?.downloadDidStartTransfer(self, downloadable: downloadable)
+                }
+                
+                await self.delegate?.downloadDidTransferData(self, downloadable: downloadable)
+            }
+        }
+    }
+    
+    private func remove(downloadable: WebDownloadItem) {
+        self.downloadables.removeAll { $0 === downloadable }
     }
     
     private func item(for identifier: String) async -> WebDownloadItem? {
@@ -137,81 +164,6 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
         }
         
         return nil
-    }
-}
-
-
-extension WebDownloadProcessor: URLSessionDownloadDelegate {
-    public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        <#code#>
-    }
-    
-    
-    #if os(iOS)
-    public func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
-        
-    }
-    #endif
-    
-    public func urlSession(_ session: Foundation.URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-
-        guard let item = self.item(for: downloadTask) else {
-            return
-        }
-        
-        // Should send start transfer notification, if the progress does not exist, or the completed count is 0.
-        let shouldSendStartTransferNotification = (item.progress?.completedUnitCount ?? 0) == 0
-        
-        // Forward the call to correct item, to correctly update progress.
-        item.didWriteData(bytesWritten: bytesWritten, totalBytesWritten: totalBytesWritten, totalBytesExpectedToWrite: totalBytesExpectedToWrite)
-        
-        // Ensure there was at least some progress written.
-        if totalBytesWritten > 0 && shouldSendStartTransferNotification {
-            delegate?.downloadDidStartTransfer(self, downloadable: item)
-        }
-        
-        delegate?.downloadDidTransferData(self, downloadable: item)
-    }
-    
-    @objc(URLSession:didBecomeInvalidWithError:) public func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
-        // Invalidate and clean up all transfers
-        for item in self.downloadables {
-            if let error = error {
-                delegate?.downloadDidError(self, item: item, error: error)
-            }
-        }
-        
-        downloadTasks.removeAll()
-        downloadables.removeAll()
-    }
-    
-    public func urlSession(_ session: Foundation.URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) async {
-        guard let item = self.item(for: downloadTask) else {
-            os_log(.fault, log: log, "[WebDownloadProcessor]: Consistency Error: Item for download task not found.")
-            return
-        }
-        
-        delegate?.downloadDidFinishTransfer(self, item: item, to: location)
-    }
-    
-
-    // MARK: - URLSessionTaskDelegate
-    
-    public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) async {
-        // Will get this callback once the task is completed, so cleanup.
-        downloadTasks.removeAll(where: { $0.taskIdentifier == task.taskIdentifier })
-        
-        if let item = self.item(for: task) {
-            if let error = error {
-                os_log(.debug, log: log, "[DownloadQueue] Failed downloading error: %@", error.localizedDescription)
-                delegate?.downloadDidError(self, downloadable: item, error: error)
-            } else {
-                delegate?.downloadDidFinish(self, downloadable: item)
-            }
-            
-            // Update states.
-            items.remove(item)
-        }
     }
 }
 

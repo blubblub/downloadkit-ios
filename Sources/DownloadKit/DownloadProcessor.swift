@@ -18,8 +18,8 @@ public protocol DownloadProcessor: Actor {
     func enqueuePending() async
     
     /// Pause and resume DownloadProcessor.
-    func pause()
-    func resume()
+    func pause() async
+    func resume() async
 }
 
 public protocol DownloadProcessorDelegate: AnyObject, Sendable {

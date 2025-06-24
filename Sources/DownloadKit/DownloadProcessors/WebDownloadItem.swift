@@ -20,6 +20,11 @@ public actor WebDownloadItem : NSObject, Downloadable {
     /// Progress for older versions, before 11.0, stored internally and exposed via progress property.
     private var itemProgress: Foundation.Progress?
     
+    private var data: DownloadItemData
+    
+    private var progressUpdates: [(@Sendable (Int64, Int64) -> Void)] = []
+    private var completions: [(@Sendable (Result<URL, Error>) -> Void)] = []
+    
     public var url: URL {
         return data.url
     }
@@ -54,8 +59,6 @@ public actor WebDownloadItem : NSObject, Downloadable {
     public var finishedDate: Date? { return data.finishedDate }
     
     // MARK: - Public Properties
-    private var data: DownloadItemData
-    
     public private(set) var task: URLSessionDownloadTask?
     
     public var progress: Foundation.Progress? {
@@ -73,13 +76,23 @@ public actor WebDownloadItem : NSObject, Downloadable {
         
         return itemProgress
     }
+    
+    // MARK: - Constructors
         
-    public init(identifier: String, url: URL, priority: Int = 0) {
+    public init(identifier: String, url: URL, priority: Int = 0, completion: (@Sendable (Result<URL, Error>) -> Void)? = nil, progressUpdate: (@Sendable (Int64, Int64) -> Void)? = nil) {
         self.data = .init(url: url, identifier: identifier)
         self.data.priority = priority
+        
+        if let progressUpdate {
+            self.progressUpdates.append(progressUpdate)
+        }
+        
+        if let completion {
+            self.completions.append(completion)
+        }
     }
     
-    public init?(task: URLSessionDownloadTask) {
+    public init?(task: URLSessionDownloadTask, completion: (@Sendable (Result<URL, Error>) -> Void)? = nil, progressUpdate: (@Sendable (Int64, Int64) -> Void)? = nil) {
         
         // Try to decode an item out of this, yes, we do create another instance here, but this way we ensure session
         // is initialized as it should be, without any crashes happening later on.
@@ -90,7 +103,17 @@ public actor WebDownloadItem : NSObject, Downloadable {
         
         self.data = item
         self.task = task
+        
+        if let progressUpdate {
+            self.progressUpdates.append(progressUpdate)
+        }
+        
+        if let completion {
+            self.completions.append(completion)
+        }
     }
+    
+    // MARK: - Public Methods
     
     public func start(with parameters: DownloadParameters) {
         data.startDate = Date()
@@ -128,9 +151,17 @@ public actor WebDownloadItem : NSObject, Downloadable {
         task.cancel()
     }
     
-    // MARK: - Delegate Methods
+    public func addCompletion(_ completion: @escaping (@Sendable (Result<URL, Error>) -> Void)) {
+        self.completions.append(completion)
+    }
     
-    func didWriteData(bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+    public func addProgressUpdate(_ progressUpdate: @escaping (@Sendable (Int64, Int64) -> Void)) {
+        self.progressUpdates.append(progressUpdate)
+    }
+    
+    // MARK: - Private Methods
+    
+    private func didWriteData(bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         if itemProgress == nil {
             itemProgress = Foundation.Progress(totalUnitCount: totalBytesExpectedToWrite + 1)
             data.totalBytes = totalBytesExpectedToWrite
@@ -165,11 +196,53 @@ public actor WebDownloadItem : NSObject, Downloadable {
 }
 
 extension WebDownloadItem : URLSessionDownloadDelegate {
+    nonisolated public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        Task {
+            // TODO: Check this. Previously, we needed to finish the MOVE operation on the same thread before
+            // exiting this method. Will see if this is still the case, if yes, ASYNC here will not work.
+            for completion in await self.completions {
+                completion(.success(location))
+            }
+        }
+    }
+        
+    nonisolated public func urlSession(_ session: Foundation.URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        Task {
+            // Forward the call to correct item, to correctly update progress.
+            await didWriteData(bytesWritten: bytesWritten, totalBytesWritten: totalBytesWritten, totalBytesExpectedToWrite: totalBytesExpectedToWrite)
+            
+            let progressUpdates = await self.progressUpdates
+            
+            for progressUpdate in progressUpdates {
+                // TODO: why we need
+                await progressUpdate(totalBytesWritten, progress?.completedUnitCount ?? 0)
+            }
+        }
+    }
     
+    nonisolated public func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
+        Task {
+            let error = error ?? URLError(.unknown)
+            
+            for completion in await self.completions {
+                completion(.failure(error))
+            }
+        }
+    }
+    
+    nonisolated public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        Task {
+            let error = error ?? URLError(.unknown)
+            
+            for completion in await self.completions {
+                completion(.failure(error))
+            }
+        }
+    }
 }
 
 // MARK: - Hashable
-//
+// TODO: Implement this and switch implementation back to set, when Swift 6.2 is available.
 //extension WebDownloadItem: @MainActor Hashable {
 //    
 //    public static func == (l: WebDownloadItem, r: WebDownloadItem) async -> Bool {
