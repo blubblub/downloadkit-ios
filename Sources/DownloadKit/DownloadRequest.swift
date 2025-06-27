@@ -7,7 +7,7 @@
 import Foundation
 
 /// Hold references to downloads, so they can be properly handled.
-public struct DownloadRequest: Identifiable, Equatable {
+public struct DownloadRequest: Identifiable, Equatable, Sendable {
     public static func == (lhs: DownloadRequest, rhs: DownloadRequest) -> Bool {
         return lhs.id == rhs.id
     }

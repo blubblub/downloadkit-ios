@@ -16,8 +16,6 @@ public enum CloudKitError: Error {
 
 public actor CloudKitDownloadProcessor: DownloadProcessor {
     
-    
-    
     // MARK: - Private Properties
     private let processQueue = DispatchQueue(label: "downloadkit.cloudkit.process-queue",
                                              qos: .background)
@@ -66,7 +64,7 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
         
         // Fetch CloudKit Record
         guard await item.recordID != nil else {
-            self.delegate?.downloadDidError(self, downloadable: downloadable, error: CloudKitError.noRecord)
+            await self.delegate?.downloadDidError(self, downloadable: downloadable, error: CloudKitError.noRecord)
             return
         }
         
@@ -124,7 +122,7 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
 
         
         fetchOperation.perRecordProgressBlock = { [weak self] recordID, progress in
-            Task {
+            Task.detached {
                 guard let self = self else { return }
                 guard let item = recordMap[recordID] else { return }
                 
@@ -143,7 +141,7 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
         }
         
         fetchOperation.perRecordCompletionBlock = { [weak self] record, recordID, error in
-            Task {
+            Task.detached {
                 guard let self = self, let recordID = recordID else { return }
                 guard let item = recordMap[recordID] else { return }
                 
@@ -177,7 +175,7 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
         // Run all start and on delegate.
         for item in currentItems {
             await item.start(with: [:])
-            self.delegate?.downloadDidBegin(self, downloadable: item)
+            await self.delegate?.downloadDidBegin(self, downloadable: item)
         }
         
         self.database.add(fetchOperation)

@@ -38,12 +38,12 @@ public extension ResourceManagerObserver {
 /// Completion block, having success flag and item identifier
 public typealias ProgressCompletion = (Bool, String) -> Void
 
-public enum DownloadPriority {
+public enum DownloadPriority : Sendable{
     case normal
     case high
 }
 
-public enum StoragePriority: String {
+public enum StoragePriority: String, Sendable {
     /// Cache Manager should permanently store the file. This should be used for offline mode.
     case permanent
     
@@ -52,7 +52,7 @@ public enum StoragePriority: String {
     case cached
 }
 
-public struct RequestOptions {
+public struct RequestOptions : Sendable {
     public var downloadPriority: DownloadPriority = .normal
     public var storagePriority: StoragePriority = .cached
     
@@ -63,14 +63,21 @@ public struct RequestOptions {
     }
 }
 
+extension Array where Element == DownloadRequest {
+    func filterAsync(_ predicate: (Element) throws -> Bool) rethrows -> [Element] {
+        try self.sorted { (lhs, rhs) -> Bool in
+            return try predicate(lhs)
+        }
+    }
+}
+
 
 /// Public API for Asset Manager. Combines all the smaller pieces of the API.
 /// Generally you should only use this API, aside from setting up the system.
 /// Default implementation uses:
 ///  - 1 Priority Queue (with priority Web Processor) and 1 normal queue (with normal Web Processor).
 ///  - Weighted Mirror Policy (going from Mirror to Mirror, before retrying last one 3 times).
-public class ResourceManager {
-    
+public actor ResourceManager {
     private struct Observer {
         private(set) weak var instance: ResourceManagerObserver?
     }
@@ -78,17 +85,10 @@ public class ResourceManager {
     // MARK: - Private Properties
     
     private var assetCompletions: [String: [ProgressCompletion]] = [:]
-    
-    private let processQueue = DispatchQueue(label: "downloadkit.asset-manager.process-queue",
-                                             qos: .background)
-
-    private let observersQueue = DispatchQueue(label: "downloadkit.asset-manager.observers-queue",
-                                               qos: .background)
-    
     private var observers: [ObjectIdentifier: Observer] = [:]
 
     // MARK: - Public Properties
-    public var log: OSLog = logDK
+    public var log: os.Logger = logDK
         
     public let downloadQueue: DownloadQueue
     public let priorityQueue: DownloadQueue?
@@ -97,44 +97,46 @@ public class ResourceManager {
         return [priorityQueue, downloadQueue].compactMap { $0 }
     }
     
-    public let cache: AssetCacheable
+    public let cache: ResourceCachable
     
     public let progress = ResourceDownloadProgress()
     
     public private(set) var metrics = ResourceManagerMetrics()
     
-    public convenience init(cache: AssetCacheable) {
+    public static func build(with cache: ResourceCachable) async -> ResourceManager {
         let downloadQueue = DownloadQueue()
-        downloadQueue.add(processor: WebDownloadProcessor())
+        await downloadQueue.add(processor: WebDownloadProcessor())
         
         let priorityQueue = DownloadQueue()
-        priorityQueue.add(processor: WebDownloadProcessor.priorityProcessor())
-        priorityQueue.simultaneousDownloads = 30
+        await priorityQueue.add(processor: WebDownloadProcessor.priorityProcessor())
+        await priorityQueue.set(simultaneousDownloads: 30)
         
-        self.init(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue)
+        return .init(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue)
     }
+    
     
     /// Designated initializer for AssetManager.
     /// - Parameters:
     ///   - cache: Cache Manager to use
     ///   - downloadQueue: Normal Download Queue
     ///   - priorityQueue: Priority Download Queue (to quickly download)
-    public init(cache: AssetCacheable, downloadQueue: DownloadQueue, priorityQueue: DownloadQueue? = nil) {
+    public init(cache: ResourceCachable, downloadQueue: DownloadQueue, priorityQueue: DownloadQueue? = nil) {
         self.cache = cache
         self.downloadQueue = downloadQueue
         self.priorityQueue = priorityQueue
+    }
+    
+    @discardableResult
+    public func request(resources: [ResourceFile]) async -> [DownloadRequest] {
+        return await request(resources: resources, options: RequestOptions())
+    }
+    
+    @discardableResult
+    public func request(resources: [ResourceFile], options: RequestOptions) async -> [DownloadRequest] {
         
-        downloadQueue.delegate = self
-        priorityQueue?.delegate = self
-    }
-    
-    @discardableResult
-    public func request(resources: [ResourceFile]) -> [DownloadRequest] {
-        return request(resources: resources, options: RequestOptions())
-    }
-    
-    @discardableResult
-    public func request(resources: [ResourceFile], options: RequestOptions) -> [DownloadRequest] {
+        // Ensure delegates are set.
+        await downloadQueue.set(delegate: self)
+        await priorityQueue?.set(delegate: self)
         
         let uniqueAssets = resources.unique(\.id)
         
@@ -146,13 +148,20 @@ public class ResourceManager {
         log.info("Requested unique asset count: \(uniqueAssets.count) Downloads: \(downloads.count)")
                 
         guard downloads.count > 0 else {
-            log.info("[AssetManager]: Metrics on no downloads: \(metrics.description)")
+            log.info("[AssetManager]: Metrics on no downloads: \(self.metrics.description)")
             return []
         }
         
         // We need to filter the downloads that are in progress, since there's not much we will do
         // in that case. For those that are in queue, we might move them to a higher priority queue.
-        let finalDownloads = downloads.filter { !isDownloading(for: $0.downloadableIdentifier) }
+        var finalDownloads = [DownloadRequest]()
+        
+        for download in downloads {
+            let identifier = await download.downloadableIdentifier()
+            if !isDownloading(for: identifier) {
+                finalDownloads.append(download)
+            }
+        }
         
         if downloads.count != finalDownloads.count {
             log.error("[AssetManager]: Final downloads mismatch: \(downloads.count) \(finalDownloads.count)")
@@ -161,25 +170,27 @@ public class ResourceManager {
         if let priorityQueue = priorityQueue, options.downloadPriority == .high {
             // Move current priority queued downloads back to normal queue, because we have
             // a higher priority downloads now.
-            let currentPriorityDownloads = priorityQueue.queuedDownloads
-            priorityQueue.cancel(items: currentPriorityDownloads)
+            let currentPriorityDownloads = await priorityQueue.queuedDownloads
+            await priorityQueue.cancel(items: currentPriorityDownloads)
             
-            let maxDownloadPriority = downloadQueue.currentMaximumPriority + 1
+            let maxDownloadPriority = await downloadQueue.currentMaximumPriority() + 1
             
             for var currentPriorityDownload in currentPriorityDownloads {
-                currentPriorityDownload.priority = maxDownloadPriority
+                await currentPriorityDownload.set(priority: maxDownloadPriority)
             }
             
             metrics.priorityIncreased += finalDownloads.count
             metrics.priorityDecreased += currentPriorityDownloads.count
             
-            downloadQueue.download(currentPriorityDownloads)
+            await downloadQueue.download(currentPriorityDownloads)
             
-            priorityQueue.download(finalDownloads.map(\.mirror.downloadable))
+            await priorityQueue.download(finalDownloads.map(\.mirror.downloadable))
             
             // If those downloads are on download queue and were now moved to priority,
             // we need to cancel them on download, so we do not download them twice.
-            let normalQueuedDownloads = finalDownloads.filter { downloadQueue.hasItem(with: $0.downloadableIdentifier) }
+            let normalQueuedDownloads = await finalDownloads.filterAsync {
+                await downloadQueue.hasDownloadable(with: await $0.downloadableIdentifier())
+            }
             
             downloadQueue.cancel(items: normalQueuedDownloads.map(\.mirror.downloadable))
             
@@ -192,36 +203,26 @@ public class ResourceManager {
         // Add downloads to monitor progresses.
         progress.add(downloadItems: finalDownloads.map(\.mirror.downloadable))
         
-        log.info("[AssetManager]: Metrics on request: \(metrics.description)")
+        log.info("[AssetManager]: Metrics on request: \(self.metrics.description)")
         
         return downloads
     }
     
-    public func resume(completion: (() -> Void)? = nil) {
+    public func resume() async {
         isActive = true
         
-        let completionCounter = priorityQueue != nil ? 2 : 1
-        var currentCompletionCounter = 0
-        
-        downloadQueue.enqueuePending(completion: {
-            currentCompletionCounter += 1
-            
-            if currentCompletionCounter >= completionCounter {
-                completion?()
-            }
-        })
-        
-        priorityQueue?.enqueuePending(completion: {
-            currentCompletionCounter += 1
-            
-            if currentCompletionCounter >= completionCounter {
-                completion?()
-            }
-        })
+        // Ensure delegates are set.
+        await downloadQueue.set(delegate: self)
+        await priorityQueue?.set(delegate: self)
+                
+        await downloadQueue.enqueuePending()
+        await priorityQueue?.enqueuePending()
     }
     
-    public func cancelAll() {
-        queues.forEach { $0.cancelAll() }
+    public func cancelAll() async {
+        for queue in queues {
+            await queue.cancelAll()
+        }
         
         for (identifier, completions) in assetCompletions {
             for completion in completions {
@@ -233,15 +234,11 @@ public class ResourceManager {
     }
     
     public func add(observer: ResourceManagerObserver) {
-        observersQueue.sync {
-            self.observers[ObjectIdentifier(observer)] = Observer(instance: observer)
-        }
+        self.observers[ObjectIdentifier(observer)] = Observer(instance: observer)
     }
     
     public func remove(observer: ResourceManagerObserver) {
-        observersQueue.sync {
-            self.observers[ObjectIdentifier(observer)] = nil
-        }
+        self.observers[ObjectIdentifier(observer)] = nil
     }
     
     private func foreachObserver(action: (ResourceManagerObserver) -> Void) {
@@ -257,16 +254,12 @@ public class ResourceManager {
 // MARK: - DownloadQueueDelegate
 
 extension ResourceManager: DownloadQueueDelegate {
-    
     public func downloadQueue(_ queue: DownloadQueue, downloadDidStart item: Downloadable, with processor: DownloadProcessor) {
         guard let downloadRequest = cache.downloadRequest(for: item) else {
             return
         }
         
-        processQueue.async {
-            self.metrics.downloadBegan += 1
-        }
-        
+        self.metrics.downloadBegan += 1
         self.foreachObserver { $0.didStartDownloading(downloadRequest) }
     }
     
@@ -282,34 +275,29 @@ extension ResourceManager: DownloadQueueDelegate {
             try FileManager.default.moveItem(at: location, to: tempLocation)
             
             // Store the file to the cache
-            processQueue.async {
-                autoreleasepool {
-                    do {
-                        if let downloadRequest = try self.cache.download(item, didFinishTo: tempLocation) {
-                            self.metrics.downloadCompleted += 1
-                            self.metrics.bytesTransferred += item.totalBytes
-                            self.metrics.updateDownloadSpeed(item: item)
-                            
-                            self.completeProgress(downloadRequest, item: item, with: nil)
-                            
-                            self.log.info("[AssetManager]: Download finished: \(item.description)")
-                            
-                            self.log.info("[AssetManager]: Metrics on download finished: \(self.metrics.description)")
-                        }
-                    }
-                    catch let error {
-                        self.log.error("[AssetManager]: Error caching file: \(error.localizedDescription)")
-                        self.downloadQueue(queue, downloadDidFail: item, with: error)
-                    }
+
+            do {
+                if let downloadRequest = try self.cache.download(item, didFinishTo: tempLocation) {
+                    self.metrics.downloadCompleted += 1
+                    self.metrics.bytesTransferred += item.totalBytes
+                    self.metrics.updateDownloadSpeed(item: item)
+                    
+                    self.completeProgress(downloadRequest, item: item, with: nil)
+                    
+                    self.log.info("[AssetManager]: Download finished: \(item.description)")
+                    
+                    self.log.info("[AssetManager]: Metrics on download finished: \(self.metrics.description)")
                 }
-                
+            }
+            catch let error {
+                self.log.error("[AssetManager]: Error caching file: \(error.localizedDescription)")
+                self.downloadQueue(queue, downloadDidFail: item, with: error)
             }
         } catch let error {
             log.error("[AssetManager]: Error moving temporary file: \(error.localizedDescription)")
-            processQueue.async {
-                // Ensure error is handled, download actually did fail.
-                self.downloadQueue(queue, downloadDidFail: item, with: error)
-            }
+
+            // Ensure error is handled, download actually did fail.
+            self.downloadQueue(queue, downloadDidFail: item, with: error)
         }
     }
     
@@ -455,5 +443,19 @@ extension Array {
         var seen: [String: Bool] = [:]
         
         return self.filter { seen.updateValue(true, forKey: by($0)) == nil }
+    }
+}
+
+extension Array where Element: Sendable {
+    public func filterAsync(_ transform: @escaping (Element) async -> Bool) async -> [Element] {
+        var finalResult = Array<Element>()
+        
+        for element in self {
+            if await transform(element) {
+                finalResult.append(element)
+            }
+        }
+        
+        return finalResult
     }
 }

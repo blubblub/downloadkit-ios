@@ -1,5 +1,5 @@
 //
-//  AssetFileManager.swift
+//  ResourceCachable.swift
 //  BlubBlubCore
 //
 //  Created by Dal Rupnik on 11/2/20.
@@ -8,7 +8,7 @@
 import Foundation
 import os.log
 
-public protocol AssetCacheable: AssetFileCacheable {
+public protocol ResourceCachable: ResourceFileCacheable {
     
     /// Mirror policy.
     var mirrorPolicy: MirrorPolicy { get set }

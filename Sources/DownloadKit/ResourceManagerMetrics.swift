@@ -9,7 +9,7 @@
 import Foundation
 
 /// Measured metrics on ResourceManager
-public actor ResourceManagerMetrics {
+public struct ResourceManagerMetrics : Sendable {
 
     // MARK: - Private Properties
     private var updateDate = Date()
@@ -34,7 +34,7 @@ public actor ResourceManagerMetrics {
     /// - Parameters:
     ///   - item: downloadable
     ///   - isFinished: if item finished downloading
-    public func updateDownloadSpeed(downloadable: Downloadable? = nil) async {
+    public mutating func updateDownloadSpeed(downloadable: Downloadable? = nil) async {
         guard let identifier = await downloadable?.identifier else {
             return
         }
@@ -75,7 +75,7 @@ public actor ResourceManagerMetrics {
     }
 }
 
-extension ResourceManagerMetrics : @preconcurrency CustomStringConvertible {
+extension ResourceManagerMetrics : CustomStringConvertible {
     public var description: String {
         let formatter = ByteCountFormatter()
         

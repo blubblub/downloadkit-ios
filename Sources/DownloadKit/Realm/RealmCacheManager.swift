@@ -9,7 +9,7 @@ import Foundation
 import RealmSwift
 import os.log
 
-public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalResourceFile {
+public class RealmCacheManager<L: Object>: ResourceCachable where L: LocalResourceFile {
        
     public var log: os.Logger = logDK
     
@@ -58,7 +58,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalResource
         for request in downloadRequests {
             let downloadIdentifier = await request.downloadableIdentifier()
             downloadableMap[downloadIdentifier] = request
-        }        
+        }
         
         return downloadRequests
     }

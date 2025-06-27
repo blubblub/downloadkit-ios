@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct ResourceMirrorSelection {
+public struct ResourceMirrorSelection : Sendable {
     
     public let id: String
     
@@ -23,7 +23,7 @@ public struct ResourceMirrorSelection {
 
 extension ResourceMirrorSelection {
     
-    public enum QueueOption {
+    public enum QueueOption : Sendable {
         /// The Mirror should enqueue normally.
         case normal
         

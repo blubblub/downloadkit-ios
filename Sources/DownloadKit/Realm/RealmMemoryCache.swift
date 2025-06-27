@@ -21,7 +21,7 @@ public typealias LocalImage = UIImage
 #endif
 
 
-public protocol AssetFileCacheable {
+public protocol ResourceFileCacheable {
     subscript(id: String) -> URL? { get }
     func assetImage(url: URL) -> LocalImage?
 }
@@ -31,7 +31,7 @@ public protocol AssetFileCacheable {
 /// Images are stored as `UIImage`
 /// Note:
 /// Cache Manager will load the image into memory after downloading it.
-public class RealmMemoryCache<L: Object>: AssetFileCacheable where L: LocalResourceFile {
+public class RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalResourceFile {
     private var cacheQueue = DispatchQueue(label: "org.blubblub.downloadkit.memorycache.queue")
     private var _assetURLs = [String: URL]()
     private var assetURLs: [String: URL] {

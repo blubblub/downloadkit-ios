@@ -80,7 +80,7 @@ public struct DownloadQueueMetrics {
 
 extension DownloadQueueMetrics : CustomStringConvertible {
     public var description: String {
-        return String(format: "Processed: %d Failed: %d Retried: %d Completed: %d")
+        return String(format: "Processed: %d Failed: %d Retried: %d Completed: %d", processed, failed, 0, completed)
     }
 }
 
@@ -113,8 +113,15 @@ public actor DownloadQueue: DownloadQueuable {
         
     // MARK: - Public Properties
     
-    public weak var delegate: DownloadQueueDelegate?
-    public var simultaneousDownloads = 20
+    public private(set) weak var delegate: DownloadQueueDelegate?
+    public func set(delegate: DownloadQueueDelegate?) {
+        self.delegate = delegate
+    }
+    
+    public private(set) var simultaneousDownloads = 20
+    public func set(simultaneousDownloads: Int) {
+        self.simultaneousDownloads = max(1, simultaneousDownloads)
+    }
     
     public private(set) var metrics = DownloadQueueMetrics()
     
