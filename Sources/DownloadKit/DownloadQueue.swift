@@ -142,18 +142,12 @@ public actor DownloadQueue: DownloadQueuable {
     }
     
     public var queuedDownloads: [Downloadable] {
-        var values = [Downloadable]()
-        
-        processQueue.sync {
-            values = Array(downloadQueue)
-        }
-        
-        return values
+        return Array(downloadQueue)
     }
     
     /// Returns maximum priority of the items on queue.
-    public async var currentMaximumPriority: Int {
-        return await downloadQueue.first?.priority ?? 0
+    public var currentMaximumPriority : Int {
+        return downloadQueue.first?.priority ?? 0
     }
     
     // MARK: - Public Methods
@@ -207,7 +201,14 @@ public actor DownloadQueue: DownloadQueuable {
         }
         else {
             self.queuedDownloadMap[identifier] = nil
-            self.downloadQueue.remove(where: { $0.identifier == identifier })
+            
+            var downloadQueueCopy = self.downloadQueue
+            
+            await downloadQueueCopy.removeAsync(where: { item in
+                return await item.identifier == identifier
+            })
+            
+            self.downloadQueue = downloadQueueCopy
         }
     }
     
@@ -250,7 +251,13 @@ public actor DownloadQueue: DownloadQueuable {
         let previousItem = self.queuedDownloadMap[identifier]
         if let previousItem = previousItem, await item.priority > previousItem.priority {
             // If current item priority is higher, remove it and enqueue it again, which will place it higher.
-            self.downloadQueue.remove(where: { $0.isEqual(to: previousItem) })
+            var downloadQueueCopy = self.downloadQueue
+            
+            await downloadQueueCopy.removeAsync(where: { item in
+                return await item.isEqual(to: previousItem)
+            })
+            
+            self.downloadQueue = downloadQueueCopy
         } else if previousItem != nil {
             // item is already queued and priorities are the same, do nothing
             await self.process()
@@ -283,7 +290,7 @@ public actor DownloadQueue: DownloadQueuable {
     /// Process one specific item, will update internal state.
     /// - Parameter item: to process
     private func process(item: Downloadable) async {
-        let identifier = await item.identifier
+        let identifier = item.identifier
         
         // Remove item from queued downloads map.
         self.queuedDownloadMap[identifier] = nil

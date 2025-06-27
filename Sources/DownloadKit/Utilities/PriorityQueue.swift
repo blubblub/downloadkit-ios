@@ -6,9 +6,10 @@
 //  Copyright © 2017 Blub Blub. All rights reserved.
 //
 
-public struct PriorityQueue<T> {
+public struct PriorityQueue<T : Sendable> {
     
     fileprivate var heap = [T]()
+        
     private let ordered: (T, T) -> Bool
     
     /// Creates a new PriorityQueue with the given ordering.
@@ -19,6 +20,7 @@ public struct PriorityQueue<T> {
     public init(order: @escaping (T, T) -> Bool) {
         ordered = order
     }
+    
     
     /// How many elements the Priority Queue stores
     public var count: Int { return heap.count }
@@ -55,6 +57,18 @@ public struct PriorityQueue<T> {
     /// - Parameter condition: to match
     public mutating func remove(where condition: (T) -> Bool) {
         heap.removeAll(where: condition)
+    }
+    
+    public mutating func removeAsync(where condition: @escaping (T) async -> Bool) async {
+        var newHeap: [T] = []
+
+        for element in heap {
+            if await condition(element) == false {
+                newHeap.append(element)
+            }
+        }
+
+        heap = newHeap
     }
     
     /// Eliminate all of the elements from the Priority Queue.
