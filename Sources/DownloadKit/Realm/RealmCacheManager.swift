@@ -68,25 +68,29 @@ public class RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     }
     
     public func download(_ downloadable: Downloadable, didFinishTo location: URL) async throws -> DownloadRequest? {
-        defer {
-            downloadableMap[downloadable.identifier] = nil
-        }
 
-        guard let downloadRequest = downloadableMap[downloadable.identifier] else {
-            log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without asset information: \(downloadable.description)")
+        let identifier = await downloadable.identifier
+        
+        guard let downloadRequest = self.downloadableMap[identifier] else {
+            log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without asset information: \(identifier)")
             return nil
         }
         
-        _ = try localCache.store(asset: downloadRequest.resource,
-                                              mirror: downloadRequest.mirror.mirror,
-                                              at: location,
-                                              options: downloadRequest.options)
+        do {
+            _ = try localCache.store(asset: downloadRequest.resource,
+                                                  mirror: downloadRequest.mirror.mirror,
+                                                  at: location,
+                                                  options: downloadRequest.options)
+            downloadableMap[identifier] = nil
+        }
+        catch {
+            downloadableMap[identifier] = nil
+            throw error
+        }
         
         // Let mirror policy know that the download completed, so it can clean up after itself.
         mirrorPolicy.downloadComplete(for: downloadRequest.resource)
-        
-        await downloadableMap[downloadable.identifier] = nil
-        
+                
         return downloadRequest
     }
     
@@ -95,7 +99,7 @@ public class RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         let identifier = await downloadable.identifier
         
         guard let downloadRequest = downloadableMap[identifier] else {
-            log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without asset information: \(downloadable.description)")
+            log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without asset information: \(identifier)")
             return nil
         }
         
@@ -105,12 +109,14 @@ public class RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         guard let mirrorSelection = mirrorPolicy.mirror(for: downloadRequest.resource,
                                                         lastMirrorSelection: downloadRequest.mirror,
                                                         error: error) else {
-            log.error("[RealmCacheManager]: Download failed: \(downloadable.description) Error: \(error.localizedDescription)")
+            log.error("[RealmCacheManager]: Download failed: \(identifier) Error: \(error.localizedDescription)")
             
             return RetryDownloadRequest(retryRequest: nil, originalRequest: downloadRequest)
         }
         
-        log.error("[RealmCacheManager]: Retrying download of: \(downloadable.description) with: \(mirrorSelection.downloadable.description)")
+        let downloadableIdentifier = await mirrorSelection.downloadable.identifier
+        
+        log.error("[RealmCacheManager]: Retrying download of: \(identifier) with: \(downloadableIdentifier)")
         
         let retryDownloadRequest = DownloadRequest(resource: downloadRequest.resource, options: downloadRequest.options, mirror: mirrorSelection)
         

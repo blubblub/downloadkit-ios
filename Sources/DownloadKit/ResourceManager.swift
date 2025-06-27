@@ -132,7 +132,7 @@ public actor ResourceManager {
         let uniqueAssets = resources.unique(\.id)
         
         // Grab Assets we need from file manager, filtering out those that are already downloaded.
-        let downloads = cache.requestDownloads(assets: uniqueAssets, options: options)
+        let downloads = await cache.requestDownloads(assets: uniqueAssets, options: options)
         
         metrics.requested += uniqueAssets.count
                 
@@ -239,8 +239,8 @@ public actor ResourceManager {
 // MARK: - DownloadQueueDelegate
 
 extension ResourceManager: DownloadQueueDelegate {
-    public func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadable: Downloadable, with processor: DownloadProcessor) {
-        guard let downloadRequest = cache.downloadRequest(for: item) else {
+    public func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadable: Downloadable, with processor: DownloadProcessor) async {
+        guard let downloadRequest = await cache.downloadRequest(for: downloadable) else {
             return
         }
         
@@ -248,12 +248,12 @@ extension ResourceManager: DownloadQueueDelegate {
         self.foreachObserver { $0.didStartDownloading(downloadRequest) }
     }
     
-    public func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadable: Downloadable, using processor: DownloadProcessor) {
+    public func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadable: Downloadable, using processor: DownloadProcessor) async {
         
-        self.metrics.updateDownloadSpeed(item: item)
+        await self.metrics.updateDownloadSpeed(downloadable: downloadable)
     }
             
-    public func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadable: Downloadable, to location: URL) {
+    public func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadable: Downloadable, to location: URL) async {
         do {
             // Move the file to a temporary location, otherwise it gets removed by the system immediately after this function completes
             let tempLocation = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + "-download.tmp")

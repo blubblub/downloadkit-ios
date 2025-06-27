@@ -17,18 +17,18 @@ public protocol ResourceCachable: ResourceFileCacheable {
     /// - Parameters:
     ///   - assets: assets we're interested in.
     ///   - options: request options.
-    func requestDownloads(assets: [ResourceFile], options: RequestOptions) -> [DownloadRequest]
+    func requestDownloads(assets: [ResourceFile], options: RequestOptions) async -> [DownloadRequest]
     
     /// Returns download request for certain downloadable, if cache created it.
     /// - Parameter downloadable: item that we need request for.
     /// - Returns: original request object.
-    func downloadRequest(for downloadable: Downloadable) -> DownloadRequest?
+    func downloadRequest(for downloadable: Downloadable) async -> DownloadRequest?
     
     /// Called after the download finishes successfully.
     /// - Parameters:
     ///   - downloadable: item that finished downloading.
     ///   - location: where the item was stored.
-    func download(_ downloadable: Downloadable, didFinishTo location: URL) throws -> DownloadRequest?
+    func download(_ downloadable: Downloadable, didFinishTo location: URL) async throws -> DownloadRequest?
     
     /// Called if download fails. Return new `Downloadable` item to retry download
     /// - Parameters:
@@ -37,7 +37,7 @@ public protocol ResourceCachable: ResourceFileCacheable {
     /// - Returns:
     ///   - RetryDownloadRequest: If cache has no info about this request, it will return in.
     ///                           Otherwise object will be present with it's original download req.
-    func download(_ downloadable: Downloadable, didFailWith error: Error) -> RetryDownloadRequest?
+    func download(_ downloadable: Downloadable, didFailWith error: Error) async -> RetryDownloadRequest?
     
     /// Cleans up cache.
     /// - Parameter urls: urls to ignore while clean up process.
