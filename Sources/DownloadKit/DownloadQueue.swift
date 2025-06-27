@@ -15,28 +15,28 @@ public protocol DownloadQueueDelegate: AnyObject, Sendable {
     ///   - queue: queue on which the item was enqueued.
     ///   - item: item that started downloading.
     ///   - processor: processor that is processing download.
-    func downloadQueue(_ queue: DownloadQueue, downloadDidStart item: Downloadable, with processor: DownloadProcessor)
+    func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadable: Downloadable, with processor: DownloadProcessor)
     
     /// Called when download item transfers data.
     /// - Parameters:
     ///   - queue: queue on which the item was enqueued.
     ///   - item: item that transferred data.
     ///   - processor: processor that is processing download.
-    func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData item: Downloadable, using processor: DownloadProcessor)
+    func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadable: Downloadable, using processor: DownloadProcessor)
     
     /// Called when the download item finishes downloading. URL is provided as a parameter.
     /// - Parameters:
     ///   - queue: queue on which the item was downloaded.
     ///   - item: item that finished downloading.
     ///   - location: where on the filesystem the file was stored.
-    func downloadQueue(_ queue: DownloadQueue, downloadDidFinish item: Downloadable, to location: URL) throws
+    func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadable: Downloadable, to location: URL) throws
     
     /// Called when download had failed for any reason, including sessions being invalidated.
     /// - Parameters:
     ///   - queue: queue on which the item was downloaded.
     ///   - item: item that failed to download.
     ///   - error: error describing the failure.
-    func downloadQueue(_ queue: DownloadQueue, downloadDidFail item: Downloadable, with error: Error)
+    func downloadQueue(_ queue: DownloadQueue, downloadDidFail downloadable: Downloadable, with error: Error)
 }
 
 

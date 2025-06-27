@@ -63,11 +63,11 @@ public class RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         return downloadRequests
     }
     
-    public func downloadRequest(for downloadable: Downloadable) -> DownloadRequest? {
-        return downloadableMap[downloadable.identifier]
+    public func downloadRequest(for downloadable: Downloadable) async -> DownloadRequest? {
+        return await downloadableMap[downloadable.identifier]
     }
     
-    public func download(_ downloadable: Downloadable, didFinishTo location: URL) throws -> DownloadRequest? {
+    public func download(_ downloadable: Downloadable, didFinishTo location: URL) async throws -> DownloadRequest? {
         defer {
             downloadableMap[downloadable.identifier] = nil
         }
@@ -85,18 +85,22 @@ public class RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         // Let mirror policy know that the download completed, so it can clean up after itself.
         mirrorPolicy.downloadComplete(for: downloadRequest.resource)
         
+        await downloadableMap[downloadable.identifier] = nil
+        
         return downloadRequest
     }
     
-    public func download(_ downloadable: Downloadable, didFailWith error: Error) -> RetryDownloadRequest? {
+    public func download(_ downloadable: Downloadable, didFailWith error: Error) async -> RetryDownloadRequest? {
 
-        guard let downloadRequest = downloadableMap[downloadable.identifier] else {
+        let identifier = await downloadable.identifier
+        
+        guard let downloadRequest = downloadableMap[identifier] else {
             log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without asset information: \(downloadable.description)")
             return nil
         }
         
         // Clear download selection for the identifier.
-        downloadableMap[downloadable.identifier] = nil
+        downloadableMap[identifier] = nil
         
         guard let mirrorSelection = mirrorPolicy.mirror(for: downloadRequest.resource,
                                                         lastMirrorSelection: downloadRequest.mirror,
@@ -111,7 +115,7 @@ public class RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         let retryDownloadRequest = DownloadRequest(resource: downloadRequest.resource, options: downloadRequest.options, mirror: mirrorSelection)
         
         // Write it to downloadable map with new download selection
-        downloadableMap[retryDownloadRequest.downloadableIdentifier] = retryDownloadRequest
+        await downloadableMap[retryDownloadRequest.downloadableIdentifier()] = retryDownloadRequest
 
         return RetryDownloadRequest(retryRequest: retryDownloadRequest, originalRequest: downloadRequest)
     }
