@@ -40,9 +40,7 @@ public actor CloudKitDownloadItem: Downloadable {
     public var finishedDate: Date? { return data.finishedDate }
     
     public var assetFile: ResourceMirrorSelection?
-    
-    var didSendStartTransferNotification = false
-    
+        
     // MARK: - Codable
     
     private enum CodingKeys: String, CodingKey {
@@ -97,6 +95,10 @@ public actor CloudKitDownloadItem: Downloadable {
 //    public static func == (lhs: CloudKitDownloadItem, rhs: CloudKitDownloadItem) -> Bool {
 //        return lhs.identifier == rhs.identifier
 //    }
+    
+    func update(totalBytes: Int64) {
+        data.totalBytes = totalBytes
+    }
     
     func update(progress: Double) {
         if itemProgress == nil && totalSize > 0 {

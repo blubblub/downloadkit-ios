@@ -12,7 +12,7 @@ import os.log
 public class AssetDownloadProgress {
     public typealias Progress = Foundation.Progress
     
-    public var log: OSLog = logDK
+    public var log: Logger = logDK
     
     /// Nodes store a tree of progresses based on loaded identifiers.
     private var nodes = [String: ProgressNode]()
@@ -35,7 +35,6 @@ public class AssetDownloadProgress {
     private func node(for identifier: String, with items: [String: Progress]? = nil) -> ProgressNode? {
         var returnNode: ProgressNode?
         syncQueue.sync {
-            
             guard progresses.count > 0 else { return }
             
             if let node = nodes[identifier] {
@@ -44,7 +43,7 @@ public class AssetDownloadProgress {
             }
             
             guard let items = items, items.count > 0 else {
-                os_log(.debug, log: log, "Requested progress node for items %@, but there are no items specified and progress does not exist.", identifier)
+                log.debug("Requested progress node for items \(identifier), but there are no items specified and progress does not exist.")
                 return
             }
             
@@ -121,7 +120,7 @@ extension AssetDownloadProgress {
             }
             
             if progresses.count > 0 && items.count == 0 {
-                os_log(.debug, log: log, "There are progresses: %d, but apparently not for this group assets: %d", progresses.count, downloadIdentifiers.count)
+                log.debug("There are progresses: \(self.progresses.count), but apparently not for this group assets: \(downloadIdentifiers.count)")
             }
         }
         

@@ -37,7 +37,7 @@ public struct RetryDownloadRequest: Identifiable, Equatable {
         
         // Increase priority after download fails, so the next attempt is prioritized higher and
         // not placed at the end of the download queue. We likely want this retry immediately.
-        nextDownloadable?.priority += 10000
+        //nextDownloadable?.priority += 10000
         
         return nextDownloadable
     }

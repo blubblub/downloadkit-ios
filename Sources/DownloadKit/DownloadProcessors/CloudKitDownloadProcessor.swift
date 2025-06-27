@@ -105,26 +105,27 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
         //log.info("Downloading items in batch: \(currentItems.map({ $0.identifier }).joined(separator: ", "))")
         
         // Build map of current items.
-        var recordMap : [CKRecord.ID : CloudKitDownloadItem] = [:]
+        var currentRecordMap : [CKRecord.ID : CloudKitDownloadItem] = [:]
         
         for item in currentItems {
             if let recordID = await item.recordID {
-                recordMap[recordID] = item
+                currentRecordMap[recordID] = item
             }
         }
         
+        let recordMap = currentRecordMap
+        
         let fetchOperation = CKFetchRecordsOperation(recordIDs: Array(recordMap.keys))
+
         
         fetchOperation.perRecordProgressBlock = { [weak self] recordID, progress in
             Task {
                 guard let self = self else { return }
                 guard let item = recordMap[recordID] else { return }
                 
-                let itemDidStartTransferNotificationSent = await item.didSendStartTransferNotification
+                let itemProgress = await item.progress
                 
-                if !itemDidStartTransferNotificationSent {
-                    await item.didSendStartTransferNotification = true
-                    
+                if itemProgress == nil {
                     await self.delegate?.downloadDidStartTransfer(self, downloadable: item)
                 }
                 
@@ -137,42 +138,39 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
         }
         
         fetchOperation.perRecordCompletionBlock = { [weak self] record, recordID, error in
-            guard let self = self, let recordID = recordID else { return }
-            guard let item = recordMap[recordID] else { return }
-            
-            item.finish()
-            
-            if let error = error {
-                Task {
-                    await self.delegate?.downloadDidError(self, downloadable: item, error: error)
-                }
-                return
-            }
-            
-            // Find file asset in record.
-            guard
-                let record = record,
-                let asset = record.allKeys().compactMap({ record[$0] as? CKAsset }).first,
-                let url = asset.fileURL
-            else {
-                Task {
-                    await self.delegate?.downloadDidError(self, downloadable: item, error: CloudKitError.noAssetData)
-                }
-                return
-            }
-            
-            if let urlResourceKeys = try? url.resourceValues(forKeys: [.totalFileSizeKey]), let totalBytes = urlResourceKeys.totalFileSize {
-                item.totalBytes = Int64(totalBytes)
-            }
-            
             Task {
-                await self.delegate?.downloadDidFinishTransfer(self, item: item, to: url)
+                guard let self = self, let recordID = recordID else { return }
+                guard let item = recordMap[recordID] else { return }
+                
+                await item.finish()
+                
+                if let error = error {
+                    await self.delegate?.downloadDidError(self, downloadable: item, error: error)
+                    return
+                }
+                
+                // Find file asset in record.
+                guard
+                    let record = record,
+                    let asset = record.allKeys().compactMap({ record[$0] as? CKAsset }).first,
+                    let url = asset.fileURL
+                else {
+                    await self.delegate?.downloadDidError(self, downloadable: item, error: CloudKitError.noAssetData)
+                    
+                    return
+                }
+                
+                if let urlResourceKeys = try? url.resourceValues(forKeys: [.totalFileSizeKey]), let totalBytes = urlResourceKeys.totalFileSize {
+                    await item.update(totalBytes: Int64(totalBytes))
+                }
+                
+                await self.delegate?.downloadDidFinishTransfer(self, downloadable: item, to: url)
             }
             
         }
         
         // Run all start and on delegate.
-        currentItems.forEach { item in
+        for item in currentItems {
             await item.start(with: [:])
             self.delegate?.downloadDidBegin(self, downloadable: item)
         }

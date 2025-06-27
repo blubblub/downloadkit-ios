@@ -9,7 +9,8 @@ import Foundation
 
 public protocol DownloadProcessor: Actor {
     var isActive: Bool { get }
-    var delegate: DownloadProcessorDelegate? { get set }
+    
+    func set(delegate: DownloadProcessorDelegate?)
 
     func canProcess(downloadable: Downloadable) -> Bool
     func process(_ downloadable: Downloadable) async

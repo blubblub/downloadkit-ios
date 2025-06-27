@@ -15,7 +15,7 @@ import os.log
 open class WeightedMirrorPolicy: MirrorPolicy {
     public static let weightKey = "weight"
     
-    public var log: OSLog = logDK
+    public var log: Logger = logDK
     
     public var delegate: MirrorPolicyDelegate?
     
@@ -50,7 +50,7 @@ open class WeightedMirrorPolicy: MirrorPolicy {
         
         // If we have tried a mirror and gotten an error, select a lower weight mirror.
         if let mirrorSelection = lastMirrorSelection, error != nil {
-            os_log(.info, log: log, "[WeightedMirrorPolicy]: Mirror errored: %@, searching for next available on asset: %@", mirrorSelection.mirror.location, asset.id)
+            log.info("[WeightedMirrorPolicy]: Mirror errored: \(mirrorSelection.mirror.location), searching for next available on asset: \(asset.id)")
             
             // Find index of last mirror
             if let index = mirrors.firstIndex(where: { $0.id == mirrorSelection.mirror.id }) {
@@ -64,7 +64,7 @@ open class WeightedMirrorPolicy: MirrorPolicy {
                 downloadable = mirrors[counter].downloadable
                 
                 if downloadable != nil {
-                    os_log(.info, log: log, "[WeightedMirrorPolicy]: Selected next mirror: %@ for asset: %@", mirrors[counter].location, asset.id)
+                    log.info("[WeightedMirrorPolicy]: Selected next mirror: \(mirrors[counter].location) for asset: \(asset.id)")
                     
                     selectedIndex = counter
                     break
@@ -86,14 +86,14 @@ open class WeightedMirrorPolicy: MirrorPolicy {
         
         // Only ask if we should retry in case there was an error.
         if error != nil && !shouldRetry(mirror: mirrors[selectedIndex], for: asset) {
-            os_log(.debug, log: log, "[WeightedMirrorPolicy]: Exhaused mirrors for asset: %@ Last: %@", asset.id, mirrors[selectedIndex].location)
+            log.debug("[WeightedMirrorPolicy]: Exhaused mirrors for asset: \(asset.id) Last: \(mirrors[selectedIndex].location)")
             
             delegate?.mirrorPolicy(self, didExhaustMirrorsIn: asset)
             return nil
         }
         
         guard let finalDownloadable = downloadable else {
-            os_log(.error, log: log, "[WeightedMirrorPolicy]: No Downloadable Mirrors found for asset: %@", asset.id)
+            log.error("[WeightedMirrorPolicy]: No Downloadable Mirrors found for asset: \(asset.id)")
             delegate?.mirrorPolicy(self, didFailToGenerateDownloadableIn: asset, for: mirrors[selectedIndex])
             return nil
         }

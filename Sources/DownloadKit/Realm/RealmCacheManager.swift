@@ -10,9 +10,8 @@ import RealmSwift
 import os.log
 
 public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalResourceFile {
-    
-        
-    public var log: OSLog = logDK
+       
+    public var log: os.Logger = logDK
     
     public var memoryCache: RealmMemoryCache<L>?
     public let localCache: RealmLocalCacheManager<L>
@@ -46,7 +45,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalResource
         // Filter out binary and existing assets in local asset.
         let downloadableAssets = localCache.downloads(from: assets, options: options)
         
-        os_log(.info, log: log, "Downloading from cache asset count: %d", downloadableAssets.count)
+        log.info("Downloading from cache asset count: \(downloadableAssets.count)")
         
         let downloadRequests: [DownloadRequest] = downloadableAssets.compactMap { asset in
             guard let mirrorSelection = mirrorPolicy.mirror(for: asset, lastMirrorSelection: nil, error: nil) else {
@@ -73,7 +72,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalResource
         }
 
         guard let downloadRequest = downloadableMap[downloadable.identifier] else {
-            os_log(.fault, log: log, "[RealmCacheManager]: NO-OP: Received a downloadable without asset information: %@", downloadable.description)
+            log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without asset information: \(downloadable.description)")
             return nil
         }
         
@@ -91,7 +90,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalResource
     public func download(_ downloadable: Downloadable, didFailWith error: Error) -> RetryDownloadRequest? {
 
         guard let downloadRequest = downloadableMap[downloadable.identifier] else {
-            os_log(.fault, log: log, "[RealmCacheManager]: NO-OP: Received a downloadable without asset information: %@", downloadable.description)
+            log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without asset information: \(downloadable.description)")
             return nil
         }
         
@@ -101,8 +100,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalResource
         guard let mirrorSelection = mirrorPolicy.mirror(for: downloadRequest.resource,
                                                         lastMirrorSelection: downloadRequest.mirror,
                                                         error: error) else {
-            os_log(.error, log: log, "[RealmCacheManager]: Download failed: %@ Error: %@",
-                   downloadable.description, error.localizedDescription)
+            log.error("[RealmCacheManager]: Download failed: \(downloadable.description) Error: \(error.localizedDescription)")
             
             return RetryDownloadRequest(retryRequest: nil, originalRequest: downloadRequest)
         }
@@ -122,7 +120,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalResource
             try localCache.cleanup(excluding: urls)
         }
         catch let error {
-            os_log(.error, log: log, "[RealmCacheManager]: Error Cleaning up: %@", error.localizedDescription)
+            log.error("[RealmCacheManager]: Error Cleaning up: \(error.localizedDescription)")
         }
     }
     
