@@ -70,11 +70,11 @@ public extension ResourceFileMirror {
         }
         
         if location.starts(with: "http") {
-            return WebDownloadRequest(identifier: id, url: url)
+            return WebDownload(identifier: id, url: url)
         }
         
         if location.starts(with: "cloudkit://") {
-            return CloudKitDownloadItem(identifier: id, url: url)
+            return CloudKitDownload(identifier: id, url: url)
         }
         
         return nil

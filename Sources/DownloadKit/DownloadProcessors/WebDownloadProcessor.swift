@@ -17,7 +17,7 @@ public extension WebDownloadProcessor {
 /// Wrapper for NSURLSession delegate, between DownloadQueue and Downloadable,
 /// so we can correctly track.
 public actor WebDownloadProcessor: NSObject, DownloadProcessor {
-    
+
     // MARK: - Private Properties
     
     /// URLSession that does the download.
@@ -50,6 +50,9 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
     }
     
     // MARK: - DownloadProcessor
+    public func set(delegate: (any DownloadProcessorDelegate)?) {
+        self.delegate = delegate
+    }
     
     public func canProcess(downloadable: Downloadable) -> Bool {
         return downloadable is WebDownload && isActive
@@ -58,7 +61,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
     public func process(_ downloadable: Downloadable) async {
         guard let webDownload = downloadable as? WebDownload else {
             let error = "Cannot process the unsupported download type. Item: \(downloadable)"
-            delegate?.downloadDidError(self,
+            await delegate?.downloadDidError(self,
                                        downloadable: downloadable,
                                        error: ProcessorError.cannotProcess(error))
             return
@@ -77,7 +80,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
         
         self.downloadables.append(webDownload)
         
-        self.delegate?.downloadDidBegin(self, downloadable: webDownload)
+        await self.delegate?.downloadDidBegin(self, downloadable: webDownload)
     }
     
     public func pause() async {
@@ -110,7 +113,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
             if let item = item {
                 self.downloadables.append(item)
                 
-                self.delegate?.downloadDidBegin(self, downloadable: item)
+                await self.delegate?.downloadDidBegin(self, downloadable: item)
             }
         }
     }

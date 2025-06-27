@@ -1,5 +1,5 @@
 //
-//  CloudKitDownloadItem.swift
+//  CloudKitDownload.swift
 //  BlubBlubCore
 //
 //  Created by Dal Rupnik on 10/19/20.
@@ -7,7 +7,7 @@
 
 import Foundation
 
-public actor CloudKitDownloadItem: Downloadable {
+public actor CloudKitDownload: Downloadable {
     
     private var data: DownloadItemData
         
@@ -17,11 +17,11 @@ public actor CloudKitDownloadItem: Downloadable {
     
     /// Task priority in download queue (if needed), higher number means higher priority.
     public var priority: Int {
-        get {
-            return data.priority }
-        set {
-            data.priority = newValue
-        }
+        return data.priority
+    }
+    
+    public func set(priority: Int) {
+        data.priority = priority
     }
     
     /// Total bytes reported by download agent
@@ -129,7 +129,7 @@ public actor CloudKitDownloadItem: Downloadable {
 // MARK: - CloudKit Convenience Methods
 import CloudKit
 
-public extension CloudKitDownloadItem {
+public extension CloudKitDownload {
     var recordID: CKRecord.ID? {
         // Parse from URL: cloudkit://<container>:<zone_id>:<zone_owner>:<record_type>:<record_id>
         // Parse from URL: cloudkit://<container>:<record_type>:<record_id>

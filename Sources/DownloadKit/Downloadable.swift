@@ -23,7 +23,7 @@ public protocol Downloadable: Actor {
     var identifier: String { get }
     
     /// Task priority in download queue (if needed), higher number means higher priority.
-    var priority: Int { get set }
+    var priority: Int { get }
     
     /// Total bytes reported by download agent
     var totalBytes: Int64 { get }
@@ -42,6 +42,9 @@ public protocol Downloadable: Actor {
     
     /// Progress of the download
     var progress: Foundation.Progress? { get }
+    
+    /// Set Task priority
+    func set(priority: Int)
     
     /// Start download with parameters
     func start(with parameters: DownloadParameters)

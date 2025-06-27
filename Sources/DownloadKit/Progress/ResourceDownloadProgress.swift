@@ -16,13 +16,7 @@ public actor ResourceDownloadProgress {
     
     /// Nodes store a tree of progresses based on loaded identifiers.
     private var nodes = [String: ProgressNode]()
-    
-    private let syncQueue = DispatchQueue(label: "org.blubblub.progress.download.sync",
-                                          qos: .background,
-                                          attributes: [],
-                                          autoreleaseFrequency: .inherit,
-                                          target: nil)
-    
+
     /// Transferring progresses that are mapped to nodes under the hood.
     public private(set) var progresses = [String: Progress]()
     
@@ -33,24 +27,20 @@ public actor ResourceDownloadProgress {
     public private(set) var failedDownloadCount = 0
     
     private func node(for identifier: String, with items: [String: Progress]? = nil) -> ProgressNode? {
-        var returnNode: ProgressNode?
-        syncQueue.sync {
-            guard progresses.count > 0 else { return }
-            
-            if let node = nodes[identifier] {
-                returnNode = node
-                return
-            }
-            
-            guard let items = items, items.count > 0 else {
-                log.debug("Requested progress node for items \(identifier), but there are no items specified and progress does not exist.")
-                return
-            }
-            
-            returnNode = ProgressNode(items: items)
-            
-            self.nodes[identifier] = returnNode
+        guard progresses.count > 0 else { return nil }
+        
+        if let node = nodes[identifier] {
+            return nil
         }
+        
+        guard let items = items, items.count > 0 else {
+            log.debug("Requested progress node for items \(identifier), but there are no items specified and progress does not exist.")
+            return nil
+        }
+        
+        var returnNode = ProgressNode(items: items)
+        
+        self.nodes[identifier] = returnNode
         
         return returnNode
     }
@@ -62,66 +52,55 @@ public actor ResourceDownloadProgress {
     }
     
     private func add(_ progress: Progress, for identifier: String) {
-        syncQueue.sync {
-            
-            progresses[identifier] = progress
-            
-            for (_, node) in nodes {
-                node.retry(identifier, with: progress)
-            }
+        progresses[identifier] = progress
+        
+        for (_, node) in nodes {
+            node.retry(identifier, with: progress)
         }
     }
     
     func complete(identifier: String, with error: Error?) {
-        syncQueue.sync {
-            var completedNodes: [String] = []
+        var completedNodes: [String] = []
+        
+        for (key, node) in nodes {
             
-            for (key, node) in nodes {
-                
-                node.complete(identifier, with: error)
-                
-                if node.isCompleted {
-                    completedNodes.append(key)
-                }
+            node.complete(identifier, with: error)
+            
+            if node.isCompleted {
+                completedNodes.append(key)
             }
-            
-            // Clean up nodes after they complete transferring.
-            for key in completedNodes {
-                nodes[key] = nil
-            }
-            
-            if error == nil {
-                completedDownloadCount += progresses[identifier] != nil ? 1 : 0
-            } else {
-                failedDownloadCount += progresses[identifier] != nil ? 1 : 0
-            }
-            
-            progresses[identifier] = nil
         }
+        
+        // Clean up nodes after they complete transferring.
+        for key in completedNodes {
+            nodes[key] = nil
+        }
+        
+        if error == nil {
+            completedDownloadCount += progresses[identifier] != nil ? 1 : 0
+        } else {
+            failedDownloadCount += progresses[identifier] != nil ? 1 : 0
+        }
+        
+        progresses[identifier] = nil
     }
 }
 
 extension ResourceDownloadProgress {
     
     public func progressNode(for identifier: String, downloadIdentifiers: [String]) -> ProgressNode? {
-        var count = 0
-        syncQueue.sync {
-            count = progresses.count
-        }
-        
+        var count = progresses.count
+
         guard count > 0 else {
             return nil
         }
         
-        var items = [String: Progress]()
-        syncQueue.sync {
-            items = downloadIdentifiers.reduce(into: [String: Progress]()) {
-                $0[$1] = progresses[$1]
-            }
-            
-            if progresses.count > 0 && items.count == 0 {
-                log.debug("There are progresses: \(self.progresses.count), but apparently not for this group assets: \(downloadIdentifiers.count)")
-            }
+        var items = downloadIdentifiers.reduce(into: [String: Progress]()) {
+            $0[$1] = progresses[$1]
+        }
+        
+        if progresses.count > 0 && items.count == 0 {
+            log.debug("There are progresses: \(self.progresses.count), but apparently not for this group assets: \(downloadIdentifiers.count)")
         }
         
         guard let newNode = ProgressNode(items: items) else {
@@ -134,21 +113,23 @@ extension ResourceDownloadProgress {
             return node
         } else {
             // otherwise merge newNode with old node, save and return it
-            syncQueue.sync {
-                let merged = newNode.merge(with: node)
-                self.nodes[identifier] = merged
-            }
+            let merged = newNode.merge(with: node)
+            self.nodes[identifier] = merged
             
             return self.nodes[identifier]
         }
     }
     
     
-    func add(downloadItems: [Downloadable]) {
-        let items = downloadItems.reduce(into: [String: Progress]()) {
-            $0[$1.identifier] = $1.progress
+    func add(downloadItems: [Downloadable]) async {
+        
+        var items = [String: Progress]()
+        
+        for item in downloadItems {
+            let identifier = await item.identifier
+            items[identifier] = await item.progress
         }
-
+        
         add(items: items)
     }
 }

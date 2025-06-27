@@ -17,11 +17,12 @@ public enum CloudKitError: Error {
 public actor CloudKitDownloadProcessor: DownloadProcessor {
     
     
+    
     // MARK: - Private Properties
     private let processQueue = DispatchQueue(label: "downloadkit.cloudkit.process-queue",
                                              qos: .background)
     private var fetchWorkItem: DispatchWorkItem? = nil
-    private var queuedItems: [CloudKitDownloadItem] = []
+    private var queuedItems: [CloudKitDownload] = []
     
     private let fetchThrottleTimeout: TimeInterval = 0.5
     
@@ -50,12 +51,16 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
     }
     
     // MARK: - DownloadProcessor
+    public func set(delegate: (any DownloadProcessorDelegate)?) {
+        self.delegate = delegate
+    }
+    
     public func canProcess(downloadable: Downloadable) -> Bool {
-        return downloadable is CloudKitDownloadItem && isActive
+        return downloadable is CloudKitDownload && isActive
     }
     
     public func process(_ downloadable: Downloadable) async {
-        guard let item = downloadable as? CloudKitDownloadItem else {
+        guard let item = downloadable as? CloudKitDownload else {
             fatalError("CloudKitDownloadProcessor: Cannot process the unsupported download type. Item: \(downloadable)")
         }
         
@@ -105,7 +110,7 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
         //log.info("Downloading items in batch: \(currentItems.map({ $0.identifier }).joined(separator: ", "))")
         
         // Build map of current items.
-        var currentRecordMap : [CKRecord.ID : CloudKitDownloadItem] = [:]
+        var currentRecordMap : [CKRecord.ID : CloudKitDownload] = [:]
         
         for item in currentItems {
             if let recordID = await item.recordID {

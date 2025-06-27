@@ -1,5 +1,5 @@
 //
-//  AssetManagerMetrics.swift
+//  ResourceManagerMetrics.swift
 //  DownloadKit
 //
 //  Created by Dal Rupnik on 10/25/22.
@@ -8,10 +8,9 @@
 
 import Foundation
 
-/// Measured metrics on AssetManager
-public class ResourceManagerMetrics {
-    private let syncQueue = DispatchQueue(label: "org.blubblub.asset.manager.metrics.queue")
-    
+/// Measured metrics on ResourceManager
+public actor ResourceManagerMetrics {
+
     // MARK: - Private Properties
     private var updateDate = Date()
     private var transferredSinceLastDate = 0
@@ -35,27 +34,25 @@ public class ResourceManagerMetrics {
     /// - Parameters:
     ///   - item: downloadable
     ///   - isFinished: if item finished downloading
-    public func updateDownloadSpeed(item: Downloadable? = nil) {
-        syncQueue.async { [weak self] in
-            guard let self = self else {
-                return
+    public func updateDownloadSpeed(downloadable: Downloadable? = nil) async {
+        guard let identifier = await downloadable?.identifier else {
+            return
+        }
+        
+        if let downloadable = downloadable {
+            if self.startBytesMap[identifier] == nil {
+                self.startBytesMap[identifier] = await downloadable.transferredBytes
             }
             
-            if let item = item {
-                if self.startBytesMap[item.identifier] == nil {
-                    self.startBytesMap[item.identifier] = item.transferredBytes
-                }
-                
-                self.currentBytesMap[item.identifier] = item.transferredBytes
-            }
+            self.currentBytesMap[identifier] = await downloadable.transferredBytes
+        }
+        
+        if let downloadSpeed = self.calculateDownloadSpeed(lastUpdateDate: self.updateDate) {
+            self.downloadSpeedBytes = downloadSpeed
+            self.updateDate = Date()
             
-            if let downloadSpeed = self.calculateDownloadSpeed(lastUpdateDate: self.updateDate) {
-                self.downloadSpeedBytes = downloadSpeed
-                self.updateDate = Date()
-                
-                self.startBytesMap.removeAll()
-                self.currentBytesMap.removeAll()
-            }
+            self.startBytesMap.removeAll()
+            self.currentBytesMap.removeAll()
         }
     }
     
@@ -78,7 +75,7 @@ public class ResourceManagerMetrics {
     }
 }
 
-extension ResourceManagerMetrics : CustomStringConvertible {
+extension ResourceManagerMetrics : @preconcurrency CustomStringConvertible {
     public var description: String {
         let formatter = ByteCountFormatter()
         

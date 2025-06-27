@@ -36,11 +36,11 @@ public actor WebDownload : NSObject, Downloadable {
     
     /// Task priority in download queue (if needed), higher number means higher priority.
     public var priority: Int {
-        get {
-            return data.priority }
-        set {
-            data.priority = newValue
-        }
+        return data.priority
+    }
+    
+    public func set(priority: Int) {
+        data.priority = priority
     }
     
     /// Total bytes reported by download agent

@@ -20,8 +20,8 @@ public struct DownloadRequest: Identifiable, Equatable {
     public let options: RequestOptions
     public let mirror: ResourceMirrorSelection
     
-    public func downloadableIdentifier() -> String {
-        return mirror.downloadable.identifier
+    public func downloadableIdentifier() async -> String {
+        return await mirror.downloadable.identifier
     }
     
 //    public var downloadableIdentifier : String {
@@ -35,13 +35,15 @@ public struct RetryDownloadRequest: Identifiable, Equatable {
         return originalRequest.id
     }
     
-    public var downloadable : Downloadable? {
+    public func downloadable() async -> Downloadable? {
         
-        var nextDownloadable = retryRequest?.mirror.downloadable
+        let nextDownloadable = retryRequest?.mirror.downloadable
         
         // Increase priority after download fails, so the next attempt is prioritized higher and
         // not placed at the end of the download queue. We likely want this retry immediately.
-        //nextDownloadable?.priority += 10000
+        if let currentPriority = await nextDownloadable?.priority {
+            await nextDownloadable?.set(priority: currentPriority + 10000)
+        }
         
         return nextDownloadable
     }
