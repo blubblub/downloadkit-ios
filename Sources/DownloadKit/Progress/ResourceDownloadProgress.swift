@@ -9,10 +9,10 @@
 import Foundation
 import os.log
 
-public class AssetDownloadProgress {
+public actor ResourceDownloadProgress {
     public typealias Progress = Foundation.Progress
     
-    public var log: Logger = logDK
+    public let log: Logger = logDK
     
     /// Nodes store a tree of progresses based on loaded identifiers.
     private var nodes = [String: ProgressNode]()
@@ -101,7 +101,7 @@ public class AssetDownloadProgress {
     }
 }
 
-extension AssetDownloadProgress {
+extension ResourceDownloadProgress {
     
     public func progressNode(for identifier: String, downloadIdentifiers: [String]) -> ProgressNode? {
         var count = 0

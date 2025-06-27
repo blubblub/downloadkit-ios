@@ -98,7 +98,7 @@ open class WeightedMirrorPolicy: MirrorPolicy {
             return nil
         }
                 
-        //os_log(.debug, log: log, "[WeightedMirrorPolicy]: Downloading asset: %@ from: %@", asset.id, mirrors[selectedIndex].location)
+        //log.debug("[WeightedMirrorPolicy]: Downloading asset: \(asset.id) from: \(mirrors[selectedIndex].location)")
 
         return ResourceMirrorSelection(id: asset.id, mirror: mirrors[selectedIndex], downloadable: finalDownloadable)
     }

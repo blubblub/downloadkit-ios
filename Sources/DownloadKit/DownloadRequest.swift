@@ -20,6 +20,10 @@ public struct DownloadRequest: Identifiable, Equatable {
     public let options: RequestOptions
     public let mirror: ResourceMirrorSelection
     
+    public func downloadableIdentifier() -> String {
+        return mirror.downloadable.identifier
+    }
+    
 //    public var downloadableIdentifier : String {
 //        return mirror.downloadable.identifier
 //    }

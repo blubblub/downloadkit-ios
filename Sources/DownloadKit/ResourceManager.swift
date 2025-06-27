@@ -99,7 +99,7 @@ public class ResourceManager {
     
     public let cache: AssetCacheable
     
-    public let progress = AssetDownloadProgress()
+    public let progress = ResourceDownloadProgress()
     
     public private(set) var metrics = ResourceManagerMetrics()
     
@@ -143,10 +143,10 @@ public class ResourceManager {
         
         metrics.requested += uniqueAssets.count
                 
-        os_log(.info, log: log, "Requested unique asset count: %d Downloads: %d", uniqueAssets.count, downloads.count)
+        log.info("Requested unique asset count: \(uniqueAssets.count) Downloads: \(downloads.count)")
                 
         guard downloads.count > 0 else {
-            os_log(.info, log: log, "[AssetManager]: Metrics on no downloads: %@", metrics.description)
+            log.info("[AssetManager]: Metrics on no downloads: \(metrics.description)")
             return []
         }
         
@@ -155,7 +155,7 @@ public class ResourceManager {
         let finalDownloads = downloads.filter { !isDownloading(for: $0.downloadableIdentifier) }
         
         if downloads.count != finalDownloads.count {
-            os_log(.error, log: log, "[AssetManager]: Final downloads mismatch: %d %d", downloads.count, finalDownloads.count)
+            log.error("[AssetManager]: Final downloads mismatch: \(downloads.count) \(finalDownloads.count)")
         }
         
         if let priorityQueue = priorityQueue, options.downloadPriority == .high {
@@ -183,7 +183,7 @@ public class ResourceManager {
             
             downloadQueue.cancel(items: normalQueuedDownloads.map(\.mirror.downloadable))
             
-            os_log(.info, log: log, "Reprioritising assets: %@", finalDownloads.map({ $0.downloadableIdentifier }).joined(separator: ", "))
+            log.info("Reprioritising assets: \(finalDownloads.map({ $0.downloadableIdentifier }).joined(separator: ", "))")
         }
         else {
             downloadQueue.download(finalDownloads.map(\.mirror.downloadable))
@@ -192,7 +192,7 @@ public class ResourceManager {
         // Add downloads to monitor progresses.
         progress.add(downloadItems: finalDownloads.map(\.mirror.downloadable))
         
-        os_log(.info, log: log, "[AssetManager]: Metrics on request: %@", metrics.description)
+        log.info("[AssetManager]: Metrics on request: \(metrics.description)")
         
         return downloads
     }
@@ -292,20 +292,20 @@ extension ResourceManager: DownloadQueueDelegate {
                             
                             self.completeProgress(downloadRequest, item: item, with: nil)
                             
-                            os_log(.info, log: self.log, "[AssetManager]: Download finished: %@", item.description)
+                            self.log.info("[AssetManager]: Download finished: \(item.description)")
                             
-                            os_log(.info, log: self.log, "[AssetManager]: Metrics on download finished: %@", self.metrics.description)
+                            self.log.info("[AssetManager]: Metrics on download finished: \(self.metrics.description)")
                         }
                     }
                     catch let error {
-                        os_log(.error, log: self.log, "[AssetManager]: Error caching file: %@", error.localizedDescription)
+                        self.log.error("[AssetManager]: Error caching file: \(error.localizedDescription)")
                         self.downloadQueue(queue, downloadDidFail: item, with: error)
                     }
                 }
                 
             }
         } catch let error {
-            os_log(.error, log: log, "[AssetManager]: Error moving temporary file: %@", error.localizedDescription)
+            log.error("[AssetManager]: Error moving temporary file: \(error.localizedDescription)")
             processQueue.async {
                 // Ensure error is handled, download actually did fail.
                 self.downloadQueue(queue, downloadDidFail: item, with: error)
@@ -328,21 +328,21 @@ extension ResourceManager: DownloadQueueDelegate {
                 self.foreachObserver { $0.willRetryFailedDownload(retry, originalDownload: retryRequest.originalRequest, with: error) }
             }
             
-            os_log(.error, log: log, "[AssetManager]: Download failed, retrying: %@ Error: %@", item.identifier, error.localizedDescription)
+            log.error("[AssetManager]: Download failed, retrying: \(item.identifier) Error: \(error.localizedDescription)")
             
             queue.download(downloadable)
         } else if let originalRequest = retryRequest?.originalRequest {
             metrics.failed += 1
             
-            os_log(.error, log: log, "[AssetManager]: Download failed, done: %@ Error: %@", item.identifier, error.localizedDescription)
+            log.error("[AssetManager]: Download failed, done: \(item.identifier) Error: \(error.localizedDescription)")
                 
             self.completeProgress(originalRequest, item: item, with: error)
         }
         else {
-            os_log(.error, log: log, "[AssetManager]: Download failed, unknown: %@ Error: %@", item.identifier, error.localizedDescription)
+            log.error("[AssetManager]: Download failed, unknown: \(item.identifier) Error: \(error.localizedDescription)")
         }
         
-        os_log(.info, log: log, "[AssetManager]: Metrics on download failed: %@", metrics.description)
+        log.info("[AssetManager]: Metrics on download failed: \(metrics.description)")
     }
     
     private func completeProgress(_ downloadRequest: DownloadRequest, item: Downloadable, with error: Error?) {
@@ -369,7 +369,7 @@ extension ResourceManager: DownloadQueueDelegate {
 extension ResourceManager {
     public func addAssetCompletion(for identifier: String, with completion: @escaping ProgressCompletion) {
         // If this asset is not downloading at all, call the closure immediately!
-        guard hasItem(with: identifier) else {
+        guard hasDownloadable(with: identifier) else {
             completion(false, identifier)
             return
         }
@@ -425,12 +425,12 @@ extension ResourceManager: DownloadQueuable {
         queues.flatMap(\.queuedDownloads)
     }
     
-    public func hasItem(with identifier: String) -> Bool {
-        queues.contains(where: { $0.hasItem(with: identifier) })
+    public func hasDownloadable(with identifier: String) -> Bool {
+        queues.contains(where: { $0.hasDownloadable(with: identifier) })
     }
     
-    public func item(for identifier: String) -> Downloadable? {
-        queues.compactMap { $0.item(for: identifier) }.first
+    public func downloadable(for identifier: String) -> Downloadable? {
+        queues.compactMap { $0.downloadable(for: identifier) }.first
     }
     
     public func isDownloading(for identifier: String) -> Bool {

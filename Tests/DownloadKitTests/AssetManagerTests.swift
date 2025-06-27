@@ -58,8 +58,8 @@ class AssetManagerTests: XCTestCase {
         XCTAssertEqual(manager.downloads.count, 0, "Manager should be empty.")
         XCTAssertEqual(manager.currentDownloads.count, 0, "Manager should be empty.")
         XCTAssertEqual(manager.queuedDownloads.count, 0, "Manager should be empty.")
-        XCTAssertEqual(manager.hasItem(with: "random-id"), false, "Manager should be empty.")
-        XCTAssertNil(manager.item(for: "random-id"), "Manager should be empty.")
+        XCTAssertEqual(manager.hasDownloadable(with: "random-id"), false, "Manager should be empty.")
+        XCTAssertNil(manager.downloadable(for: "random-id"), "Manager should be empty.")
         XCTAssertEqual(manager.isDownloading(for: "random-id"), false, "Manager should be empty.")
     }
     

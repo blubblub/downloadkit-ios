@@ -1,23 +1,26 @@
 //
-//  PriorityQueue.swift
-//  SwiftPriorityQueue
+//  AsyncPriorityQueue.swift
+//  DownloadKit
 //
-//  Created by Dal Rupnik on 12/19/17.
-//  Copyright © 2017 Blub Blub. All rights reserved.
+//  Created by Dal Rupnik on 27.06.2025.
 //
 
-public struct PriorityQueue<T> {
+public struct AsyncPriorityQueue<T : Sendable> : Sendable {
     
     fileprivate var heap = [T]()
-    private let ordered: (T, T) -> Bool
+    var order: (@Sendable (T, T) async -> Bool)?
     
     /// Creates a new PriorityQueue with the given ordering.
     ///
     /// - parameter order: A function that specifies whether its first argument should
     ///                    come after the second argument in the PriorityQueue.
     /// - parameter startingValues: An array of elements to initialize the PriorityQueue with.
-    public init(order: @escaping (T, T) -> Bool) {
-        ordered = order
+    public init(order: @escaping @Sendable (T, T) async -> Bool) {
+        self.order = order
+    }
+    
+    public init() {
+        
     }
     
     /// How many elements the Priority Queue stores
@@ -29,8 +32,10 @@ public struct PriorityQueue<T> {
     /// Add a new element onto the Priority Queue. O(logn)
     ///
     /// - parameter element: The element to be inserted into the Priority Queue.
-    public mutating func enqueue(_ element: T) {
-        let index = heap.insertionIndex { return ordered(element, $0) }
+    public mutating func enqueue(_ element: T) async {
+        assert(order != nil, "PriorityQueue must be initialized with an ordering")
+        
+        let index = await heap.insertionIndex { return await order!(element, $0) }
         heap.insert(element, at: index)
     }
     
@@ -53,8 +58,16 @@ public struct PriorityQueue<T> {
     
     /// Removes all elements matching condition
     /// - Parameter condition: to match
-    public mutating func remove(where condition: (T) -> Bool) {
-        heap.removeAll(where: condition)
+    public mutating func remove(where condition: @escaping (T) async -> Bool) async {
+        var newHeap: [T] = []
+
+        for element in heap {
+            if await condition(element) == false {
+                newHeap.append(element)
+            }
+        }
+
+        heap = newHeap
     }
     
     /// Eliminate all of the elements from the Priority Queue.
@@ -63,7 +76,7 @@ public struct PriorityQueue<T> {
     }
 }
 
-extension PriorityQueue where T: Equatable {
+extension AsyncPriorityQueue where T: Equatable {
     /// Removes the first occurrence of a particular item. Finds it by value comparison using ==. O(n)
     /// Silently exits if no occurrence found.
     ///
@@ -86,21 +99,21 @@ extension PriorityQueue where T: Equatable {
 }
 
 // MARK: - GeneratorType
-extension PriorityQueue: IteratorProtocol {
+extension AsyncPriorityQueue: IteratorProtocol {
     
     public typealias Element = T
     mutating public func next() -> Element? { return dequeue() }
 }
 
 // MARK: - SequenceType
-extension PriorityQueue: Sequence {
+extension AsyncPriorityQueue: Sequence {
     
-    public typealias Iterator = PriorityQueue
+    public typealias Iterator = AsyncPriorityQueue
     public func makeIterator() -> Iterator { return self }
 }
 
 // MARK: - CollectionType
-extension PriorityQueue: Collection {
+extension AsyncPriorityQueue: Collection {
     
     public typealias Index = Int
     
@@ -115,12 +128,10 @@ extension PriorityQueue: Collection {
 }
 
 // MARK: - CustomStringConvertible, CustomDebugStringConvertible
-extension PriorityQueue: CustomStringConvertible, CustomDebugStringConvertible {
-    
+extension AsyncPriorityQueue: CustomStringConvertible, CustomDebugStringConvertible {
     public var description: String { return heap.description }
     public var debugDescription: String { return heap.debugDescription }
 }
-
 
 extension RandomAccessCollection where Element : Comparable {
     fileprivate func insertionIndex(of value: Element) -> Index {
@@ -139,12 +150,12 @@ extension RandomAccessCollection where Element : Comparable {
 }
 
 extension RandomAccessCollection {
-    fileprivate func insertionIndex(for predicate: (Element) -> Bool) -> Index {
+    fileprivate func insertionIndex(for predicate: (Element) async -> Bool) async -> Index {
         var slice: SubSequence = self[...]
         
         while !slice.isEmpty {
             let middle = slice.index(slice.startIndex, offsetBy: slice.count / 2)
-            if predicate(slice[middle]) {
+            if await predicate(slice[middle]) {
                 slice = slice[index(after: middle)...]
             } else {
                 slice = slice[..<middle]

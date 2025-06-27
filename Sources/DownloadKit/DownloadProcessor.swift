@@ -23,7 +23,7 @@ public protocol DownloadProcessor: Actor {
     func resume() async
 }
 
-public protocol DownloadProcessorDelegate: AnyObject, Sendable {
+public protocol DownloadProcessorDelegate: AnyObject, Actor {
     /// Sent when a Downloadable is being worked on.
     func downloadDidBegin(_ processor: DownloadProcessor, downloadable: Downloadable)
     

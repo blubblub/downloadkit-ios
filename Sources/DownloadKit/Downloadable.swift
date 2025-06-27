@@ -18,7 +18,7 @@ public struct DownloadParameter: Codable, Sendable, Hashable, Equatable, RawRepr
 public typealias DownloadParameters = [DownloadParameter: Any]
 
 
-public protocol Downloadable: Sendable {
+public protocol Downloadable: Actor {
     /// Identifier of the download, usually an id
     var identifier: String { get }
     
@@ -59,7 +59,7 @@ public extension Downloadable {
     var totalSize: Int64 { return 0 }
     
     func isEqual(to downloadable: Downloadable) async -> Bool {
-        return  identifier == downloadable.identifier
+        return await identifier == downloadable.identifier
     }
 }
 

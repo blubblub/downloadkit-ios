@@ -35,7 +35,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalResource
     }
     
     // MARK: - AssetCachable
-    public func requestDownloads(assets: [ResourceFile], options: RequestOptions) -> [DownloadRequest] {
+    public func requestDownloads(assets: [ResourceFile], options: RequestOptions) async -> [DownloadRequest] {
         // Update storage for assets that exists.
         localCache.updateStorage(assets: assets, to: options.storagePriority) { [weak self] asset in
             guard let self else { return }
@@ -55,9 +55,10 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalResource
             return DownloadRequest(resource: asset, options: options, mirror: mirrorSelection)
         }
         
-        downloadRequests.forEach {
-            downloadableMap[$0.downloadableIdentifier] = $0
-        }
+        for request in downloadRequests {
+            let downloadIdentifier = await request.downloadableIdentifier()
+            downloadableMap[downloadIdentifier] = request
+        }        
         
         return downloadRequests
     }
@@ -105,7 +106,7 @@ public class RealmCacheManager<L: Object>: AssetCacheable where L: LocalResource
             return RetryDownloadRequest(retryRequest: nil, originalRequest: downloadRequest)
         }
         
-        os_log(.error, log: log, "[RealmCacheManager]: Retrying download of: %@ with: %@", downloadable.description, mirrorSelection.downloadable.description)
+        log.error("[RealmCacheManager]: Retrying download of: \(downloadable.description) with: \(mirrorSelection.downloadable.description)")
         
         let retryDownloadRequest = DownloadRequest(resource: downloadRequest.resource, options: downloadRequest.options, mirror: mirrorSelection)
         

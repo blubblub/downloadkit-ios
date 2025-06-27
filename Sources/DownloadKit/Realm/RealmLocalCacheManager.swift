@@ -11,7 +11,7 @@ import RealmSwift
 
 public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
     public var file = FileManager.default
-    public var log: OSLog = logDK
+    public var log: os.Logger = logDK
     
     /// Target Realm to update
     public let configuration: Realm.Configuration
@@ -78,7 +78,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
             realm.add(localAsset, update: .modified)
         }
         
-        os_log(.info, log: log, "[RealmLocalCacheManager]: Stored: %@ at: %@", asset.id, finalFileUrl.absoluteString)
+        log.info("[RealmLocalCacheManager]: Stored: \(asset.id) at: \(finalFileUrl.absoluteString)")
         
         return localAsset
     }
@@ -122,16 +122,16 @@ public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
                             realm.add(localAsset, update: .modified)
                             onAssetChange?(localAsset)
                             try realm.commitWrite()
-                            os_log(.info, log: log, "[RealmLocalCacheManager]: Moved %@ from to %@", localURL.absoluteString, targetURL.absoluteString)
+                            log.info("[RealmLocalCacheManager]: Moved \(localURL.absoluteString) from to \(targetURL.absoluteString)")
                         } catch {
-                            os_log(.error, log: log, "[RealmLocalCacheManager]: Error %@ moving file from: %@ to %@", error.localizedDescription, localURL.absoluteString, targetURL.absoluteString)
+                            log.error("[RealmLocalCacheManager]: Error \(error.localizedDescription) moving file from: \(localURL.absoluteString) to \(targetURL.absoluteString)")
                         }
                     }
                 }
 
             }
             catch {
-                os_log(.error, log: log, "[RealmLocalCacheManager]: Error updating Realm store for files.")
+                log.error("[RealmLocalCacheManager]: Error updating Realm store for files.")
             }
             
         }
@@ -193,8 +193,8 @@ public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
             realm.delete(objects)
         }
         
-        os_log(.debug, log: log, "[RealmLocalCacheManager]: Removed %lu files.", filesToRemove.count)
-        os_log(.debug, log: log, "[RealmLocalCacheManager]: Removed %lu objects.", objects.count)
+        log.debug("[RealmLocalCacheManager]: Removed \(filesToRemove.count) files.")
+        log.debug("[RealmLocalCacheManager]: Removed \(objects.count) objects.")
     }
     
     public func cleanup(excluding urls: Set<URL>) throws {
@@ -204,7 +204,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
         let filesToRemove = files.filter({ !urls.contains($0) })
         removeFiles(filesToRemove)
         
-        os_log(.debug, log: log, "[RealmLocalCacheManager]: Removed %lu files.", filesToRemove.count)
+        log.debug("[RealmLocalCacheManager]: Removed \(filesToRemove.count) files.")
         
         try cleanupRealm(excluding: Set(urls))
     }
@@ -218,9 +218,9 @@ public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
         for item in items {
             do {
                 try file.removeItem(at: item)
-                os_log(.debug, log: log, "[RealmLocalCacheManager]: Removed file: %@", item.absoluteString)
+                log.debug("[RealmLocalCacheManager]: Removed file: \(item.absoluteString)")
             } catch {
-                os_log(.error, log: log, "[RealmLocalCacheManager]: Error removing file: %@", error.localizedDescription)
+                log.error("[RealmLocalCacheManager]: Error removing file: \(error.localizedDescription)")
             }
         }
     }
@@ -251,7 +251,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
             }
         }
         
-        os_log(.debug, log: log, "[RealmLocalCacheManager]: Removed %lu objects.", deleteCounter)
+        log.debug("[RealmLocalCacheManager]: Removed \(deleteCounter) objects.")
     }
     
     private func removeAssetsWithoutLocalFile(assets: [ResourceFile]) throws {
@@ -265,7 +265,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
                 }
             }
         } catch {
-            os_log(.error, log: log, "[RealmLocalCacheManager]: Error while removing assets %@", error.localizedDescription)
+            log.error("[RealmLocalCacheManager]: Error while removing assets \(error.localizedDescription)")
         }
     }
     
