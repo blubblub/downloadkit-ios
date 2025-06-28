@@ -1,5 +1,5 @@
 //
-//  AssetManager.swift
+//  ResourceManager.swift
 //  BlubBlubCore
 //
 //  Created by Dal Rupnik on 05/10/2017.
@@ -75,7 +75,7 @@ public actor ResourceManager {
     
     // MARK: - Private Properties
     
-    private var assetCompletions: [String: [ProgressCompletion]] = [:]
+    private var resourceCompletions: [String: [ProgressCompletion]] = [:]
     private var observers: [ObjectIdentifier: Observer] = [:]
 
     // MARK: - Public Properties
@@ -214,13 +214,13 @@ public actor ResourceManager {
             await queue.cancelAll()
         }
         
-        for (identifier, completions) in assetCompletions {
+        for (identifier, completions) in resourceCompletions {
             for completion in completions {
                 completion(false, identifier)
             }
         }
         
-        assetCompletions.removeAll()
+        resourceCompletions.removeAll()
     }
     
     public func add(observer: ResourceManagerObserver) {
@@ -338,12 +338,12 @@ extension ResourceManager: DownloadQueueDelegate {
     }
     
     private func completeProgress(_ downloadRequest: DownloadRequest, downloadable: Downloadable, with error: Error?) {
-        if let completions = self.assetCompletions[downloadRequest.id] {
+        if let completions = self.resourceCompletions[downloadRequest.id] {
             for completion in completions {
                 completion(error == nil, downloadRequest.id)
             }
             
-            removeAssetCompletion(for: downloadRequest.id)
+            removeResourceCompletion(for: downloadRequest.id)
         }
         
         if let error = error {
@@ -360,8 +360,8 @@ extension ResourceManager: DownloadQueueDelegate {
 }
 
 extension ResourceManager {
-    public func addAssetCompletion(for identifier: String, with completion: @escaping ProgressCompletion) {
-        // If this asset is not downloading at all, call the closure immediately!
+    public func addResourceCompletion(for identifier: String, with completion: @escaping ProgressCompletion) {
+        // If this resource is not downloading at all, call the closure immediately!
         Task {
             guard await hasDownloadable(with: identifier) else {
                 completion(false, identifier)
@@ -371,18 +371,18 @@ extension ResourceManager {
             var completionBlocks: [ProgressCompletion] = []
             
             // Check if array is made, append existing blocks
-            if let existingBlocks = assetCompletions[identifier] {
+            if let existingBlocks = resourceCompletions[identifier] {
                 completionBlocks.append(contentsOf: existingBlocks)
             }
             
             completionBlocks.append(completion)
             
-            assetCompletions[identifier] = completionBlocks
+            resourceCompletions[identifier] = completionBlocks
         }
     }
     
-    public func removeAssetCompletion(for identifier: String) {
-        assetCompletions[identifier] = nil
+    public func removeResourceCompletion(for identifier: String) {
+        resourceCompletions[identifier] = nil
     }
 }
 

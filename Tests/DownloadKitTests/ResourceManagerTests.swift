@@ -2,20 +2,20 @@ import XCTest
 import RealmSwift
 @testable import DownloadKit
 
-class AssetManagerTests: XCTestCase {
+class ResourceManagerTests: XCTestCase {
     
     var manager: ResourceManager!
     var cache: RealmCacheManager<LocalFile>!
     
-    var resources: [Asset] {
+    var resources: [Resource] {
         let resources = [
-            Asset(id: "asset-id",
-                  main: FileMirror(id: "asset-id", location: "https://picsum.photos/10", info: [:]),
-                  alternatives: [
-                    FileMirror(id: "asset-id", location: "https://picsum.photos/100", info: [WeightedMirrorPolicy.weightKey: 100]),
-                    FileMirror(id: "asset-id", location: "https://picsum.photos/50", info: [WeightedMirrorPolicy.weightKey: 50])
-                  ],
-                  fileURL: nil)
+            Resource(id: "resource-id",
+                     main: FileMirror(id: "resource-id", location: "https://picsum.photos/10", info: [:]),
+                     alternatives: [
+                       FileMirror(id: "resource-id", location: "https://picsum.photos/100", info: [WeightedMirrorPolicy.weightKey: 100]),
+                       FileMirror(id: "resource-id", location: "https://picsum.photos/50", info: [WeightedMirrorPolicy.weightKey: 50])
+                     ],
+                     fileURL: nil)
         ]
         
         return resources
@@ -79,7 +79,7 @@ class AssetManagerTests: XCTestCase {
         XCTAssertEqual(requests.count, 1)
         if let firstRequest = requests.first {
             let identifier = await firstRequest.downloadableIdentifier()
-            XCTAssertEqual(identifier, "asset-id", "First downloadable should be the mirror with highest weight")
+            XCTAssertEqual(identifier, "resource-id", "First downloadable should be the mirror with highest weight")
         }
     }
     
@@ -90,37 +90,37 @@ class AssetManagerTests: XCTestCase {
         XCTAssertEqual(requests.count, 1)
         if let firstRequest = requests.first {
             let identifier = await firstRequest.downloadableIdentifier()
-            XCTAssertEqual(identifier, "asset-id", "First downloadable should be the mirror with highest weight")
+            XCTAssertEqual(identifier, "resource-id", "First downloadable should be the mirror with highest weight")
         }
     }
     
-    func testAssetCompletionIsCalled() async throws {
-        // For testing purposes, just verify the completion is called when asset is already cached
-        let asset = Asset(id: "asset-id", main: FileMirror(id: "asset-id", location: "test://local.file", info: [:]), alternatives: [], fileURL: Bundle.main.url(forResource: "sample", withExtension: "png"))
+    func testResourceCompletionIsCalled() async throws {
+        // For testing purposes, just verify the completion is called when resource is already cached
+        let resource = Resource(id: "resource-id", main: FileMirror(id: "resource-id", location: "test://local.file", info: [:]), alternatives: [], fileURL: Bundle.main.url(forResource: "sample", withExtension: "png"))
         
         let expectation = XCTestExpectation(description: "Requesting downloads should call completion.")
         
-        await manager.request(resources: [asset])
-        await manager.addAssetCompletion(for: "asset-id") { (success, assetID) in
-            // Since asset has a fileURL, it should complete immediately
+        await manager.request(resources: [resource])
+        await manager.addResourceCompletion(for: "resource-id") { (success, resourceID) in
+            // Since resource has a fileURL, it should complete immediately
             expectation.fulfill()
         }
 
         await fulfillment(of: [expectation], timeout: 1)
     }
     
-    func testThatMultipleAssetCompletionAreCalled() async throws {
-        let asset = Asset(id: "asset-id", main: FileMirror(id: "asset-id", location: "test://local.file", info: [:]), alternatives: [], fileURL: Bundle.main.url(forResource: "sample", withExtension: "png"))
+    func testThatMultipleResourceCompletionAreCalled() async throws {
+        let resource = Resource(id: "resource-id", main: FileMirror(id: "resource-id", location: "test://local.file", info: [:]), alternatives: [], fileURL: Bundle.main.url(forResource: "sample", withExtension: "png"))
         
         let expectation = self.expectation(description: "Requesting downloads should call completion.")
         expectation.expectedFulfillmentCount = 2
         
-        await manager.request(resources: [asset])
-        await manager.addAssetCompletion(for: "asset-id") { (success, assetID) in
+        await manager.request(resources: [resource])
+        await manager.addResourceCompletion(for: "resource-id") { (success, resourceID) in
             expectation.fulfill()
         }
         
-        await manager.addAssetCompletion(for: "asset-id") { (success, assetID) in
+        await manager.addResourceCompletion(for: "resource-id") { (success, resourceID) in
             expectation.fulfill()
         }
         
@@ -128,10 +128,10 @@ class AssetManagerTests: XCTestCase {
         // Just verify that both callbacks were called by checking fulfillment count
     }
     
-    func testThatAddingAssetCompletionBeforeRequestingDownloadsFails() async throws {
-        let expectation = self.expectation(description: "Asset completion should be called immediately.")
+    func testThatAddingResourceCompletionBeforeRequestingDownloadsFails() async throws {
+        let expectation = self.expectation(description: "Resource completion should be called immediately.")
 
-        await manager.addAssetCompletion(for: "asset-id") { (success, assetID) in
+        await manager.addResourceCompletion(for: "resource-id") { (success, resourceID) in
             XCTAssertFalse(success)
             expectation.fulfill()
         }
@@ -144,16 +144,16 @@ class AssetManagerTests: XCTestCase {
     func testThatErrorHandlerIsCalled() async {
         let expectation = self.expectation(description: "Requesting downloads should call completion.")
         
-        let asset = Asset(id: "invalid-asset", main: FileMirror(id: "invalid-asset",
-                                                                location: "invalid://scheme.url/jpg",
-                                                                info: [:]),
-                          alternatives: [],
-                          fileURL: nil)
-        await manager.request(resources: [asset])
-        await manager.addAssetCompletion(for: "invalid-asset") { (success, assetID) in
+        let resource = Resource(id: "invalid-resource", main: FileMirror(id: "invalid-resource",
+                                                                        location: "invalid://scheme.url/jpg",
+                                                                        info: [:]),
+                                alternatives: [],
+                                fileURL: nil)
+        await manager.request(resources: [resource])
+        await manager.addResourceCompletion(for: "invalid-resource") { (success, resourceID) in
             // For unsupported URL schemes, this should fail quickly
             XCTAssertFalse(success)
-            XCTAssertEqual("invalid-asset", assetID)
+            XCTAssertEqual("invalid-resource", resourceID)
             expectation.fulfill()
         }
         

@@ -79,7 +79,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         }
         
         do {
-            _ = try localCache.store(asset: downloadRequest.resource,
+            _ = try localCache.store(resource: downloadRequest.resource,
                                                   mirror: downloadRequest.mirror.mirror,
                                                   at: location,
                                                   options: downloadRequest.options)

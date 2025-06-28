@@ -1,5 +1,5 @@
 //
-//  AssetFile.swift
+//  ResourceFile.swift
 //  BlubBlubCore
 //
 //  Created by Dal Rupnik on 11/2/20.
@@ -7,9 +7,9 @@
 
 import Foundation
 
-public typealias AssetFileInfo = [String: Any]
+public typealias ResourceFileInfo = [String: Any]
 
-/// Base DownloadKit Asset that can be downloaded.
+/// Base DownloadKit Resource that can be downloaded.
 public protocol ResourceFile : Sendable {
     var id: String { get }
     var main: ResourceFileMirror { get }
@@ -33,7 +33,7 @@ public protocol ResourceFileMirror : Sendable {
     var location: String { get }
     
     /// Certain Metadata of the mirror
-    var info: AssetFileInfo { get }
+    var info: ResourceFileInfo { get }
     
     /// Returns downloadable object for
     var downloadable: Downloadable? { get }
