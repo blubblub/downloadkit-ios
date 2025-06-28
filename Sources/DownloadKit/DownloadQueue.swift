@@ -77,7 +77,7 @@ public extension DownloadQueue {
     static let downloadErrorNotification = Notification.Name("DownloadDidErrorNotification")
 }
 
-public struct DownloadQueueMetrics {
+public struct DownloadQueueMetrics: Sendable {
     var processed = 0
     var failed = 0
     var completed = 0
