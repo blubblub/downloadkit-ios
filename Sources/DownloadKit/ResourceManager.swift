@@ -125,7 +125,8 @@ public actor ResourceManager {
     @discardableResult
     public func request(resources: [ResourceFile], options: RequestOptions) async -> [DownloadRequest] {
         
-        // Ensure delegates are set.
+        // Ensure delegates are set and manager is active.
+        await setActive(true)
         await downloadQueue.set(delegate: self)
         await priorityQueue?.set(delegate: self)
         

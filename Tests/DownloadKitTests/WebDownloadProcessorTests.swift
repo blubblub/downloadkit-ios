@@ -53,6 +53,7 @@ class WebDownloadProcessorTests: XCTestCase {
     }
 
     func testCannotProcessWebDownloadItemIfInactive() async {
+        await processor.set(delegate: delegate)
         let item = WebDownload(identifier: "google-item", url: URL(string: "http://google.com")!)
 
         await processor.pause()
@@ -61,6 +62,7 @@ class WebDownloadProcessorTests: XCTestCase {
     }
     
     func testCanProcessItemAfterResumingProcessor() async {
+        await processor.set(delegate: delegate)
         let item = WebDownload(identifier: "google-item", url: URL(string: "http://google.com")!)
         
         await processor.pause()
@@ -78,6 +80,7 @@ class WebDownloadProcessorTests: XCTestCase {
     }
     
     func testDownloadFinishesSuccessfully() async throws {
+        await processor.set(delegate: delegate)
         let item = WebDownload.createSample()
         
         let expectation = XCTestExpectation(description: "Download should complete in few seconds.")
@@ -94,6 +97,7 @@ class WebDownloadProcessorTests: XCTestCase {
     }
     
     func testDownloadFailsForInvalidURL() async throws {
+        await processor.set(delegate: delegate)
         let item = WebDownload.invalidItem
         
         let expectation = XCTestExpectation(description: "Download should fail with error.")
@@ -109,7 +113,7 @@ class WebDownloadProcessorTests: XCTestCase {
     }
     
     func testEnqueuePendingWithPendingItems() async {
-        processor = WebDownloadProcessor(identifier: UUID().uuidString)
+        processor = WebDownloadProcessor(configuration: .ephemeral)
         await processor.set(delegate: delegate)
         
         await processor.process(WebDownload.createSample())
