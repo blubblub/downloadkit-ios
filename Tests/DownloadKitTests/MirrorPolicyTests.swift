@@ -62,17 +62,17 @@ class WeightedMirrorPolicyTests: XCTestCase {
     
     func testDownloadCompleteClearsRetryCount() {
         let numberOfMirrors = 1
-        let asset = Asset.sample(mirrorCount: numberOfMirrors)
+        let resource = Resource.sample(mirrorCount: numberOfMirrors)
         
         var previousSelection: ResourceMirrorSelection?
         let error = NSError(domain: "mirror.policy.error", code: 10, userInfo: nil)
         for _ in 0...(numberOfMirrors) {
-            previousSelection = policy.mirror(for: asset, lastMirrorSelection: previousSelection, error: error)
+            previousSelection = policy.mirror(for: resource, lastMirrorSelection: previousSelection, error: error)
         }
         
-        policy.downloadComplete(for: asset)
+        policy.downloadComplete(for: resource)
         
-        XCTAssertEqual(policy.retryCounters(for: asset).isEmpty, true)
+        XCTAssertEqual(policy.retryCounters(for: resource).isEmpty, true)
     }
     
 }

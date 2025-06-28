@@ -164,9 +164,9 @@ class ResourceManagerTests: XCTestCase {
         let expectation = self.expectation(description: "Canceling all downloads should call completion.")
         
         await manager.request(resources: resources)
-        await manager.addAssetCompletion(for: "asset-id") { (success, assetID) in
+        await manager.addResourceCompletion(for: "resource-id") { (success, resourceID) in
             XCTAssertFalse(success)
-            XCTAssertEqual("asset-id", assetID)
+            XCTAssertEqual("resource-id", resourceID)
             expectation.fulfill()
         }
         await manager.cancelAll()
@@ -180,7 +180,7 @@ class ResourceManagerTests: XCTestCase {
         
         await manager.cancelAll()
         let requests = await manager.request(resources: resources)
-        await manager.addAssetCompletion(for: "asset-id") { (success, assetID) in
+        await manager.addResourceCompletion(for: "resource-id") { (success, resourceID) in
             expectation.fulfill()
         }
         
@@ -191,13 +191,13 @@ class ResourceManagerTests: XCTestCase {
     }
     
     func testMakingManagerActiveResumesDownloads() async {
-        // Use a regular asset that can be downloaded
-        let asset = Asset(id: "resume-test-asset", 
-                         main: FileMirror(id: "resume-test-asset", 
-                                         location: "https://picsum.photos/10", 
-                                         info: [:]), 
-                         alternatives: [], 
-                         fileURL: nil)
+        // Use a regular resource that can be downloaded
+        let resource = Resource(id: "resume-test-resource", 
+                               main: FileMirror(id: "resume-test-resource", 
+                                               location: "https://picsum.photos/10", 
+                                               info: [:]), 
+                               alternatives: [], 
+                               fileURL: nil)
         
         // First, cancel all downloads and make manager inactive
         await manager.cancelAll()
@@ -208,7 +208,7 @@ class ResourceManagerTests: XCTestCase {
         XCTAssertFalse(isActiveAfterCancel, "Manager should be inactive after cancelAll")
         
         // Request downloads while manager is inactive - should return requests but not start downloading
-        let requestsWhileInactive = await manager.request(resources: [asset])
+        let requestsWhileInactive = await manager.request(resources: [resource])
         print("DEBUG: Requests returned: \(requestsWhileInactive.count)")
         
         // Verify manager is now active after request (since we modified request() to activate)
@@ -219,7 +219,7 @@ class ResourceManagerTests: XCTestCase {
         let queuedDownloadCount = await manager.queuedDownloadCount
         let currentDownloadCount = await manager.currentDownloadCount
         let totalDownloads = await manager.downloads.count
-        let hasDownloadable = await manager.hasDownloadable(with: "resume-test-asset")
+        let hasDownloadable = await manager.hasDownloadable(with: "resume-test-resource")
         
         print("DEBUG: Queued: \(queuedDownloadCount), Current: \(currentDownloadCount), Total: \(totalDownloads), Has downloadable: \(hasDownloadable)")
         

@@ -384,6 +384,13 @@ extension ResourceManager {
     public func removeResourceCompletion(for identifier: String) {
         resourceCompletions[identifier] = nil
     }
+    
+    // MARK: - Compatibility methods
+    
+    @available(*, deprecated, renamed: "addResourceCompletion(for:with:)")
+    public func addAssetCompletion(for identifier: String, with completion: @escaping ProgressCompletion) {
+        addResourceCompletion(for: identifier, with: completion)
+    }
 }
 
 // MARK: - Convenience Methods to downloads
