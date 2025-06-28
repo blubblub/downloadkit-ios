@@ -24,76 +24,76 @@ class LocalCacheManagerTests: XCTestCase {
         manager = nil
     }
     
-    func testStoringAssetFile() throws {
-        let asset = Asset(id: UUID().uuidString)
+    func testStoringResourceFile() throws {
+        let resource = Resource(id: UUID().uuidString)
         
-        let stored = try manager.store(asset: asset, mirror: asset.main, at: url, options: cachedOptions)
+        let stored = try manager.store(resource: resource, mirror: resource.main, at: url, options: cachedOptions)
         
-        XCTAssertNotNil(stored, "Local asset was stored in realm.")
+        XCTAssertNotNil(stored, "Local resource was stored in realm.")
         XCTAssertTrue(FileManager.default.fileExists(atPath: stored.fileURL!.path))
     }
     
-    func testRequestingDownloadsOnEmptyCacheReturnsAllAssets() {
-        let assets: [Asset] = (0..<5).map({ _ in Asset(id: UUID().uuidString) })
-        let requests = manager.downloads(from: assets, options: cachedOptions)
+    func testRequestingDownloadsOnEmptyCacheReturnsAllResources() {
+        let resources: [Resource] = (0..<5).map({ _ in Resource(id: UUID().uuidString) })
+        let requests = manager.downloads(from: resources, options: cachedOptions)
         
-        XCTAssertEqual(5, requests.count, "Manager should return 5 assets that need to be downloaded.")
+        XCTAssertEqual(5, requests.count, "Manager should return 5 resources that need to be downloaded.")
     }
     
-    func testRequestingDownloadsReturnsCorrectAssets() throws {
-        let assets: [Asset] = (0..<5).map({ _ in Asset(id: UUID().uuidString) })
+    func testRequestingDownloadsReturnsCorrectResources() throws {
+        let resources: [Resource] = (0..<5).map({ _ in Resource(id: UUID().uuidString) })
         
-        // store first asset
-        let first = assets.first!
-        let _ = try manager.store(asset: first, mirror: first.main, at: url, options: cachedOptions)
+        // store first resource
+        let first = resources.first!
+        let _ = try manager.store(resource: first, mirror: first.main, at: url, options: cachedOptions)
         
-        // request downloads should only return 4 assets since the first one is saved
-        let requests = manager.downloads(from: assets, options: cachedOptions)
+        // request downloads should only return 4 resources since the first one is saved
+        let requests = manager.downloads(from: resources, options: cachedOptions)
         
-        XCTAssertEqual(4, requests.count, "Manager should return only 4 assets that need to be downloaded.")
+        XCTAssertEqual(4, requests.count, "Manager should return only 4 resources that need to be downloaded.")
     }
     
     func testUpdatingStorage() throws {
-        let assets: [Asset] = (0..<5).map({ _ in Asset(id: UUID().uuidString) })
+        let resources: [Resource] = (0..<5).map({ _ in Resource(id: UUID().uuidString) })
         
         // store to realm
-        for asset in assets {
-            let _ = try manager.store(asset: asset, mirror: asset.main, at: url, options: cachedOptions)
+        for resource in resources {
+            let _ = try manager.store(resource: resource, mirror: resource.main, at: url, options: cachedOptions)
         }
         
-        // update stored assets and move them to permanent storage
-        manager.updateStorage(assets: assets, to: .permanent, onAssetChange: nil)
+        // update stored resources and move them to permanent storage
+        manager.updateStorage(assets: resources, to: .permanent, onAssetChange: nil)
         
-        let requests = manager.downloads(from: assets, options: permanentOptions)
-        XCTAssertEqual(requests.count, 0, "All assets should be stored locally in permanent storage")
+        let requests = manager.downloads(from: resources, options: permanentOptions)
+        XCTAssertEqual(requests.count, 0, "All resources should be stored locally in permanent storage")
     }
     
     func testResetingLocalCache() throws {
-        let assets: [Asset] = (0..<5).map({ _ in Asset(id: UUID().uuidString) })
+        let resources: [Resource] = (0..<5).map({ _ in Resource(id: UUID().uuidString) })
         
         // store to realm
-        for asset in assets {
-            let _ = try manager.store(asset: asset, mirror: asset.main, at: url, options: cachedOptions)
+        for resource in resources {
+            let _ = try manager.store(resource: resource, mirror: resource.main, at: url, options: cachedOptions)
         }
         
         // reset local cache
         try manager.reset()
         
-        let requests = manager.downloads(from: assets, options: permanentOptions)
+        let requests = manager.downloads(from: resources, options: permanentOptions)
         XCTAssertEqual(requests.count, 5, "Manager should return 5 requests, since everything was removed.")
     }
     
     func testCleanup() throws {
-        let assets: [Asset] = (0..<5).map({ _ in Asset(id: UUID().uuidString) })
+        let resources: [Resource] = (0..<5).map({ _ in Resource(id: UUID().uuidString) })
         
         // store to realm
-        let localAssets = assets.map { asset in
-            return try! manager.store(asset: asset, mirror: asset.main, at: url, options: permanentOptions)
+        let localResources = resources.map { resource in
+            return try! manager.store(resource: resource, mirror: resource.main, at: url, options: permanentOptions)
         }
         
-        // clean up everything except the first asset
-        try manager.cleanup(excluding: Set([localAssets.first!.fileURL!]))
-        let requested = manager.downloads(from: assets, options: permanentOptions)
+        // clean up everything except the first resource
+        try manager.cleanup(excluding: Set([localResources.first!.fileURL!]))
+        let requested = manager.downloads(from: resources, options: permanentOptions)
         
         XCTAssertEqual(requested.count, 4)
     }

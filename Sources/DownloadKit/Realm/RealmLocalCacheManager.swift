@@ -9,14 +9,14 @@ import Foundation
 import os.log
 import RealmSwift
 
-public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
+public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where L: LocalResourceFile {
     public var file = FileManager.default
     public var log: os.Logger = logDK
     
     /// Target Realm to update
     public let configuration: Realm.Configuration
     
-    public var assetSubdirectory = "assets/"
+    public var resourceSubdirectory = "resources/"
     public var excludeFilesFromBackup = true
     
     public var shouldDownload: ((ResourceFile, RequestOptions) -> Bool)?
@@ -37,16 +37,16 @@ public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
         self.configuration = configuration
     }
     
-    /// Creates a new local asset and stores it in realm database.
+    /// Creates a new local resource and stores it in realm database.
     /// - Parameters:
-    ///   - asset: asset to store in realm.
-    ///   - mirror: from which mirror the asset was downloaded.
-    ///   - url: where the asset is stored.
+    ///   - resource: resource to store in realm.
+    ///   - mirror: from which mirror the resource was downloaded.
+    ///   - url: where the resource is stored.
     ///   - options: request options.
     /// - Throws: in case the file already exists at the target url.
-    /// - Returns: local asset.
-    public func store(asset: ResourceFile, mirror: ResourceFileMirror, at url: URL, options: RequestOptions) throws -> L {
-        let targetUrl = L.targetUrl(for: asset, mirror: mirror, at: url, storagePriority: options.storagePriority, file: file)
+    /// - Returns: local resource.
+    public func store(resource: ResourceFile, mirror: ResourceFileMirror, at url: URL, options: RequestOptions) throws -> L {
+        let targetUrl = L.targetUrl(for: resource, mirror: mirror, at: url, storagePriority: options.storagePriority, file: file)
         
         let directoryUrl = targetUrl.deletingLastPathComponent()
         
@@ -71,14 +71,14 @@ public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
         try finalFileUrl.setResourceValues(resourceValues)
         
         // Store file into Realm
-        let localAsset = self.createLocalAsset(for: asset, url: finalFileUrl)
+        let localAsset = self.createLocalAsset(for: resource, url: finalFileUrl)
         let realm = try self.realm
         
         try realm.write {
             realm.add(localAsset, update: .modified)
         }
         
-        log.info("[RealmLocalCacheManager]: Stored: \(asset.id) at: \(finalFileUrl.absoluteString)")
+        log.info("[RealmLocalCacheManager]: Stored: \(resource.id) at: \(finalFileUrl.absoluteString)")
         
         return localAsset
     }
@@ -177,10 +177,10 @@ public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
     /// Removes all objects from realm.
     public func reset() throws {
         let supportFiles = file.cachedFiles(directory: file.supportDirectoryURL,
-                                            subdirectory: assetSubdirectory)
+                                            subdirectory: resourceSubdirectory)
         
         let cachedFiles = file.cachedFiles(directory: file.cacheDirectoryURL,
-                                           subdirectory: assetSubdirectory)
+                                           subdirectory: resourceSubdirectory)
         
         let filesToRemove = supportFiles + cachedFiles
         removeFiles(filesToRemove)
@@ -199,7 +199,7 @@ public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
     
     public func cleanup(excluding urls: Set<URL>) throws {
         let files = file.cachedFiles(directory: file.supportDirectoryURL,
-                                     subdirectory: assetSubdirectory)
+                                     subdirectory: resourceSubdirectory)
         
         let filesToRemove = files.filter({ !urls.contains($0) })
         removeFiles(filesToRemove)

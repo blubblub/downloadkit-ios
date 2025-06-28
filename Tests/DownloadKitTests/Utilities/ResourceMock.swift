@@ -1,12 +1,12 @@
 import Foundation
 import DownloadKit
 
-struct FileMirror: ResourceFileMirror {
+struct FileMirror: ResourceFileMirror, @unchecked Sendable {
     var id: String
     
     var location: String
     
-    var info: AssetFileInfo
+    var info: ResourceFileInfo
     
     static func random(weight: Int) -> FileMirror {
         FileMirror(id: UUID().uuidString,
@@ -15,7 +15,7 @@ struct FileMirror: ResourceFileMirror {
     }
 }
 
-struct Asset: ResourceFile {
+struct Resource: ResourceFile {
     var id: String
     
     var main: ResourceFileMirror = FileMirror.random(weight: 0)
@@ -25,11 +25,11 @@ struct Asset: ResourceFile {
     var fileURL: URL?
 }
 
-extension Asset {
+extension Resource {
     static func sample(mirrorCount: Int) -> ResourceFile {
-        return Asset(id: "sample-id",
-                     main: FileMirror.random(weight: 0),
-                     alternatives: (1...mirrorCount).map { FileMirror.random(weight: $0) },
-                     fileURL: nil)
+        return Resource(id: "sample-id",
+                        main: FileMirror.random(weight: 0),
+                        alternatives: (1...mirrorCount).map { FileMirror.random(weight: $0) },
+                        fileURL: nil)
     }
 }

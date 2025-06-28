@@ -84,12 +84,14 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
     }
     
     public func pause() async {
+        isActive = false
         for task in downloadables {
             await task.pause()
         }
     }
     
     public func resume() async {
+        isActive = true
         for downloadable in downloadables {
             await downloadable.start(with: [DownloadParameter.urlSession: session])
         }

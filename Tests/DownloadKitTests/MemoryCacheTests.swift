@@ -8,21 +8,25 @@ class MemoryCacheTests: XCTestCase {
     var cache: RealmMemoryCache<LocalFile>!
     
     override func setUpWithError() throws {
-        cache = RealmMemoryCache<LocalFile>(configuration: config, loadURLs: false)
+        cache = RealmMemoryCache<LocalFile>(configuration: config)
     }
 
     override func tearDownWithError() throws {
         cache = nil
     }
     
-    func testFetchingFromEmptyCache() {
-        XCTAssertNil(cache.assetImage(url: URL(string: "https://google.com/logo.png")!))
-        XCTAssertNil(cache["randomid"])
+    func testFetchingFromEmptyCache() async {
+        let imageResult = await cache.assetImage(url: URL(string: "https://google.com/logo.png")!)
+        XCTAssertNil(imageResult)
+        let subscriptResult = await cache["randomid"]
+        XCTAssertNil(subscriptResult)
     }
     
-    func testGettingImageFromCache() {
+    func testGettingImageFromCache() async {
         let imageURL = Bundle.module.url(forResource: "sample", withExtension: "png")!
-        XCTAssertNotNil(cache.assetImage(url: imageURL))
-        XCTAssertNotNil(cache.assetImage(url: imageURL))
+        let imageResult1 = await cache.assetImage(url: imageURL)
+        XCTAssertNotNil(imageResult1)
+        let imageResult2 = await cache.assetImage(url: imageURL)
+        XCTAssertNotNil(imageResult2)
     }
 }

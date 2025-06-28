@@ -28,51 +28,51 @@ class WeightedMirrorPolicyTests: XCTestCase {
     
     func testPolicyReturnsMirrorWithHighestWeight() {
         let numberOfMirrors = 5
-        let asset = Asset.sample(mirrorCount: numberOfMirrors)
-        let selection = policy.mirror(for: asset, lastMirrorSelection: nil, error: nil)!
+        let resource = Resource.sample(mirrorCount: numberOfMirrors)
+        let selection = policy.mirror(for: resource, lastMirrorSelection: nil, error: nil)!
         
         XCTAssertEqual(selection.mirror.weight, numberOfMirrors)
     }
     
     func testExhaustingAllMirrorsNotifiesDelegate() {
         let numberOfMirrors = 5
-        let asset = Asset.sample(mirrorCount: numberOfMirrors)
+        let resource = Resource.sample(mirrorCount: numberOfMirrors)
         
         var previousSelection: ResourceMirrorSelection?
         let error = NSError(domain: "mirror.policy.error", code: 10, userInfo: nil)
         
         for _ in 0...(numberOfMirrors + retries) {
-            previousSelection = policy.mirror(for: asset, lastMirrorSelection: previousSelection, error: error)
+            previousSelection = policy.mirror(for: resource, lastMirrorSelection: previousSelection, error: error)
         }
         
         XCTAssertEqual(delegate.exhaustedAllMirrors, true)
     }
     
     func testCreatingDownloadableFromUnsupportedURL() {
-        let asset = Asset(id: "random-id",
-                          main: FileMirror(id: "mirror-id",
-                                           location: "Path/To/Local/File.jpg", // unsupported URL
-                                           info: [:]),
-                          alternatives: [],
-                          fileURL: nil)
+        let resource = Resource(id: "random-id",
+                                  main: FileMirror(id: "mirror-id",
+                                                   location: "Path/To/Local/File.jpg", // unsupported URL
+                                                   info: [:]),
+                                  alternatives: [],
+                                  fileURL: nil)
         
-        _ = policy.mirror(for: asset, lastMirrorSelection: nil, error: nil)
+        _ = policy.mirror(for: resource, lastMirrorSelection: nil, error: nil)
         XCTAssertEqual(delegate.failedToGenerateDownloadable, true)
     }
     
     func testDownloadCompleteClearsRetryCount() {
         let numberOfMirrors = 1
-        let asset = Asset.sample(mirrorCount: numberOfMirrors)
+        let resource = Resource.sample(mirrorCount: numberOfMirrors)
         
         var previousSelection: ResourceMirrorSelection?
         let error = NSError(domain: "mirror.policy.error", code: 10, userInfo: nil)
         for _ in 0...(numberOfMirrors) {
-            previousSelection = policy.mirror(for: asset, lastMirrorSelection: previousSelection, error: error)
+            previousSelection = policy.mirror(for: resource, lastMirrorSelection: previousSelection, error: error)
         }
         
-        policy.downloadComplete(for: asset)
+        policy.downloadComplete(for: resource)
         
-        XCTAssertEqual(policy.retryCounters(for: asset).isEmpty, true)
+        XCTAssertEqual(policy.retryCounters(for: resource).isEmpty, true)
     }
     
 }
