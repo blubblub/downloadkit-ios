@@ -9,12 +9,12 @@ import Foundation
 import RealmSwift
 import os.log
 
-public class RealmCacheManager<L: Object>: ResourceCachable where L: LocalResourceFile {
+public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResourceFile {
        
-    public var log: os.Logger = logDK
+    public let log: os.Logger = logDK
     
     public var memoryCache: RealmMemoryCache<L>?
-    public let localCache: RealmLocalCacheManager<L>
+    public var localCache: RealmLocalCacheManager<L>
     public var mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()
     
     private var downloadableMap = AtomicDictionary<String, DownloadRequest>()
@@ -38,8 +38,10 @@ public class RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     public func requestDownloads(assets: [ResourceFile], options: RequestOptions) async -> [DownloadRequest] {
         // Update storage for assets that exists.
         localCache.updateStorage(assets: assets, to: options.storagePriority) { [weak self] asset in
-            guard let self else { return }
-            self.memoryCache?.update(for: asset)
+            guard let self = self else { return }
+            Task {
+                await self.memoryCache?.update(for: asset)
+            }
         }
 
         // Filter out binary and existing assets in local asset.
@@ -121,7 +123,8 @@ public class RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         let retryDownloadRequest = DownloadRequest(resource: downloadRequest.resource, options: downloadRequest.options, mirror: mirrorSelection)
         
         // Write it to downloadable map with new download selection
-        await downloadableMap[retryDownloadRequest.downloadableIdentifier()] = retryDownloadRequest
+        let newDownloadIdentifier = await retryDownloadRequest.downloadableIdentifier()
+        downloadableMap[newDownloadIdentifier] = retryDownloadRequest
 
         return RetryDownloadRequest(retryRequest: retryDownloadRequest, originalRequest: downloadRequest)
     }
@@ -138,10 +141,12 @@ public class RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     // MARK: - AssetFileCacheable
     
     public subscript(id: String) -> URL? {
-        return memoryCache?[id]
+        get async {
+            return await memoryCache?[id]
+        }
     }
     
-    public func assetImage(url: URL) -> LocalImage? {
-        return memoryCache?.assetImage(url: url)
+    public func assetImage(url: URL) async -> LocalImage? {
+        return await memoryCache?.assetImage(url: url)
     }
 }

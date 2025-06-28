@@ -130,7 +130,9 @@ public actor WebDownload : NSObject, Downloadable {
             self.task = downloadTask
         }
         
-        downloadTask?.delegate = self
+        if #available(macOS 12.0, iOS 15.0, *) {
+            downloadTask?.delegate = self
+        }
         downloadTask?.resume()
     }
 

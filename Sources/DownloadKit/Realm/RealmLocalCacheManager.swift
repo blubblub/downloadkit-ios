@@ -9,7 +9,7 @@ import Foundation
 import os.log
 import RealmSwift
 
-public class RealmLocalCacheManager<L: Object> where L: LocalResourceFile {
+public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where L: LocalResourceFile {
     public var file = FileManager.default
     public var log: os.Logger = logDK
     

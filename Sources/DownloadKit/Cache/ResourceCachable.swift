@@ -8,7 +8,7 @@
 import Foundation
 import os.log
 
-public protocol ResourceCachable: ResourceFileCacheable {
+public protocol ResourceCachable: Actor, ResourceFileCacheable {
     
     /// Mirror policy.
     var mirrorPolicy: MirrorPolicy { get set }

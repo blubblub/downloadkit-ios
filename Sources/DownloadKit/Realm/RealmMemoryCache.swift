@@ -20,10 +20,15 @@ public typealias LocalImage = NSImage
 public typealias LocalImage = UIImage
 #endif
 
+extension NSImage: @retroactive @unchecked Sendable {}
+#if !os(OSX)
+extension UIImage: @retroactive @unchecked Sendable {}
+#endif
 
-public protocol ResourceFileCacheable {
-    subscript(id: String) -> URL? { get }
-    func assetImage(url: URL) -> LocalImage?
+
+public protocol ResourceFileCacheable: Actor {
+    subscript(id: String) -> URL? { get async }
+    func assetImage(url: URL) async -> LocalImage?
 }
 
 /// Will cache asset URL's and images in memory for quick access.
@@ -31,7 +36,7 @@ public protocol ResourceFileCacheable {
 /// Images are stored as `UIImage`
 /// Note:
 /// Cache Manager will load the image into memory after downloading it.
-public class RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalResourceFile {
+public actor RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalResourceFile {
     private var cacheQueue = DispatchQueue(label: "org.blubblub.downloadkit.memorycache.queue")
     private var _assetURLs = [String: URL]()
     private var assetURLs: [String: URL] {
@@ -62,16 +67,8 @@ public class RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalRe
         }
     }
     
-    public init(configuration: Realm.Configuration, loadURLs: Bool = false) {
+    public init(configuration: Realm.Configuration) {
         self.configuration = configuration
-        
-        if let realm = try? realm, loadURLs {
-            let assets = realm.objects(L.self)
-            
-            for asset in assets {
-                update(for: asset)
-            }
-        }
     }
     
     public subscript(id: String) -> URL? {

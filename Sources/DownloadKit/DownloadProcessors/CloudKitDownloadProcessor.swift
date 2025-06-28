@@ -121,8 +121,8 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
         let fetchOperation = CKFetchRecordsOperation(recordIDs: Array(recordMap.keys))
 
         
-        fetchOperation.perRecordProgressBlock = { [weak self] recordID, progress in
-            Task.detached {
+        fetchOperation.perRecordProgressBlock = { @Sendable [weak self] recordID, progress in
+            Task { @MainActor in
                 guard let self = self else { return }
                 guard let item = recordMap[recordID] else { return }
                 
@@ -140,8 +140,8 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
             }
         }
         
-        fetchOperation.perRecordCompletionBlock = { [weak self] record, recordID, error in
-            Task.detached {
+        fetchOperation.perRecordCompletionBlock = { @Sendable [weak self] record, recordID, error in
+            Task { @MainActor in
                 guard let self = self, let recordID = recordID else { return }
                 guard let item = recordMap[recordID] else { return }
                 

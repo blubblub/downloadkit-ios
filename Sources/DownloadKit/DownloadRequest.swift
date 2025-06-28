@@ -30,7 +30,7 @@ public struct DownloadRequest: Identifiable, Equatable, Sendable {
 }
 
 /// Returns download selection to retry.
-public struct RetryDownloadRequest: Identifiable, Equatable {
+public struct RetryDownloadRequest: Identifiable, Equatable, Sendable {
     public var id : String {
         return originalRequest.id
     }

@@ -41,17 +41,22 @@ public protocol DownloadQueueDelegate: Actor {
 
 
 public protocol DownloadQueuable : Actor {
-    var isActive: Bool { get }
+    var isActive: Bool { get async }
     
-    var downloads: [Downloadable] { get }
-    var currentDownloads: [Downloadable] { get }
-    var queuedDownloads: [Downloadable] { get }
+    var downloads: [Downloadable] { get async }
+    var currentDownloads: [Downloadable] { get async }
+    var queuedDownloads: [Downloadable] { get async }
     
-    func hasDownloadable(with identifier: String) -> Bool
+    var currentDownloadCount: Int { get async }
+    var queuedDownloadCount: Int { get async }
     
-    func downloadable(for identifier: String) -> Downloadable?
+    func hasDownloadable(with identifier: String) async -> Bool
     
-    func isDownloading(for identifier: String) -> Bool
+    func downloadable(for identifier: String) async -> Downloadable?
+    
+    func isDownloading(for identifier: String) async -> Bool
+    
+    func setActive(_ value: Bool) async
 }
 
 public extension DownloadQueue {
@@ -243,6 +248,18 @@ public actor DownloadQueue: DownloadQueuable {
         return progressDownloadMap[identifier] != nil
     }
     
+    public var currentDownloadCount: Int {
+        return currentDownloads.count
+    }
+    
+    public var queuedDownloadCount: Int {
+        return queuedDownloads.count
+    }
+    
+    public func setActive(_ value: Bool) async {
+        self.isActive = value
+    }
+    
     public func download(_ items: [Downloadable]) async {
         for item in items {
             await download(item)
@@ -313,7 +330,9 @@ public actor DownloadQueue: DownloadQueuable {
             self.progressDownloadMap[identifier] = downloadable
             await processor.process(downloadable)
             
-            self.delegate?.downloadQueue(self, downloadDidStart: downloadable, with: processor)
+            Task {
+                await self.delegate?.downloadQueue(self, downloadDidStart: downloadable, with: processor)
+            }
                         
             self.notificationCenter.post(name: DownloadQueue.downloadDidStartNotification, object: downloadable)
         }
@@ -323,7 +342,9 @@ public actor DownloadQueue: DownloadQueuable {
             
             let error = NSError(domain: "org.blubblub.downloadkit", code: -1, userInfo: [ NSLocalizedDescriptionKey: "Cannot process download item, no processor available." ])
             
-            self.delegate?.downloadQueue(self, downloadDidFail: downloadable, with: error)
+            Task {
+                await self.delegate?.downloadQueue(self, downloadDidFail: downloadable, with: error)
+            }
             
             self.notificationCenter.post(name: DownloadQueue.downloadErrorNotification, object: error, userInfo: [ "downloadItem": downloadable])
         }
@@ -344,7 +365,9 @@ public actor DownloadQueue: DownloadQueuable {
 
 extension DownloadQueue: DownloadProcessorDelegate {
     public func downloadDidTransferData(_ processor: DownloadProcessor, downloadable: Downloadable) {
-        self.delegate?.downloadQueue(self, downloadDidTransferData: downloadable, using: processor)
+        Task {
+            await self.delegate?.downloadQueue(self, downloadDidTransferData: downloadable, using: processor)
+        }
     }
 
     public func downloadDidBegin(_ processor: DownloadProcessor, downloadable: Downloadable) {
@@ -382,7 +405,7 @@ extension DownloadQueue: DownloadProcessorDelegate {
         Task {
             let identifier = await downloadable.identifier
             do {
-                try delegate?.downloadQueue(self, downloadDidFinish: downloadable, to: url)
+                try await delegate?.downloadQueue(self, downloadDidFinish: downloadable, to: url)
                 notificationCenter.post(name: DownloadQueue.downloadDidFinishNotification, object: downloadable)
                 
                 self.metrics.processed += 1
@@ -420,7 +443,7 @@ extension DownloadQueue: DownloadProcessorDelegate {
 
             self.notificationCenter.post(name: DownloadQueue.downloadErrorNotification, object: error, userInfo: [ "downloadItem": downloadable])
             
-            self.delegate?.downloadQueue(self, downloadDidFail: downloadable, with: error)
+            await self.delegate?.downloadQueue(self, downloadDidFail: downloadable, with: error)
             
             // Resume processing
             await self.process()

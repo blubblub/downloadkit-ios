@@ -88,7 +88,7 @@ public actor ResourceManager {
         return [priorityQueue, downloadQueue].compactMap { $0 }
     }
     
-    public let cache: ResourceCachable
+    public let cache: any ResourceCachable
     
     public let progress = ResourceDownloadProgress()
     
@@ -145,7 +145,11 @@ public actor ResourceManager {
         
         // We need to filter the downloads that are in progress, since there's not much we will do
         // in that case. For those that are in queue, we might move them to a higher priority queue.
-        let finalDownloads = await downloads.filterAsync { return !self.isDownloading(for: await $0.downloadableIdentifier()) }
+        let finalDownloads = await downloads.filterAsync { download in 
+            let identifier = await download.downloadableIdentifier()
+            let isDownloading = await self.isDownloading(for: identifier)
+            return !isDownloading
+        }
                 
         if downloads.count != finalDownloads.count {
             log.error("[AssetManager]: Final downloads mismatch: \(downloads.count) \(finalDownloads.count)")
@@ -168,7 +172,7 @@ public actor ResourceManager {
             
             await downloadQueue.download(currentPriorityDownloads)
             
-            await priorityQueue.download(finalDownloads.map(\.mirror.downloadable))
+            await priorityQueue.download(finalDownloads.map { $0.mirror.downloadable })
             
             // If those downloads are on download queue and were now moved to priority,
             // we need to cancel them on download, so we do not download them twice.
@@ -176,17 +180,17 @@ public actor ResourceManager {
                 return await self.downloadQueue.hasDownloadable(with: await $0.downloadableIdentifier())
             }
             
-            await downloadQueue.cancel(items: normalQueuedDownloads.map(\.mirror.downloadable))
+            await downloadQueue.cancel(items: normalQueuedDownloads.map { $0.mirror.downloadable })
             
             // TODO: Log all downloadable identifiers by comma.
             //log.info("Reprioritising assets: \(finalDownloads.map({ $0.downloadableIdentifier() }).joined(separator: ", "))")
         }
         else {
-            await downloadQueue.download(finalDownloads.map(\.mirror.downloadable))
+            await downloadQueue.download(finalDownloads.map { $0.mirror.downloadable })
         }
         
         // Add downloads to monitor progresses.
-        await progress.add(downloadItems: finalDownloads.map(\.mirror.downloadable))
+        await progress.add(downloadItems: finalDownloads.map { $0.mirror.downloadable })
         
         log.info("[AssetManager]: Metrics on request: \(self.metrics.description)")
         
@@ -194,7 +198,7 @@ public actor ResourceManager {
     }
     
     public func resume() async {
-        isActive = true
+        await setActive(true)
         
         // Ensure delegates are set.
         await downloadQueue.set(delegate: self)
@@ -250,7 +254,9 @@ extension ResourceManager: DownloadQueueDelegate {
     
     public func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadable: Downloadable, using processor: DownloadProcessor) async {
         
-        await self.metrics.updateDownloadSpeed(downloadable: downloadable)
+        var tempMetrics = self.metrics
+        await tempMetrics.updateDownloadSpeed(downloadable: downloadable)
+        self.metrics = tempMetrics
     }
             
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadable: Downloadable, to location: URL) async {
@@ -262,60 +268,72 @@ extension ResourceManager: DownloadQueueDelegate {
             // Store the file to the cache
 
             do {
-                if let downloadRequest = try self.cache.download(downloadable, didFinishTo: tempLocation) {
+                if let downloadRequest = try await self.cache.download(downloadable, didFinishTo: tempLocation) {
                     self.metrics.downloadCompleted += 1
-                    self.metrics.bytesTransferred += item.totalBytes
-                    self.metrics.updateDownloadSpeed(item: item)
+                    let identifier = await downloadable.identifier
+                    var tempMetrics = self.metrics
+                    await tempMetrics.updateDownloadSpeed(downloadable: downloadable)
+                    self.metrics = tempMetrics
                     
-                    self.completeProgress(downloadRequest, item: item, with: nil)
+                    self.completeProgress(downloadRequest, downloadable: downloadable, with: nil)
                     
-                    self.log.info("[AssetManager]: Download finished: \(downloadable.description)")
+                    self.log.info("[AssetManager]: Download finished: \(identifier)")
                     
                     self.log.info("[AssetManager]: Metrics on download finished: \(self.metrics.description)")
                 }
             }
             catch let error {
                 self.log.error("[AssetManager]: Error caching file: \(error.localizedDescription)")
-                self.downloadQueue(queue, downloadDidFail: downloadable, with: error)
+                await self.downloadQueue(queue, downloadDidFail: downloadable, with: error)
             }
         } catch let error {
             log.error("[AssetManager]: Error moving temporary file: \(error.localizedDescription)")
 
             // Ensure error is handled, download actually did fail.
-            self.downloadQueue(queue, downloadDidFail: downloadable, with: error)
+            Task {
+                await self.downloadQueue(queue, downloadDidFail: downloadable, with: error)
+            }
         }
     }
     
     // Called when download had failed for any reason, including sessions being invalidated.
-    public func downloadQueue(_ queue: DownloadQueue, downloadDidFail downloadable: Downloadable, with error: Error) {
-        let retryRequest = self.cache.download(downloadable, didFailWith: error)
+    public func downloadQueue(_ queue: DownloadQueue, downloadDidFail downloadable: Downloadable, with error: Error) async {
+        let retryRequest = await self.cache.download(downloadable, didFailWith: error)
         
         // Check if we should retry, cache will tell us based on it's internal mirror policy.
         // We cannot switch queues here, if it was put on lower priority, it should stay on lower priority.
-        if let retryRequest = retryRequest, let retry = retryRequest.retryRequest, let downloadable = retryRequest.downloadable {
-            metrics.retried += 1
-            metrics.updateDownloadSpeed(item: downloadable)
-            
-            // Put it on the same queue.
-            observersQueue.async {
-                self.foreachObserver { $0.willRetryFailedDownload(retry, originalDownload: retryRequest.originalRequest, with: error) }
+        if let retryRequest = retryRequest, let retry = retryRequest.retryRequest {
+            let retryDownloadable = await retryRequest.downloadable()
+            if let retryDownloadable = retryDownloadable {
+                metrics.retried += 1
+                var tempMetrics = metrics
+                await tempMetrics.updateDownloadSpeed(downloadable: retryDownloadable)
+                metrics = tempMetrics
+                
+                // Put it on the same queue.
+                Task {
+                    self.foreachObserver { $0.willRetryFailedDownload(retry, originalDownload: retryRequest.originalRequest, with: error) }
+                }
+                
+                let identifier = await retryDownloadable.identifier
+                log.error("[AssetManager]: Download failed, retrying: \(identifier) Error: \(error.localizedDescription)")
+                
+                await queue.download([retryDownloadable])
             }
-            
-            log.error("[AssetManager]: Download failed, retrying: \(item.identifier) Error: \(error.localizedDescription)")
-            
-            queue.download(downloadable)
         } else if let originalRequest = retryRequest?.originalRequest {
             metrics.failed += 1
             
-            log.error("[AssetManager]: Download failed, done: \(item.identifier) Error: \(error.localizedDescription)")
+            let identifier = await downloadable.identifier
+            log.error("[AssetManager]: Download failed, done: \(identifier) Error: \(error.localizedDescription)")
                 
-            self.completeProgress(originalRequest, item: item, with: error)
+            self.completeProgress(originalRequest, downloadable: downloadable, with: error)
         }
         else {
-            log.error("[AssetManager]: Download failed, unknown: \(item.identifier) Error: \(error.localizedDescription)")
+            let identifier = await downloadable.identifier
+            log.error("[AssetManager]: Download failed, unknown: \(identifier) Error: \(error.localizedDescription)")
         }
         
-        log.info("[AssetManager]: Metrics on download failed: \(metrics.description)")
+        log.info("[AssetManager]: Metrics on download failed: \(self.metrics.description)")
     }
     
     private func completeProgress(_ downloadRequest: DownloadRequest, downloadable: Downloadable, with error: Error?) {
@@ -333,28 +351,33 @@ extension ResourceManager: DownloadQueueDelegate {
             self.foreachObserver { $0.didFinishDownloading(downloadRequest) }
         }
         
-        progress.complete(identifier: item.identifier, with: error)
+        Task {
+            let identifier = await downloadable.identifier
+            await progress.complete(identifier: identifier, with: error)
+        }
     }
 }
 
 extension ResourceManager {
     public func addAssetCompletion(for identifier: String, with completion: @escaping ProgressCompletion) {
         // If this asset is not downloading at all, call the closure immediately!
-        guard hasDownloadable(with: identifier) else {
-            completion(false, identifier)
-            return
+        Task {
+            guard await hasDownloadable(with: identifier) else {
+                completion(false, identifier)
+                return
+            }
+            
+            var completionBlocks: [ProgressCompletion] = []
+            
+            // Check if array is made, append existing blocks
+            if let existingBlocks = assetCompletions[identifier] {
+                completionBlocks.append(contentsOf: existingBlocks)
+            }
+            
+            completionBlocks.append(completion)
+            
+            assetCompletions[identifier] = completionBlocks
         }
-        
-        var completionBlocks: [ProgressCompletion] = []
-        
-        // Check if array is made, append existing blocks
-        if let existingBlocks = assetCompletions[identifier] {
-            completionBlocks.append(contentsOf: existingBlocks)
-        }
-        
-        completionBlocks.append(completion)
-        
-        assetCompletions[identifier] = completionBlocks
     }
     
     public func removeAssetCompletion(for identifier: String) {
@@ -367,45 +390,143 @@ extension ResourceManager {
 extension ResourceManager: DownloadQueuable {
     
     public var isActive: Bool {
-        get {
-            return queues.reduce(false, { $0 || $1.isActive })
-        }
-        set {
-            downloadQueue.isActive = newValue
-            priorityQueue?.isActive = newValue
+        get async {
+            let states = await withTaskGroup(of: Bool.self) { group in
+                var results: [Bool] = []
+                for queue in queues {
+                    group.addTask {
+                        await queue.isActive
+                    }
+                }
+                for await result in group {
+                    results.append(result)
+                }
+                return results
+            }
+            return states.contains(true)
         }
     }
     
     public var currentDownloadCount: Int {
-        queues.reduce(0, { $0 + $1.currentDownloads.count })
+        get async {
+            let counts = await withTaskGroup(of: Int.self) { group in
+                var results: [Int] = []
+                for queue in queues {
+                    group.addTask {
+                        await queue.currentDownloadCount
+                    }
+                }
+                for await result in group {
+                    results.append(result)
+                }
+                return results
+            }
+            return counts.reduce(0, +)
+        }
     }
     
     public var queuedDownloadCount: Int {
-        queues.reduce(0, { $0 + $1.queuedDownloads.count })
+        get async {
+            let counts = await withTaskGroup(of: Int.self) { group in
+                var results: [Int] = []
+                for queue in queues {
+                    group.addTask {
+                        await queue.queuedDownloadCount
+                    }
+                }
+                for await result in group {
+                    results.append(result)
+                }
+                return results
+            }
+            return counts.reduce(0, +)
+        }
     }
     
     public var downloads: [Downloadable] {
-        queues.flatMap(\.downloads)
+        get async {
+            let allDownloads = await withTaskGroup(of: [Downloadable].self) { group in
+                var results: [[Downloadable]] = []
+                for queue in queues {
+                    group.addTask {
+                        await queue.downloads
+                    }
+                }
+                for await result in group {
+                    results.append(result)
+                }
+                return results
+            }
+            return allDownloads.flatMap { $0 }
+        }
     }
     
     public var currentDownloads: [Downloadable] {
-        queues.flatMap(\.currentDownloads)
+        get async {
+            let allDownloads = await withTaskGroup(of: [Downloadable].self) { group in
+                var results: [[Downloadable]] = []
+                for queue in queues {
+                    group.addTask {
+                        await queue.currentDownloads
+                    }
+                }
+                for await result in group {
+                    results.append(result)
+                }
+                return results
+            }
+            return allDownloads.flatMap { $0 }
+        }
     }
     
     public var queuedDownloads: [Downloadable] {
-        queues.flatMap(\.queuedDownloads)
+        get async {
+            let allDownloads = await withTaskGroup(of: [Downloadable].self) { group in
+                var results: [[Downloadable]] = []
+                for queue in queues {
+                    group.addTask {
+                        await queue.queuedDownloads
+                    }
+                }
+                for await result in group {
+                    results.append(result)
+                }
+                return results
+            }
+            return allDownloads.flatMap { $0 }
+        }
     }
     
-    public func hasDownloadable(with identifier: String) -> Bool {
-        queues.contains(where: { $0.hasDownloadable(with: identifier) })
+    public func hasDownloadable(with identifier: String) async -> Bool {
+        for queue in queues {
+            if await queue.hasDownloadable(with: identifier) {
+                return true
+            }
+        }
+        return false
     }
     
-    public func downloadable(for identifier: String) -> Downloadable? {
-        queues.compactMap { $0.downloadable(for: identifier) }.first
+    public func downloadable(for identifier: String) async -> Downloadable? {
+        for queue in queues {
+            if let downloadable = await queue.downloadable(for: identifier) {
+                return downloadable
+            }
+        }
+        return nil
     }
     
-    public func isDownloading(for identifier: String) -> Bool {
-        queues.contains(where: { $0.isDownloading(for: identifier) })
+    public func isDownloading(for identifier: String) async -> Bool {
+        for queue in queues {
+            if await queue.isDownloading(for: identifier) {
+                return true
+            }
+        }
+        return false
+    }
+    
+    public func setActive(_ value: Bool) async {
+        await downloadQueue.setActive(value)
+        await priorityQueue?.setActive(value)
     }
 }
 
@@ -430,7 +551,7 @@ extension Array {
 }
 
 extension Array where Element: Sendable {
-    public func filterAsync(_ transform: @escaping (Element) async -> Bool) async -> [Element] {
+    public func filterAsync(_ transform: @escaping @Sendable (Element) async -> Bool) async -> [Element] {
         var finalResult = Array<Element>()
         
         for element in self {

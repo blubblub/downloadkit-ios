@@ -8,7 +8,7 @@
 import Foundation
 import os.lock
 
-class AtomicDictionary<Key: Hashable, Value>: CustomDebugStringConvertible {
+class AtomicDictionary<Key: Hashable & Sendable, Value: Sendable>: CustomDebugStringConvertible, @unchecked Sendable {
     private var store = [Key: Value]()
     
     private let queue = DispatchQueue(label: "org.blubblub.downloadkit.dict.\(UUID().uuidString)",
