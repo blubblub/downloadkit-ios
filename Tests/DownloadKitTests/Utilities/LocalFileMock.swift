@@ -2,7 +2,7 @@ import Foundation
 import RealmSwift
 import DownloadKit
 
-class LocalFile: Object, LocalResourceFile {
+final class LocalFile: Object, LocalResourceFile, @unchecked Sendable {
     @objc dynamic var identifier: String?
     
     @objc dynamic var modifyDate: Date?

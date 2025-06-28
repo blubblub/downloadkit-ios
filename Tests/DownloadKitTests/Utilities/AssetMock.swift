@@ -1,7 +1,7 @@
 import Foundation
 import DownloadKit
 
-struct FileMirror: ResourceFileMirror {
+struct FileMirror: ResourceFileMirror, @unchecked Sendable {
     var id: String
     
     var location: String
