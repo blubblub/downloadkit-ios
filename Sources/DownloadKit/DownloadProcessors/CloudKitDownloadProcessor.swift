@@ -140,36 +140,68 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
             }
         }
         
-        fetchOperation.perRecordCompletionBlock = { @Sendable [weak self] record, recordID, error in
-            Task { @MainActor in
-                guard let self = self, let recordID = recordID else { return }
-                guard let item = recordMap[recordID] else { return }
-                
-                await item.finish()
-                
-                if let error = error {
-                    await self.delegate?.downloadDidError(self, downloadable: item, error: error)
-                    return
-                }
-                
-                // Find file asset in record.
-                guard
-                    let record = record,
-                    let asset = record.allKeys().compactMap({ record[$0] as? CKAsset }).first,
-                    let url = asset.fileURL
-                else {
-                    await self.delegate?.downloadDidError(self, downloadable: item, error: CloudKitError.noAssetData)
+        // Use modern API if available, otherwise fall back to deprecated but functional API
+        if #available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *) {
+            fetchOperation.perRecordResultBlock = { @Sendable [weak self] recordID, result in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    guard let item = recordMap[recordID] else { return }
                     
-                    return
+                    await item.finish()
+                    
+                    switch result {
+                    case .success(let record):
+                        // Find file asset in record.
+                        guard
+                            let asset = record.allKeys().compactMap({ record[$0] as? CKAsset }).first,
+                            let url = asset.fileURL
+                        else {
+                            await self.delegate?.downloadDidError(self, downloadable: item, error: CloudKitError.noAssetData)
+                            return
+                        }
+                        
+                        if let urlResourceKeys = try? url.resourceValues(forKeys: [.totalFileSizeKey]), let totalBytes = urlResourceKeys.totalFileSize {
+                            await item.update(totalBytes: Int64(totalBytes))
+                        }
+                        
+                        await self.delegate?.downloadDidFinishTransfer(self, downloadable: item, to: url)
+                        
+                    case .failure(let error):
+                        await self.delegate?.downloadDidError(self, downloadable: item, error: error)
+                    }
                 }
-                
-                if let urlResourceKeys = try? url.resourceValues(forKeys: [.totalFileSizeKey]), let totalBytes = urlResourceKeys.totalFileSize {
-                    await item.update(totalBytes: Int64(totalBytes))
-                }
-                
-                await self.delegate?.downloadDidFinishTransfer(self, downloadable: item, to: url)
             }
-            
+        } else {
+            // Fallback for older OS versions
+            fetchOperation.perRecordCompletionBlock = { @Sendable [weak self] record, recordID, error in
+                Task { @MainActor in
+                    guard let self = self, let recordID = recordID else { return }
+                    guard let item = recordMap[recordID] else { return }
+                    
+                    await item.finish()
+                    
+                    if let error = error {
+                        await self.delegate?.downloadDidError(self, downloadable: item, error: error)
+                        return
+                    }
+                    
+                    // Find file asset in record.
+                    guard
+                        let record = record,
+                        let asset = record.allKeys().compactMap({ record[$0] as? CKAsset }).first,
+                        let url = asset.fileURL
+                    else {
+                        await self.delegate?.downloadDidError(self, downloadable: item, error: CloudKitError.noAssetData)
+                        return
+                    }
+                    
+                    if let urlResourceKeys = try? url.resourceValues(forKeys: [.totalFileSizeKey]), let totalBytes = urlResourceKeys.totalFileSize {
+                        await item.update(totalBytes: Int64(totalBytes))
+                    }
+                    
+                    await self.delegate?.downloadDidFinishTransfer(self, downloadable: item, to: url)
+                }
+            }
         }
         
         // Run all start and on delegate.

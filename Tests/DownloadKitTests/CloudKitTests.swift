@@ -230,18 +230,16 @@ class CloudKitTests: XCTestCase, @unchecked Sendable {
         XCTAssertNotNil(noAssetError)
         XCTAssertNotNil(noRecordError)
         
-        // Test that errors are different
-        switch noAssetError {
-        case .noAssetData:
-            XCTAssertTrue(true)
-        case .noRecord:
+        // Test that errors are different types
+        if case .noAssetData = noAssetError {
+            // Expected
+        } else {
             XCTFail("Should be noAssetData")
         }
         
-        switch noRecordError {
-        case .noRecord:
-            XCTAssertTrue(true)
-        case .noAssetData:
+        if case .noRecord = noRecordError {
+            // Expected
+        } else {
             XCTFail("Should be noRecord")
         }
     }
