@@ -7,7 +7,28 @@
 
 import Foundation
 
-public class ProgressNode {
+final class SendableBox<T>: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "sendablebox.queue", attributes: .concurrent)
+    private var _value: T
+    
+    init(_ value: T) {
+        self._value = value
+    }
+    
+    func read<U>(_ action: (T) -> U) -> U {
+        return queue.sync {
+            action(_value)
+        }
+    }
+    
+    func write<U>(_ action: (inout T) -> U) -> U {
+        return queue.sync(flags: .barrier) {
+            action(&_value)
+        }
+    }
+}
+
+public final class ProgressNode: Sendable {
     private let id = UUID().uuidString
     public let progress = Foundation.Progress()
     
@@ -20,20 +41,26 @@ public class ProgressNode {
     }
     
     public var error: Error? {
-        return items.first(where: { $0.error != nil })?.error
+        return _items.read { items in
+            items.first(where: { $0.error != nil })?.error
+        }
     }
     
     private var totalUnitCount: Int64 {
-        return items.reduce(0, { $0 + $1.totalUnitCount })
+        return _items.read { items in
+            items.reduce(0, { $0 + $1.totalUnitCount })
+        }
     }
     
     private var completedUnitCount: Int64 {
-        return items.reduce(0, { $0 + $1.completedUnitCount })
+        return _items.read { items in
+            items.reduce(0, { $0 + $1.completedUnitCount })
+        }
     }
     
     private let inBytes: Bool
     
-    struct Item: Hashable {
+    struct Item: Hashable, Sendable {
         let identifier: String
         var totalUnitCount: Int64
         var completedUnitCount: Int64
@@ -56,7 +83,7 @@ public class ProgressNode {
         }
     }
     
-    private var items = [Item]()
+    private let _items: SendableBox<[Item]>
     
     public init?(items: [String: Foundation.Progress], inBytes: Bool = true) {
         if items.count == 0 {
@@ -64,6 +91,8 @@ public class ProgressNode {
         }
         
         self.inBytes = inBytes
+        var itemsArray: [Item] = []
+        
         for (identifier, progress) in items {
             // For total unit count in bytes, add one, so it is not completed on byte count, but rather when complete method is called.
             let item = Item(identifier: identifier,
@@ -71,49 +100,77 @@ public class ProgressNode {
                             completedUnitCount: inBytes ? progress.completedUnitCount : 0,
                             error: nil,
                             progress: progress)
-            self.items.append(item)
+            itemsArray.append(item)
         }
         
-        self.progress.totalUnitCount = totalUnitCount
-        self.progress.completedUnitCount = completedUnitCount
+        self._items = SendableBox(itemsArray)
+        
+        // Calculate counts directly without using computed properties
+        let totalCount = itemsArray.reduce(0, { $0 + $1.totalUnitCount })
+        let completedCount = itemsArray.reduce(0, { $0 + $1.completedUnitCount })
+        self.progress.totalUnitCount = totalCount
+        self.progress.completedUnitCount = completedCount
     }
     
     private init(items: [Item], inBytes: Bool) {
         self.inBytes = inBytes
-        self.items = items
-        self.progress.totalUnitCount = totalUnitCount
-        self.progress.completedUnitCount = completedUnitCount
+        self._items = SendableBox(items)
+        // Calculate counts directly without using computed properties
+        let totalCount = items.reduce(0, { $0 + $1.totalUnitCount })
+        let completedCount = items.reduce(0, { $0 + $1.completedUnitCount })
+        self.progress.totalUnitCount = totalCount
+        self.progress.completedUnitCount = completedCount
     }
     
     public func retry(_ identifier: String, with progress: Foundation.Progress) {
-        guard let index = items.firstIndex(where: { $0.identifier == identifier }) else {
-            return
+        let (newTotalUnitCount, newCompletedUnitCount) = _items.write { items in
+            guard let index = items.firstIndex(where: { $0.identifier == identifier }) else {
+                let totalCount = items.reduce(0, { $0 + $1.totalUnitCount })
+                let completedCount = items.reduce(0, { $0 + $1.completedUnitCount })
+                return (totalCount, completedCount)
+            }
+            
+            if items[index].completedUnitCount > 0 {
+                let totalCount = items.reduce(0, { $0 + $1.totalUnitCount })
+                let completedCount = items.reduce(0, { $0 + $1.completedUnitCount })
+                return (totalCount, completedCount)
+            }
+            
+            items[index].error = nil
+            items[index].completedUnitCount = 0
+            items[index].totalUnitCount = inBytes ? progress.totalUnitCount + 1 : 1
+            items[index].progress = progress
+            
+            let totalCount = items.reduce(0, { $0 + $1.totalUnitCount })
+            let completedCount = items.reduce(0, { $0 + $1.completedUnitCount })
+            return (totalCount, completedCount)
         }
         
-        if items[index].completedUnitCount > 0 {
-            return
-        }
-        
-        items[index].error = nil
-        items[index].completedUnitCount = 0
-        items[index].totalUnitCount = inBytes ? progress.totalUnitCount + 1 : 1
-        items[index].progress = progress
-        
-        self.progress.totalUnitCount = totalUnitCount
-        self.progress.completedUnitCount = completedUnitCount
+        // Update progress synchronously
+        self.progress.totalUnitCount = newTotalUnitCount
+        self.progress.completedUnitCount = newCompletedUnitCount
     }
     
     public func complete(_ identifier: String, with error: Error? = nil) {
-        guard let index = items.firstIndex(where: { $0.identifier == identifier }) else {
-            return
+        let newCompletedUnitCount = _items.write { items in
+            guard let index = items.firstIndex(where: { $0.identifier == identifier }) else {
+                return items.reduce(0, { $0 + $1.completedUnitCount })
+            }
+            
+            items[index].error = error
+            if error == nil {
+                items[index].completedUnitCount = items[index].totalUnitCount
+            }
+            
+            return items.reduce(0, { $0 + $1.completedUnitCount })
         }
         
-        items[index].error = error
-        if error == nil {
-            items[index].completedUnitCount = items[index].totalUnitCount
-        }
-        
-        progress.completedUnitCount = completedUnitCount
+        // Update progress synchronously
+        self.progress.completedUnitCount = newCompletedUnitCount
+    }
+    
+    private func getItems() -> [Item] {
+        return _items.read { $0 }
     }
     
     /// Returns a new progress node adding any items that are in other node and updating
@@ -123,23 +180,30 @@ public class ProgressNode {
         // cannot merge if one is in bytes and other is not.
         guard self.inBytes == other.inBytes else { return nil }
         
-        var items = self.items
+        // Get items from both nodes separately to avoid deadlocks
+        let selfItems = self.getItems()
+        let otherItems = other.getItems()
+        
+        var items = selfItems
         for index in items.indices {
             // if we have the same item in other node, change it
-            if let otherItem = other.items.first(where: { $0 == items[index] }) {
+            if let otherItem = otherItems.first(where: { $0 == items[index] }) {
                 items[index].update(with: otherItem)
             }
         }
         // append missing items that are in other node, but not in self
-        let missingIDs = Set(other.items.map { $0.identifier }).subtracting(items.map { $0.identifier })
-        let missingItems = missingIDs.compactMap { id in other.items.first(where: { id == $0.identifier }) }
+        let missingIDs = Set(otherItems.map { $0.identifier }).subtracting(items.map { $0.identifier })
+        let missingItems = missingIDs.compactMap { id in otherItems.first(where: { id == $0.identifier }) }
         items.append(contentsOf: missingItems)
         
         return ProgressNode(items: items, inBytes: inBytes)
     }
     
     public func hasSameItems(as other: ProgressNode) -> Bool {
-        return Set(items).isSuperset(of: other.items)
+        // Get items from both nodes separately to avoid deadlocks
+        let selfItems = self.getItems()
+        let otherItems = other.getItems()
+        return Set(selfItems).isSuperset(of: otherItems)
     }
 }
 
