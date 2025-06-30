@@ -30,10 +30,6 @@ public struct DownloadRequest: Sendable, Equatable {
     public func downloadableIdentifier() async -> String {
         return await mirror.downloadable.identifier
     }
-    
-//    public var downloadableIdentifier : String {
-//        return mirror.downloadable.identifier
-//    }
 }
 
 /// Returns download selection to retry.
