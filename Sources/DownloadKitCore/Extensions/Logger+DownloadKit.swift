@@ -14,4 +14,6 @@ extension Logger {
     static let logWebDownloadProcessor = Logger(subsystem: "org.blubblub.downloadkit", category: "WebDownloadProcessor")
     static let logWebDownload = Logger(subsystem: "org.blubblub.downloadkit", category: "WebDownload")
     static let logWeightedMirrorPolicy = Logger(subsystem: "org.blubblub.downloadkit", category: "WeightedMirrorPolicy")
+    static let logResourceDownloadProgress = Logger(subsystem: "org.blubblub.downloadkit", category: "ResourceDownloadProgress")
+    static let logCloudKitDownloadProcessor = Logger(subsystem: "org.blubblub.downloadkit", category: "CloudKitDownloadProcessor")
 }

@@ -14,7 +14,7 @@ public actor ResourceDownloadProgress {
     public init() {}
     public typealias Progress = Foundation.Progress
     
-    public let log: Logger = logDK
+    public let log: Logger = Logger.logResourceDownloadProgress
     
     /// Nodes store a tree of progresses based on loaded identifiers.
     private var nodes = [String: ProgressNode]()
