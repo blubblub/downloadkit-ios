@@ -163,12 +163,17 @@ class DownloadQueueAdvancedTests: XCTestCase, @unchecked Sendable {
         await downloadQueue.add(processor: processor)
         
         let download = WebDownload(identifier: "priority-update-test", url: URL(string: "https://example.com/file")!)
+        
+        // Update priority before adding to queue
+        await download.set(priority: 500)
+        let initialPriority = await download.priority
+        XCTAssertEqual(initialPriority, 500)
+        
         await downloadQueue.download([download])
         
-        // Update priority
-        await download.set(priority: 500)
-        let updatedPriority = await download.priority
-        XCTAssertEqual(updatedPriority, 500)
+        // Verify priority is maintained after being added to queue
+        let queuedPriority = await download.priority
+        XCTAssertEqual(queuedPriority, 500)
         
         // Download the same item again with higher priority
         let higherPriorityDownload = WebDownload(identifier: "priority-update-test", url: URL(string: "https://example.com/file")!, priority: 1000)

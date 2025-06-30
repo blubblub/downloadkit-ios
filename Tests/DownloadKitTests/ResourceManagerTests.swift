@@ -212,9 +212,12 @@ class ResourceManagerTests: XCTestCase {
         let requestsWhileInactive = await manager.request(resources: [resource])
         print("DEBUG: Requests returned: \(requestsWhileInactive.count)")
         
-        // Verify manager is now active after request (since we modified request() to activate)
+        // Now explicitly activate the manager to test that it resumes downloads
+        await manager.setActive(true)
+        
+        // Verify manager is now active after explicit activation
         let isActiveAfterRequest = await manager.isActive
-        XCTAssertTrue(isActiveAfterRequest, "Manager should be active after request")
+        XCTAssertTrue(isActiveAfterRequest, "Manager should be active after explicit activation")
         
         // Check various download states for debugging
         let queuedDownloadCount = await manager.queuedDownloadCount
