@@ -39,7 +39,7 @@ public actor CloudKitDownload: Downloadable {
     /// Download finished date, empty until completed
     public var finishedDate: Date? { return data.finishedDate }
     
-    public var assetFile: ResourceMirrorSelection?
+    public var resourceFile: ResourceMirrorSelection?
         
     // MARK: - Codable
     

@@ -1,5 +1,5 @@
 //
-//  AssetCache.swift
+//  RealmMemoryCache.swift
 //  BlubBlubCore
 //
 //  Created by Dal Rupnik on 23/08/2017.

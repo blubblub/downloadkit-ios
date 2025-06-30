@@ -59,7 +59,7 @@ public protocol MirrorPolicy {
     func mirror(for resource: ResourceFile, lastMirrorSelection: ResourceMirrorSelection?, error: Error?) -> ResourceMirrorSelection?
     
     /// Call this method on MirrorPolicy to let it know the file is ready.
-    /// - Parameter asset: asset
+    /// - Parameter resources: resources
     func downloadComplete(for resource: ResourceFile)
 }
 

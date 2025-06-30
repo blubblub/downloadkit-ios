@@ -1,5 +1,5 @@
 //
-//  AssetDownloadProgress.swift
+//  ResourceDownloadProgress.swift
 //  BlubBlubCore
 //
 //  Created by Dal Rupnik on 10/9/17.
@@ -102,7 +102,7 @@ extension ResourceDownloadProgress {
         }
         
         if progresses.count > 0 && items.count == 0 {
-            log.debug("There are progresses: \(self.progresses.count), but apparently not for this group assets: \(downloadIdentifiers.count)")
+            log.debug("There are progresses: \(self.progresses.count), but apparently not for this group resources: \(downloadIdentifiers.count)")
         }
         
         guard let newNode = ProgressNode(items: items) else {

@@ -87,15 +87,15 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
     
     /// Update/move files from cache to permanent storage or vice versa.
     /// - Parameters:
-    ///   - assets: resources to operate on
+    ///   - resources: resources to operate on
     ///   - priority: priority to move to.
-    public func updateStorage(resources: [ResourceFile], to priority: StoragePriority, onAssetChange: ((L) -> Void)?) {
+    public func updateStorage(resources: [ResourceFile], to priority: StoragePriority, onResourceChange: ((L) -> Void)?) {
         autoreleasepool {
             do {
                 let realm = try self.realm
                 
-                for asset in resources {
-                    if var localResource = realm.object(ofType: L.self, forPrimaryKey: asset.id),
+                for resource in resources {
+                    if var localResource = realm.object(ofType: L.self, forPrimaryKey: resource.id),
                        let localURL = localResource.fileURL {
                         guard file.fileExists(atPath: localURL.path) else {
                             realm.delete(localResource)
@@ -104,7 +104,7 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
                         // if priorities are the same, skip moving files
                         if localResource.storage == priority { continue }
                         
-                        let targetURL = L.targetUrl(for: asset, mirror: asset.main, // main mirror here?
+                        let targetURL = L.targetUrl(for: resource, mirror: resource.main, // main mirror here?
                                                     at: localURL,
                                                     storagePriority: priority, file: file)
                         let directoryURL = targetURL.deletingLastPathComponent()
@@ -121,7 +121,7 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
                             localResource.fileURL = targetURL
                             localResource.storage = priority
                             realm.add(localResource, update: .modified)
-                            onAssetChange?(localResource)
+                            onResourceChange?(localResource)
                             try realm.commitWrite()
                             log.info("Moved \(localURL.absoluteString) from to \(targetURL.absoluteString)")
                         } catch {
@@ -167,19 +167,19 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         }
     }
     
-    /// Filters through `assets` and returns only those that are not downloaded.
+    /// Filters through `resources` and returns only those that are not downloaded.
     /// - Parameters:
-    ///   - assets: resources we filter through.
+    ///   - resources: resources we filter through.
     ///   - options: options
     /// - Returns: resources that are not yet stored locally.
-    public func downloads(from assets: [ResourceFile], options: RequestOptions) -> [ResourceFile] {
+    public func downloads(from resources: [ResourceFile], options: RequestOptions) -> [ResourceFile] {
         return autoreleasepool { () -> [ResourceFile] in
             guard let realm = try? self.realm else {
                 return []
             }
                         
             // Get resources that need to be downloaded.
-            let downloadableResources = assets.filter { item in
+            let downloadableResources = resources.filter { item in
                 
                 if let shouldDownload = shouldDownload {
                     return shouldDownload(item, options)
@@ -289,7 +289,7 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         let localResources = resources.compactMap { realm.object(ofType: L.self, forPrimaryKey: $0.id) }
         do {
             try realm.write {
-                for resource in localResources where !resourceExistsLocally(asset: resource) {
+                for resource in localResources where !resourceExistsLocally(resource: resource) {
                     realm.delete(resource)
                 }
             }
@@ -298,9 +298,9 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         }
     }
     
-    private func resourceExistsLocally(asset: L) -> Bool {
+    private func resourceExistsLocally(resource: L) -> Bool {
         // if we don't have file URL, delete
-        guard let url = asset.fileURL else {
+        guard let url = resource.fileURL else {
             return false
         }
         
@@ -309,7 +309,7 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
     
     /// Creates a LocalResource record with file path at URL.
     /// - Parameters:
-    ///   - asset: resource to create record for
+    ///   - resource: resource to create record for
     ///   - url: url where file is located
     /// - Returns: local resource
     private func createLocalResource(for resource: ResourceFile, url: URL) -> L {

@@ -403,7 +403,7 @@ extension DownloadQueue: DownloadProcessorDelegate {
     public func downloadDidFinishTransfer(_ processor: DownloadProcessor, downloadable: Downloadable, to url: URL) {
         // Need to call this on current thread, as URLSession will remove file behind URL after run-loop.
         // We can move the file in the WebDownloadProcessor, but either way, or decide later in the
-        // asset manager.
+        // resource manager.
         Task {
             let identifier = await downloadable.identifier
             do {

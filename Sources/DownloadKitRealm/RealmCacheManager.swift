@@ -148,7 +148,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         }
     }
     
-    public func assetImage(url: URL) async -> LocalImage? {
+    public func resourceImage(url: URL) async -> LocalImage? {
         return await memoryCache?.resourceImage(url: url)
     }
     
