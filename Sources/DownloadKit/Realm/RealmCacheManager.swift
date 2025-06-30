@@ -17,7 +17,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     public var localCache: RealmLocalCacheManager<L>
     public var mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()
     
-    private var downloadableMap = AtomicDictionary<String, DownloadRequest>()
+    private var downloadableMap = [String: DownloadRequest]()
     
     public init(configuration: Realm.Configuration,
                 mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()) {

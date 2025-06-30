@@ -30,7 +30,7 @@ public actor ResourceDownloadProgress {
         guard progresses.count > 0 else { return nil }
         
         if let node = nodes[identifier] {
-            return nil
+            return node
         }
         
         guard let items = items, items.count > 0 else {
@@ -38,7 +38,7 @@ public actor ResourceDownloadProgress {
             return nil
         }
         
-        var returnNode = ProgressNode(items: items)
+        let returnNode = ProgressNode(items: items)
         
         self.nodes[identifier] = returnNode
         
@@ -89,13 +89,13 @@ public actor ResourceDownloadProgress {
 extension ResourceDownloadProgress {
     
     public func progressNode(for identifier: String, downloadIdentifiers: [String]) -> ProgressNode? {
-        var count = progresses.count
+        let count = progresses.count
 
         guard count > 0 else {
             return nil
         }
         
-        var items = downloadIdentifiers.reduce(into: [String: Progress]()) {
+        let items = downloadIdentifiers.reduce(into: [String: Progress]()) {
             $0[$1] = progresses[$1]
         }
         
