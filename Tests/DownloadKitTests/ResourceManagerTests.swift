@@ -228,7 +228,7 @@ class ResourceManagerTests: XCTestCase {
         print("DEBUG: Queued: \(queuedDownloadCount), Current: \(currentDownloadCount), Total: \(totalDownloads), Has downloadable: \(hasDownloadable)")
         
         // The test should pass if we have any form of download activity
-        // If requestsWhileInactive.count is 0, it means the asset was already cached or filtered out
+        // If requestsWhileInactive.count is 0, it means the resource was already cached or filtered out
         if requestsWhileInactive.count == 0 {
             XCTAssertEqual(queuedDownloadCount, 0, "No downloads should be queued if no requests were returned")
         } else {

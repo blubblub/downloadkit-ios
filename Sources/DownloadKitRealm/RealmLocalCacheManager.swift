@@ -72,22 +72,22 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         try finalFileUrl.setResourceValues(resourceValues)
         
         // Store file into Realm
-        let localAsset = self.createLocalAsset(for: resource, url: finalFileUrl)
+        let localResource = self.createLocalAsset(for: resource, url: finalFileUrl)
         let realm = try self.realm
         
         try realm.write {
-            realm.add(localAsset, update: .modified)
+            realm.add(localResource, update: .modified)
         }
         
         log.info("Stored: \(resource.id) at: \(finalFileUrl.absoluteString)")
         
-        return localAsset
+        return localResource
     }
     
     
     /// Update/move files from cache to permanent storage or vice versa.
     /// - Parameters:
-    ///   - assets: assets to operate on
+    ///   - assets: resources to operate on
     ///   - priority: priority to move to.
     public func updateStorage(assets: [ResourceFile], to priority: StoragePriority, onAssetChange: ((L) -> Void)?) {
         autoreleasepool {
@@ -95,14 +95,14 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
                 let realm = try self.realm
                 
                 for asset in assets {
-                    if var localAsset = realm.object(ofType: L.self, forPrimaryKey: asset.id),
-                       let localURL = localAsset.fileURL {
+                    if var localResource = realm.object(ofType: L.self, forPrimaryKey: asset.id),
+                       let localURL = localResource.fileURL {
                         guard file.fileExists(atPath: localURL.path) else {
-                            realm.delete(localAsset)
+                            realm.delete(localResource)
                             continue
                         }
                         // if priorities are the same, skip moving files
-                        if localAsset.storage == priority { continue }
+                        if localResource.storage == priority { continue }
                         
                         let targetURL = L.targetUrl(for: asset, mirror: asset.main, // main mirror here?
                                                     at: localURL,
@@ -118,10 +118,10 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
                             try file.moveItem(at: localURL, to: targetURL)
                             // update fileURL with new location and storage
                             realm.beginWrite()
-                            localAsset.fileURL = targetURL
-                            localAsset.storage = priority
-                            realm.add(localAsset, update: .modified)
-                            onAssetChange?(localAsset)
+                            localResource.fileURL = targetURL
+                            localResource.storage = priority
+                            realm.add(localResource, update: .modified)
+                            onAssetChange?(localResource)
                             try realm.commitWrite()
                             log.info("Moved \(localURL.absoluteString) from to \(targetURL.absoluteString)")
                         } catch {
@@ -138,37 +138,69 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
     }
     
     /// Filters through `assets` and returns only those that are not downloaded.
+    /// Filters all resource files in array to find those missing from local file system.
+    /// - Parameter assets: list of resources to filter
+    /// - Returns: filtered list of resources
+    func requestDownloads(assets: [ResourceFile], options: RequestOptions = RequestOptions()) async -> [DownloadRequest] {
+        autoreleasepool {
+            do {
+                let realm = try self.realm
+                
+                // Call the handler to update resources that might have been already downloaded.
+                // This is needed, for example, when ResourceManager was paused.
+                
+                try removeResourcesWithoutLocalFile(assets: assets)
+                
+                // Get resources that need to be downloaded.
+                let downloadableResources = downloads(from: assets, options: options)
+                
+                let downloadRequests: [DownloadRequest] = downloadableResources.compactMap { resource -> DownloadRequest? in
+                    guard let downloadable = resource.main.downloadable else { return nil }
+                    let mirrorSelection = ResourceMirrorSelection(id: resource.id, mirror: resource.main, downloadable: downloadable)
+                    return DownloadRequest(resource: resource, options: options, mirror: mirrorSelection)
+                }
+                
+                return downloadRequests
+            }
+            catch {
+                log.error("Error while requesting downloads: \(error.localizedDescription)")
+                return []
+            }
+        }
+    }
+    
+    /// Filters through `assets` and returns only those that are not downloaded.
     /// - Parameters:
-    ///   - assets: assets we filter through.
+    ///   - assets: resources we filter through.
     ///   - options: options
-    /// - Returns: assets that are not yet stored locally.
+    /// - Returns: resources that are not yet stored locally.
     public func downloads(from assets: [ResourceFile], options: RequestOptions) -> [ResourceFile] {
         return autoreleasepool { () -> [ResourceFile] in
             guard let realm = try? self.realm else {
                 return []
             }
                         
-            // Get assets that need to be downloaded.
-            let downloadableAssets = assets.filter { item in
+            // Get resources that need to be downloaded.
+            let downloadableResources = assets.filter { item in
                 
                 if let shouldDownload = shouldDownload {
                     return shouldDownload(item, options)
                 }
                 
-                // No local asset, let's download.
-                guard let asset = realm.object(ofType: L.self, forPrimaryKey: item.id), asset.fileURL != nil else {
+                // No local resource, let's download.
+                guard let resource = realm.object(ofType: L.self, forPrimaryKey: item.id), resource.fileURL != nil else {
                     return true
                 }
                             
                 // Check if file supports modification date, only download if newer.
-                if let localModifyDate = asset.modifyDate, let fileModifyDate = item.modifyDate {
+                if let localModifyDate = resource.modifyDate, let fileModifyDate = item.modifyDate {
                     return fileModifyDate > localModifyDate
                 }
                 
                 return false
             }
          
-            return downloadableAssets
+            return downloadableResources
         }
     }
     
@@ -253,22 +285,22 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         log.debug("Removed \(deleteCounter) objects.")
     }
     
-    private func removeAssetsWithoutLocalFile(assets: [ResourceFile]) throws {
+    private func removeResourcesWithoutLocalFile(assets: [ResourceFile]) throws {
         let realm = try self.realm
         
-        let localAssets = assets.compactMap { realm.object(ofType: L.self, forPrimaryKey: $0.id) }
+        let localResources = assets.compactMap { realm.object(ofType: L.self, forPrimaryKey: $0.id) }
         do {
             try realm.write {
-                for asset in localAssets where !assetExistsLocally(asset: asset) {
-                    realm.delete(asset)
+                for resource in localResources where !resourceExistsLocally(asset: resource) {
+                    realm.delete(resource)
                 }
             }
         } catch {
-            log.error("Error while removing assets \(error.localizedDescription)")
+            log.error("Error while removing resources \(error.localizedDescription)")
         }
     }
     
-    private func assetExistsLocally(asset: L) -> Bool {
+    private func resourceExistsLocally(asset: L) -> Bool {
         // if we don't have file URL, delete
         guard let url = asset.fileURL else {
             return false
@@ -277,18 +309,18 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         return file.fileExists(atPath: url.path)
     }
     
-    /// Creates a LocalAsset record with file path at URL.
+    /// Creates a LocalResource record with file path at URL.
     /// - Parameters:
-    ///   - asset: asset to create record for
+    ///   - asset: resource to create record for
     ///   - url: url where file is located
-    /// - Returns: local asset
+    /// - Returns: local resource
     private func createLocalAsset(for asset: ResourceFile, url: URL) -> L {
-        var localAsset = L()
-        localAsset.id = asset.id
-        localAsset.fileURL = url
-        localAsset.modifyDate = asset.modifyDate ?? Date()
+        var localResource = L()
+        localResource.id = asset.id
+        localResource.fileURL = url
+        localResource.modifyDate = asset.modifyDate ?? Date()
         
-        return localAsset
+        return localResource
     }
 }
 

@@ -224,14 +224,14 @@ class CloudKitTests: XCTestCase, @unchecked Sendable {
     // MARK: - Error Handling Tests
     
     func testCloudKitErrorTypes() {
-        let noAssetError = CloudKitError.noAssetData
+        let noResourceError = CloudKitError.noAssetData
         let noRecordError = CloudKitError.noRecord
         
-        XCTAssertNotNil(noAssetError)
+        XCTAssertNotNil(noResourceError)
         XCTAssertNotNil(noRecordError)
         
         // Test that errors are different types
-        if case .noAssetData = noAssetError {
+        if case .noAssetData = noResourceError {
             // Expected
         } else {
             XCTFail("Should be noAssetData")

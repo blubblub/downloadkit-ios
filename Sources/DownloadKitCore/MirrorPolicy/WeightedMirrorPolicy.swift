@@ -26,22 +26,22 @@ open class WeightedMirrorPolicy: MirrorPolicy {
         self.numberOfRetries = numberOfRetries
     }
     
-    /// Function sorts all mirrors on asset file. Override this method if additional filter
+    /// Function sorts all mirrors on resource file. Override this method if additional filter
     /// for the file mirrors need to be added (for example a file is not supported by the system).
-    /// - Parameter asset: asset to sort mirrors for
+    /// - Parameter resource: resource to sort mirrors for
     /// - Returns: sorted mirrors
     open func sortMirrors(for resource: ResourceFile) -> [ResourceFileMirror] {
         return resource.sortedMirrors()
     }
     
-    public func mirror(for asset: ResourceFile, lastMirrorSelection: ResourceMirrorSelection?, error: Error?) -> ResourceMirrorSelection? {
+    public func mirror(for resource: ResourceFile, lastMirrorSelection: ResourceMirrorSelection?, error: Error?) -> ResourceMirrorSelection? {
         
         // if download was cancelled, no need to retry or return new mirror
         if (error as NSError?)?.code == NSURLErrorCancelled {
             return nil
         }
         
-        let mirrors = sortMirrors(for: asset)
+        let mirrors = sortMirrors(for: resource)
         
         var selectedIndex = 0
         
@@ -50,7 +50,7 @@ open class WeightedMirrorPolicy: MirrorPolicy {
         
         // If we have tried a mirror and gotten an error, select a lower weight mirror.
         if let mirrorSelection = lastMirrorSelection, error != nil {
-            log.info("[WeightedMirrorPolicy]: Mirror errored: \(mirrorSelection.mirror.location), searching for next available on asset: \(asset.id)")
+            log.info("[WeightedMirrorPolicy]: Mirror errored: \(mirrorSelection.mirror.location), searching for next available on resource: \(resource.id)")
             
             // Find index of last mirror
             if let index = mirrors.firstIndex(where: { $0.id == mirrorSelection.mirror.id }) {
@@ -64,7 +64,7 @@ open class WeightedMirrorPolicy: MirrorPolicy {
                 downloadable = mirrors[counter].downloadable
                 
                 if downloadable != nil {
-                    log.info("[WeightedMirrorPolicy]: Selected next mirror: \(mirrors[counter].location) for asset: \(asset.id)")
+                    log.info("[WeightedMirrorPolicy]: Selected next mirror: \(mirrors[counter].location) for resource: \(resource.id)")
                     
                     selectedIndex = counter
                     break
@@ -85,29 +85,29 @@ open class WeightedMirrorPolicy: MirrorPolicy {
         }
         
         // Only ask if we should retry in case there was an error.
-        if error != nil && !shouldRetry(mirror: mirrors[selectedIndex], for: asset) {
-            log.debug("[WeightedMirrorPolicy]: Exhaused mirrors for asset: \(asset.id) Last: \(mirrors[selectedIndex].location)")
+        if error != nil && !shouldRetry(mirror: mirrors[selectedIndex], for: resource) {
+            log.debug("[WeightedMirrorPolicy]: Exhaused mirrors for resource: \(resource.id) Last: \(mirrors[selectedIndex].location)")
             
-            delegate?.mirrorPolicy(self, didExhaustMirrorsIn: asset)
+            delegate?.mirrorPolicy(self, didExhaustMirrorsIn: resource)
             return nil
         }
         
         guard let finalDownloadable = downloadable else {
-            log.error("[WeightedMirrorPolicy]: No Downloadable Mirrors found for asset: \(asset.id)")
-            delegate?.mirrorPolicy(self, didFailToGenerateDownloadableIn: asset, for: mirrors[selectedIndex])
+            log.error("[WeightedMirrorPolicy]: No Downloadable Mirrors found for resource: \(resource.id)")
+            delegate?.mirrorPolicy(self, didFailToGenerateDownloadableIn: resource, for: mirrors[selectedIndex])
             return nil
         }
                 
-        //log.debug("[WeightedMirrorPolicy]: Downloading asset: \(asset.id) from: \(mirrors[selectedIndex].location)")
+        //log.debug("[WeightedMirrorPolicy]: Downloading resource: \(resource.id) from: \(mirrors[selectedIndex].location)")
 
-        return ResourceMirrorSelection(id: asset.id, mirror: mirrors[selectedIndex], downloadable: finalDownloadable)
+        return ResourceMirrorSelection(id: resource.id, mirror: mirrors[selectedIndex], downloadable: finalDownloadable)
     }
     
-    public func downloadComplete(for asset: ResourceFile) {
+    public func downloadComplete(for resource: ResourceFile) {
         // Download was completed for file, clean up the local cache for retries.
         
-        for mirror in asset.sortedMirrors() {
-            let mirrorKey = "\(asset.id)-\(mirror.id)"
+        for mirror in resource.sortedMirrors() {
+            let mirrorKey = "\(resource.id)-\(mirror.id)"
             retryCounters[mirrorKey] = nil
         }
     }
@@ -115,8 +115,8 @@ open class WeightedMirrorPolicy: MirrorPolicy {
     /// Holds a small retry access
     private var retryCounters = [String: Int]()
     
-    private func shouldRetry(mirror: ResourceFileMirror, for asset: ResourceFile) -> Bool {
-        let mirrorKey = "\(asset.id)-\(mirror.id)"
+    private func shouldRetry(mirror: ResourceFileMirror, for resource: ResourceFile) -> Bool {
+        let mirrorKey = "\(resource.id)-\(mirror.id)"
         
         var retryCounter = retryCounters[mirrorKey] ?? 0
         
@@ -134,10 +134,10 @@ open class WeightedMirrorPolicy: MirrorPolicy {
 
 extension WeightedMirrorPolicy {
     /// For testing purposes.
-    /// - Parameter asset: asset file
-    /// - Returns: Array of retry counters for each mirror the asset has.
-    public func retryCounters(for asset: ResourceFile) -> [Int] {
-        let keys = asset.sortedMirrors().map { "\(asset.id)-\($0.id)" }
+    /// - Parameter resource: resource file
+    /// - Returns: Array of retry counters for each mirror the resource has.
+    public func retryCounters(for resource: ResourceFile) -> [Int] {
+        let keys = resource.sortedMirrors().map { "\(resource.id)-\($0.id)" }
         return keys.compactMap { retryCounters[$0] }
     }
 }

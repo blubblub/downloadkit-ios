@@ -15,10 +15,10 @@ public final class CachedLocalFile: Object, LocalResourceFile, @unchecked Sendab
         return "identifier"
     }
     
-    public static func targetUrl(for asset: ResourceFile, mirror: ResourceFileMirror, at url: URL, storagePriority: StoragePriority, file: FileManager) -> URL {
+    public static func targetUrl(for resource: ResourceFile, mirror: ResourceFileMirror, at url: URL, storagePriority: StoragePriority, file: FileManager) -> URL {
         // Select directory based on state. Use is cached, everything else is stored in support.
         let targetUrl = storagePriority == .permanent ? file.supportDirectoryURL : file.cacheDirectoryURL
-        let path = CachedLocalFile.randomLocalPath(for: asset.id, fileExtension: (mirror.location as NSString).pathExtension)
+        let path = CachedLocalFile.randomLocalPath(for: resource.id, fileExtension: (mirror.location as NSString).pathExtension)
         return targetUrl.appendingPathComponent(path)
     }
     

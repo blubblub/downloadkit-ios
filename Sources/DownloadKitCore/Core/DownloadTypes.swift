@@ -37,7 +37,7 @@ public typealias ProgressCompletion = (Bool, String) -> Void
 
 /// Protocol for cache implementations that don't require specific database dependencies
 public protocol ResourceFileCacheable {
-    func currentAssets() async -> [ResourceFile]
+    func currentResources() async -> [ResourceFile]
     func currentDownloadRequests() async -> [DownloadRequest]
     subscript(id: String) -> URL? { get async }
 }

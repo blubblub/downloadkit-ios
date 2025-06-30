@@ -23,23 +23,23 @@ public typealias LocalImage = UIImage
 extension UIImage: @retroactive @unchecked Sendable {}
 #endif
 
-/// Will cache asset URL's and images in memory for quick access.
+/// Will cache resource URL's and images in memory for quick access.
 /// URL's are stored in a local dictionary, images are stored in NSCache.
 /// Images are stored as `UIImage`
 /// Note:
 /// Cache Manager will load the image into memory after downloading it.
 public actor RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalResourceFile {
     private var cacheQueue = DispatchQueue(label: "org.blubblub.downloadkit.memorycache.queue")
-    private var _assetURLs = [String: URL]()
-    private var assetURLs: [String: URL] {
+    private var _resourceURLs = [String: URL]()
+    private var resourceURLs: [String: URL] {
         get {
             return cacheQueue.sync {
-                return _assetURLs
+                return _resourceURLs
             }
         }
         set {
             cacheQueue.sync {
-                _assetURLs = newValue
+                _resourceURLs = newValue
             }
         }
     }
@@ -64,7 +64,7 @@ public actor RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalRe
     }
     
     public subscript(id: String) -> URL? {
-        if let url = assetURLs[id] {
+        if let url = resourceURLs[id] {
             return url
         }
         
@@ -73,12 +73,12 @@ public actor RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalRe
         }
         
         autoreleasepool {
-            if let localAssetUrl = realm.object(ofType: L.self, forPrimaryKey: id)?.fileURL {
-                assetURLs[id] = localAssetUrl
+            if let localResourceUrl = realm.object(ofType: L.self, forPrimaryKey: id)?.fileURL {
+                resourceURLs[id] = localResourceUrl
             }
         }
         
-        return assetURLs[id]
+        return resourceURLs[id]
     }
     
     public func assetImage(url: URL) -> LocalImage? {
@@ -95,16 +95,16 @@ public actor RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalRe
         return nil
     }
     
-    public func update(for localAsset: L) {
-        if let localUrl = localAsset.fileURL {
-            assetURLs[localAsset.id] = localUrl
+    public func update(for localResource: L) {
+        if let localUrl = localResource.fileURL {
+            resourceURLs[localResource.id] = localUrl
         }
     }
     
     // MARK: - ResourceFileCacheable
     
-    public func currentAssets() async -> [ResourceFile] {
-        // This should return cached assets from Realm, for now returning empty
+    public func currentResources() async -> [ResourceFile] {
+        // This should return cached resources from Realm, for now returning empty
         return []
     }
     

@@ -161,17 +161,17 @@ public actor ResourceManager: DownloadQueuable {
         await downloadQueue.set(delegate: self)
         await priorityQueue?.set(delegate: self)
         
-        let uniqueAssets = resources.unique(\.id)
+        let uniqueResources = resources.unique(\.id)
         
-        // Grab Assets we need from file manager, filtering out those that are already downloaded.
-        let downloads = await cache.requestDownloads(assets: uniqueAssets, options: options)
+        // Grab resources we need from file manager, filtering out those that are already downloaded.
+        let downloads = await cache.requestDownloads(assets: uniqueResources, options: options)
         
-        metrics.requested += uniqueAssets.count
+        metrics.requested += uniqueResources.count
                 
-        log.info("Requested unique asset count: \(uniqueAssets.count) Downloads: \(downloads.count)")
+        log.info("Requested unique resource count: \(uniqueResources.count) Downloads: \(downloads.count)")
                 
         guard downloads.count > 0 else {
-            log.info("[AssetManager]: Metrics on no downloads: \(self.metrics.description)")
+            log.info("[ResourceManager]: Metrics on no downloads: \(self.metrics.description)")
             return []
         }
         
@@ -184,7 +184,7 @@ public actor ResourceManager: DownloadQueuable {
         }
                 
         if downloads.count != finalDownloads.count {
-            log.error("[AssetManager]: Final downloads mismatch: \(downloads.count) \(finalDownloads.count)")
+            log.error("[ResourceManager]: Final downloads mismatch: \(downloads.count) \(finalDownloads.count)")
         }
         
         if let priorityQueue = priorityQueue, options.downloadPriority == .high {
@@ -215,7 +215,7 @@ public actor ResourceManager: DownloadQueuable {
             await downloadQueue.cancel(items: normalQueuedDownloads.map { $0.mirror.downloadable })
             
             // TODO: Log all downloadable identifiers by comma.
-            //log.info("Reprioritising assets: \(finalDownloads.map({ $0.downloadableIdentifier() }).joined(separator: ", "))")
+            //log.info("Reprioritising resources: \(finalDownloads.map({ $0.downloadableIdentifier() }).joined(separator: ", "))")
         }
         else {
             await downloadQueue.download(finalDownloads.map { $0.mirror.downloadable })
@@ -224,7 +224,7 @@ public actor ResourceManager: DownloadQueuable {
         // Add downloads to monitor progresses.
         await progress.add(downloadItems: finalDownloads.map { $0.mirror.downloadable })
         
-        log.info("[AssetManager]: Metrics on request: \(self.metrics.description)")
+        log.info("[ResourceManager]: Metrics on request: \(self.metrics.description)")
         
         return downloads
     }
@@ -309,17 +309,17 @@ extension ResourceManager: DownloadQueueDelegate {
                     
                     self.completeProgress(downloadRequest, downloadable: downloadable, with: nil)
                     
-                    log.info("[AssetManager]: Download finished: \(identifier)")
+                    log.info("[ResourceManager]: Download finished: \(identifier)")
                     
-                    log.info("[AssetManager]: Metrics on download finished: \(self.metrics.description)")
+                    log.info("[ResourceManager]: Metrics on download finished: \(self.metrics.description)")
                 }
             }
             catch let error {
-                log.error("[AssetManager]: Error caching file: \(error.localizedDescription)")
+                log.error("[ResourceManager]: Error caching file: \(error.localizedDescription)")
                 await self.downloadQueue(queue, downloadDidFail: downloadable, with: error)
             }
         } catch let error {
-            log.error("[AssetManager]: Error moving temporary file: \(error.localizedDescription)")
+            log.error("[ResourceManager]: Error moving temporary file: \(error.localizedDescription)")
 
             // Ensure error is handled, download actually did fail.
             Task {
@@ -348,7 +348,7 @@ extension ResourceManager: DownloadQueueDelegate {
                 }
                 
                 let identifier = await retryDownloadable.identifier
-                log.error("[AssetManager]: Download failed, retrying: \(identifier) Error: \(error.localizedDescription)")
+                log.error("[ResourceManager]: Download failed, retrying: \(identifier) Error: \(error.localizedDescription)")
                 
                 await queue.download([retryDownloadable])
             }
@@ -356,12 +356,12 @@ extension ResourceManager: DownloadQueueDelegate {
             metrics.failed += 1
             
             let identifier = await downloadable.identifier
-            log.error("[AssetManager]: Download failed, done: \(identifier) Error: \(error.localizedDescription)")
+            log.error("[ResourceManager]: Download failed, done: \(identifier) Error: \(error.localizedDescription)")
                 
             self.completeProgress(originalRequest, downloadable: downloadable, with: error)
         }
         
-        log.info("[AssetManager]: Metrics on download failed: \(self.metrics.description)")
+        log.info("[ResourceManager]: Metrics on download failed: \(self.metrics.description)")
     }
 }
 
@@ -403,8 +403,8 @@ extension ResourceManager {
     public func addResourceCompletion(for identifier: String, completion: @escaping (Bool, String) -> Void) async {
         
         // Check if resource is already cached, if yes, complete immediately
-        let currentAssets = await cache.currentAssets()
-        if currentAssets.contains(where: { $0.id == identifier }) {
+        let currentResources = await cache.currentResources()
+        if currentResources.contains(where: { $0.id == identifier }) {
             completion(true, identifier)
             return
         }

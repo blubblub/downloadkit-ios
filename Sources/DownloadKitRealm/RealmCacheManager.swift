@@ -36,27 +36,27 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         self.mirrorPolicy = mirrorPolicy
     }
     
-    // MARK: - AssetCachable
+    // MARK: - ResourceCachable
     public func requestDownloads(assets: [ResourceFile], options: RequestOptions) async -> [DownloadRequest] {
-        // Update storage for assets that exists.
-        localCache.updateStorage(assets: assets, to: options.storagePriority) { [weak self] asset in
+        // Update storage for resources that exists.
+        localCache.updateStorage(assets: assets, to: options.storagePriority) { [weak self] resource in
             guard let self = self else { return }
             Task {
-                await self.memoryCache?.update(for: asset)
+                await self.memoryCache?.update(for: resource)
             }
         }
 
-        // Filter out binary and existing assets in local asset.
-        let downloadableAssets = localCache.downloads(from: assets, options: options)
+        // Filter out binary and existing resources in local cache.
+        let downloadableResources = localCache.downloads(from: assets, options: options)
         
-        log.info("Downloading from cache asset count: \(downloadableAssets.count)")
+        log.info("Downloading from cache resource count: \(downloadableResources.count)")
         
-        let downloadRequests: [DownloadRequest] = downloadableAssets.compactMap { asset in
-            guard let mirrorSelection = mirrorPolicy.mirror(for: asset, lastMirrorSelection: nil, error: nil) else {
+        let downloadRequests: [DownloadRequest] = downloadableResources.compactMap { resource in
+            guard let mirrorSelection = mirrorPolicy.mirror(for: resource, lastMirrorSelection: nil, error: nil) else {
                 return nil
             }
             
-            return DownloadRequest(resource: asset, options: options, mirror: mirrorSelection)
+            return DownloadRequest(resource: resource, options: options, mirror: mirrorSelection)
         }
         
         for request in downloadRequests {
@@ -76,7 +76,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         let identifier = await downloadable.identifier
         
         guard let downloadRequest = self.downloadableMap[identifier] else {
-            log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without asset information: \(identifier)")
+            log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without resource information: \(identifier)")
             return nil
         }
         
@@ -103,7 +103,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         let identifier = await downloadable.identifier
         
         guard let downloadRequest = downloadableMap[identifier] else {
-            log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without asset information: \(identifier)")
+            log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without resource information: \(identifier)")
             return nil
         }
         
@@ -140,7 +140,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         }
     }
     
-    // MARK: - AssetFileCacheable
+    // MARK: - ResourceFileCacheable
     
     public subscript(id: String) -> URL? {
         get async {
@@ -154,8 +154,8 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     
     // MARK: - ResourceFileCacheable
     
-    public func currentAssets() async -> [ResourceFile] {
-        // This should return cached assets from Realm, for now returning empty
+    public func currentResources() async -> [ResourceFile] {
+        // This should return cached resources from Realm, for now returning empty
         return []
     }
     

@@ -19,6 +19,13 @@ public struct ResourceMirrorSelection : Sendable {
     
     /// Option to retry
     public var option = QueueOption.normal
+    
+    public init(id: String, mirror: ResourceFileMirror, downloadable: Downloadable, option: QueueOption = .normal) {
+        self.id = id
+        self.mirror = mirror
+        self.downloadable = downloadable
+        self.option = option
+    }
 }
 
 extension ResourceMirrorSelection {
@@ -46,14 +53,14 @@ public protocol MirrorPolicy {
     /// This method will be called on Mirror policy when a transfer from a mirror fails.
     /// Method should return a retry configuration, if file should be retried.
     /// - Parameters:
-    ///   - asset: asset to download.
+    ///   - resource: resource to download.
     ///   - mirror: mirror that the transfer failed.
     ///   - error: error that might have appeared.
-    func mirror(for asset: ResourceFile, lastMirrorSelection: ResourceMirrorSelection?, error: Error?) -> ResourceMirrorSelection?
+    func mirror(for resource: ResourceFile, lastMirrorSelection: ResourceMirrorSelection?, error: Error?) -> ResourceMirrorSelection?
     
     /// Call this method on MirrorPolicy to let it know the file is ready.
     /// - Parameter asset: asset
-    func downloadComplete(for asset: ResourceFile)
+    func downloadComplete(for resource: ResourceFile)
 }
 
 public protocol MirrorPolicyDelegate: AnyObject {
@@ -61,7 +68,7 @@ public protocol MirrorPolicyDelegate: AnyObject {
     /// Will be called after all retry attempts to available mirrors are completed.
     /// - Parameters:
     ///   - mirrorPolicy: mirror policy
-    ///   - file: asset file
+    ///   - file: resource file
     func mirrorPolicy(_ mirrorPolicy: MirrorPolicy, didExhaustMirrorsIn file: ResourceFile)
     
     /// Will be called if it is impossible to generate a downloadable from selected mirror.
