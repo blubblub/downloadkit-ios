@@ -30,7 +30,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
     
     public weak var delegate: DownloadProcessorDelegate?
     
-    private let log = logDK
+    private let log = Logger.logWebDownloadProcessor
     
     public var isActive = true
     

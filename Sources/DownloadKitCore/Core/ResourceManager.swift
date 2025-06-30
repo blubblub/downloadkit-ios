@@ -31,7 +31,7 @@ public actor ResourceManager: DownloadQueuable {
     /// Progress tracker for all resource downloads.
     private let progress = ResourceDownloadProgress()
     
-    private let log: Logger = logDK
+    private let log = Logger.logResourceManager
     
     /// Metrics for resource manager.
     public private(set) var metrics = ResourceManagerMetrics()
@@ -309,13 +309,13 @@ extension ResourceManager: DownloadQueueDelegate {
                     
                     self.completeProgress(downloadRequest, downloadable: downloadable, with: nil)
                     
-                    self.log.info("[AssetManager]: Download finished: \(identifier)")
+                    log.info("[AssetManager]: Download finished: \(identifier)")
                     
-                    self.log.info("[AssetManager]: Metrics on download finished: \(self.metrics.description)")
+                    log.info("[AssetManager]: Metrics on download finished: \(self.metrics.description)")
                 }
             }
             catch let error {
-                self.log.error("[AssetManager]: Error caching file: \(error.localizedDescription)")
+                log.error("[AssetManager]: Error caching file: \(error.localizedDescription)")
                 await self.downloadQueue(queue, downloadDidFail: downloadable, with: error)
             }
         } catch let error {

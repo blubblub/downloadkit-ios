@@ -15,7 +15,7 @@ import os.log
 open class WeightedMirrorPolicy: MirrorPolicy {
     public static let weightKey = "weight"
     
-    public var log: Logger = logDK
+    private let log = Logger.logWeightedMirrorPolicy
     
     public var delegate: MirrorPolicyDelegate?
     

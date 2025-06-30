@@ -15,7 +15,7 @@ public extension DownloadParameter {
 
 // Actor can inherit NSObject, as a special exception.
 public actor WebDownload : NSObject, Downloadable {
-    private var log: Logger = logDK
+    private let log = Logger.logWebDownload
     
     /// Progress for older versions, before 11.0, stored internally and exposed via progress property.
     private var downloadProgress: Foundation.Progress?

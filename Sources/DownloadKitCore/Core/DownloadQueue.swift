@@ -99,7 +99,7 @@ public actor DownloadQueue: DownloadQueuable {
         
     // MARK: - Private Properties
     
-    public let log: Logger = logDK
+    private let log = Logger.logDownloadQueue
     
     /// Queue that executes after-download operations, such as moving the file.
     private let processQueue = DispatchQueue(label: "org.blubblub.core.synchronization.queue", qos: .background, attributes: .concurrent)
