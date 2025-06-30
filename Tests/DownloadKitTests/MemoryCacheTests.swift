@@ -16,7 +16,7 @@ class MemoryCacheTests: XCTestCase {
     }
     
     func testFetchingFromEmptyCache() async {
-        let imageResult = await cache.assetImage(url: URL(string: "https://google.com/logo.png")!)
+        let imageResult = await cache.resourceImage(url: URL(string: "https://google.com/logo.png")!)
         XCTAssertNil(imageResult)
         let subscriptResult = await cache["randomid"]
         XCTAssertNil(subscriptResult)
@@ -24,9 +24,9 @@ class MemoryCacheTests: XCTestCase {
     
     func testGettingImageFromCache() async {
         let imageURL = Bundle.module.url(forResource: "sample", withExtension: "png")!
-        let imageResult1 = await cache.assetImage(url: imageURL)
+        let imageResult1 = await cache.resourceImage(url: imageURL)
         XCTAssertNotNil(imageResult1)
-        let imageResult2 = await cache.assetImage(url: imageURL)
+        let imageResult2 = await cache.resourceImage(url: imageURL)
         XCTAssertNotNil(imageResult2)
     }
 }

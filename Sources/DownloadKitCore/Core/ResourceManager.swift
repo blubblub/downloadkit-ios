@@ -164,7 +164,7 @@ public actor ResourceManager: DownloadQueuable {
         let uniqueResources = resources.unique(\.id)
         
         // Grab resources we need from file manager, filtering out those that are already downloaded.
-        let downloads = await cache.requestDownloads(assets: uniqueResources, options: options)
+        let downloads = await cache.requestDownloads(resources: uniqueResources, options: options)
         
         metrics.requested += uniqueResources.count
                 

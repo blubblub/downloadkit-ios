@@ -80,7 +80,7 @@ public struct DownloadItemData : Codable, Sendable {
     /// JSON Serialized Metadata
     public var serializedMetadata: String?
     
-    /// Task identifier, usually asset identifier. Must not be nil.
+    /// Task identifier, usually resource identifier. Must not be nil.
     public var identifier: String
     
     /// Task priority in download queue (if needed), higher number means higher priority.

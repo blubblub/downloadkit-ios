@@ -15,9 +15,9 @@ public protocol ResourceCachable: Actor, ResourceFileCacheable {
     
     /// Returns downloadable items, that are not stored locally.
     /// - Parameters:
-    ///   - assets: assets we're interested in.
+    ///   - resources: resources we're interested in.
     ///   - options: request options.
-    func requestDownloads(assets: [ResourceFile], options: RequestOptions) async -> [DownloadRequest]
+    func requestDownloads(resources: [ResourceFile], options: RequestOptions) async -> [DownloadRequest]
     
     /// Returns download request for certain downloadable, if cache created it.
     /// - Parameter downloadable: item that we need request for.

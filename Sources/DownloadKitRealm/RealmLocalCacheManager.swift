@@ -72,7 +72,7 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         try finalFileUrl.setResourceValues(resourceValues)
         
         // Store file into Realm
-        let localResource = self.createLocalAsset(for: resource, url: finalFileUrl)
+        let localResource = self.createLocalResource(for: resource, url: finalFileUrl)
         let realm = try self.realm
         
         try realm.write {
@@ -89,12 +89,12 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
     /// - Parameters:
     ///   - assets: resources to operate on
     ///   - priority: priority to move to.
-    public func updateStorage(assets: [ResourceFile], to priority: StoragePriority, onAssetChange: ((L) -> Void)?) {
+    public func updateStorage(resources: [ResourceFile], to priority: StoragePriority, onAssetChange: ((L) -> Void)?) {
         autoreleasepool {
             do {
                 let realm = try self.realm
                 
-                for asset in assets {
+                for asset in resources {
                     if var localResource = realm.object(ofType: L.self, forPrimaryKey: asset.id),
                        let localURL = localResource.fileURL {
                         guard file.fileExists(atPath: localURL.path) else {
@@ -137,22 +137,20 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         }
     }
     
-    /// Filters through `assets` and returns only those that are not downloaded.
+    /// Filters through `resources` and returns only those that are not downloaded.
     /// Filters all resource files in array to find those missing from local file system.
-    /// - Parameter assets: list of resources to filter
+    /// - Parameter resources: list of resources to filter
     /// - Returns: filtered list of resources
-    func requestDownloads(assets: [ResourceFile], options: RequestOptions = RequestOptions()) async -> [DownloadRequest] {
+    func requestDownloads(resources: [ResourceFile], options: RequestOptions = RequestOptions()) async -> [DownloadRequest] {
         autoreleasepool {
             do {
-                let realm = try self.realm
-                
                 // Call the handler to update resources that might have been already downloaded.
                 // This is needed, for example, when ResourceManager was paused.
                 
-                try removeResourcesWithoutLocalFile(assets: assets)
+                try removeResourcesWithoutLocalFile(resources: resources)
                 
                 // Get resources that need to be downloaded.
-                let downloadableResources = downloads(from: assets, options: options)
+                let downloadableResources = downloads(from: resources, options: options)
                 
                 let downloadRequests: [DownloadRequest] = downloadableResources.compactMap { resource -> DownloadRequest? in
                     guard let downloadable = resource.main.downloadable else { return nil }
@@ -285,10 +283,10 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         log.debug("Removed \(deleteCounter) objects.")
     }
     
-    private func removeResourcesWithoutLocalFile(assets: [ResourceFile]) throws {
+    private func removeResourcesWithoutLocalFile(resources: [ResourceFile]) throws {
         let realm = try self.realm
         
-        let localResources = assets.compactMap { realm.object(ofType: L.self, forPrimaryKey: $0.id) }
+        let localResources = resources.compactMap { realm.object(ofType: L.self, forPrimaryKey: $0.id) }
         do {
             try realm.write {
                 for resource in localResources where !resourceExistsLocally(asset: resource) {
@@ -314,11 +312,11 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
     ///   - asset: resource to create record for
     ///   - url: url where file is located
     /// - Returns: local resource
-    private func createLocalAsset(for asset: ResourceFile, url: URL) -> L {
+    private func createLocalResource(for resource: ResourceFile, url: URL) -> L {
         var localResource = L()
-        localResource.id = asset.id
+        localResource.id = resource.id
         localResource.fileURL = url
-        localResource.modifyDate = asset.modifyDate ?? Date()
+        localResource.modifyDate = resource.modifyDate ?? Date()
         
         return localResource
     }

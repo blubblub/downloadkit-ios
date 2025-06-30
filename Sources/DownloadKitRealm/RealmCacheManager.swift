@@ -37,9 +37,9 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     }
     
     // MARK: - ResourceCachable
-    public func requestDownloads(assets: [ResourceFile], options: RequestOptions) async -> [DownloadRequest] {
+    public func requestDownloads(resources: [ResourceFile], options: RequestOptions) async -> [DownloadRequest] {
         // Update storage for resources that exists.
-        localCache.updateStorage(assets: assets, to: options.storagePriority) { [weak self] resource in
+        localCache.updateStorage(resources: resources, to: options.storagePriority) { [weak self] resource in
             guard let self = self else { return }
             Task {
                 await self.memoryCache?.update(for: resource)
@@ -47,7 +47,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         }
 
         // Filter out binary and existing resources in local cache.
-        let downloadableResources = localCache.downloads(from: assets, options: options)
+        let downloadableResources = localCache.downloads(from: resources, options: options)
         
         log.info("Downloading from cache resource count: \(downloadableResources.count)")
         
@@ -149,7 +149,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     }
     
     public func assetImage(url: URL) async -> LocalImage? {
-        return await memoryCache?.assetImage(url: url)
+        return await memoryCache?.resourceImage(url: url)
     }
     
     // MARK: - ResourceFileCacheable

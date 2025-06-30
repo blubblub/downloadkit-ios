@@ -81,7 +81,7 @@ public actor RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalRe
         return resourceURLs[id]
     }
     
-    public func assetImage(url: URL) -> LocalImage? {
+    public func resourceImage(url: URL) -> LocalImage? {
         if let image = cache.object(forKey: url as NSURL) {
             return image
         }
