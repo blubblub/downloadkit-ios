@@ -10,6 +10,8 @@ import Foundation
 import os.log
 
 public actor ResourceDownloadProgress {
+    
+    public init() {}
     public typealias Progress = Foundation.Progress
     
     public let log: Logger = logDK
@@ -45,7 +47,7 @@ public actor ResourceDownloadProgress {
         return returnNode
     }
     
-    func add(items: [String: Progress]) {
+    public func add(items: [String: Progress]) {
         for (identifier, progress) in items {
             add(progress, for: identifier)
         }
@@ -59,7 +61,7 @@ public actor ResourceDownloadProgress {
         }
     }
     
-    func complete(identifier: String, with error: Error?) {
+    public func complete(identifier: String, with error: Error?) {
         var completedNodes: [String] = []
         
         for (key, node) in nodes {
@@ -121,7 +123,7 @@ extension ResourceDownloadProgress {
     }
     
     
-    func add(downloadItems: [Downloadable]) async {
+    public func add(downloadItems: [Downloadable]) async {
         
         var items = [String: Progress]()
         

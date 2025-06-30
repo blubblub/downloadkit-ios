@@ -78,9 +78,11 @@ public extension DownloadQueue {
 }
 
 public struct DownloadQueueMetrics: Sendable {
-    var processed = 0
-    var failed = 0
-    var completed = 0
+    public var processed = 0
+    public var failed = 0
+    public var completed = 0
+    
+    public init() {}
 }
 
 extension DownloadQueueMetrics : CustomStringConvertible {

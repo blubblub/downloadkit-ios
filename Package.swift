@@ -10,15 +10,37 @@ let package = Package(
         .library(
             name: "DownloadKit",
             targets: ["DownloadKit"]),
+        .library(
+            name: "DownloadKitCore",
+            targets: ["DownloadKitCore"]),
+        .library(
+            name: "DownloadKitRealm",
+            targets: ["DownloadKitRealm"]),
     ],
     dependencies: [
         .package(url: "https://github.com/realm/realm-swift.git", .upToNextMajor(from: "20.0.3")),
     ],
     targets: [
         .target(
+            name: "DownloadKitCore",
+            dependencies: [],
+            swiftSettings: [
+                .swiftLanguageMode(.v6)
+            ]),
+        .target(
+            name: "DownloadKitRealm",
+            dependencies: [
+                .target(name: "DownloadKitCore"),
+                .product(name: "RealmSwift", package: "realm-swift")
+            ],
+            swiftSettings: [
+                .swiftLanguageMode(.v6)
+            ]),
+        .target(
             name: "DownloadKit",
             dependencies: [
-                .product(name: "RealmSwift", package: "realm-swift")
+                .target(name: "DownloadKitCore"),
+                .target(name: "DownloadKitRealm")
             ],
             swiftSettings: [
                 .swiftLanguageMode(.v6)

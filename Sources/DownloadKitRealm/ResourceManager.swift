@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import DownloadKitCore
 import RealmSwift
 import os.log
 
@@ -35,33 +36,7 @@ public extension ResourceManagerObserver {
     }
 }
 
-/// Completion block, having success flag and item identifier
-public typealias ProgressCompletion = (Bool, String) -> Void
 
-public enum DownloadPriority : Sendable{
-    case normal
-    case high
-}
-
-public enum StoragePriority: String, Sendable {
-    /// Cache Manager should permanently store the file. This should be used for offline mode.
-    case permanent
-    
-    /// Cache Manager should place the file in temporary folder. Once system clears the folder
-    /// due to space constraints, it will have to be redownloaded.
-    case cached
-}
-
-public struct RequestOptions : Sendable {
-    public var downloadPriority: DownloadPriority = .normal
-    public var storagePriority: StoragePriority = .cached
-    
-    public init(downloadPriority: DownloadPriority = .normal,
-                storagePriority: StoragePriority = .cached) {
-        self.downloadPriority = downloadPriority
-        self.storagePriority = storagePriority
-    }
-}
 
 /// Public API for Asset Manager. Combines all the smaller pieces of the API.
 /// Generally you should only use this API, aside from setting up the system.

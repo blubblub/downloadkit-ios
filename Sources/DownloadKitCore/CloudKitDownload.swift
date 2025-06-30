@@ -96,11 +96,11 @@ public actor CloudKitDownload: Downloadable {
 //        return lhs.identifier == rhs.identifier
 //    }
     
-    func update(totalBytes: Int64) {
+    public func update(totalBytes: Int64) {
         data.totalBytes = totalBytes
     }
     
-    func update(progress: Double) {
+    public func update(progress: Double) {
         if itemProgress == nil && totalSize > 0 {
             itemProgress = Foundation.Progress(totalUnitCount: totalSize)
         }
@@ -121,7 +121,7 @@ public actor CloudKitDownload: Downloadable {
         itemProgress.completedUnitCount = completedUnitCount > itemProgress.totalUnitCount ? itemProgress.totalUnitCount : completedUnitCount
     }
     
-    func finish() {
+    public func finish() {
         data.finishedDate = Date()
     }
 }

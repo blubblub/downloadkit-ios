@@ -7,7 +7,14 @@
 import Foundation
 
 /// Hold references to downloads, so they can be properly handled.
-public struct DownloadRequest: Identifiable, Equatable, Sendable {
+public struct DownloadRequest: Sendable, Equatable {
+    
+    public init(resource: ResourceFile, options: RequestOptions, mirror: ResourceMirrorSelection) {
+        self.resource = resource
+        self.options = options
+        self.mirror = mirror
+    }
+    
     public static func == (lhs: DownloadRequest, rhs: DownloadRequest) -> Bool {
         return lhs.id == rhs.id
     }
@@ -31,6 +38,12 @@ public struct DownloadRequest: Identifiable, Equatable, Sendable {
 
 /// Returns download selection to retry.
 public struct RetryDownloadRequest: Identifiable, Equatable, Sendable {
+    
+    public init(retryRequest: DownloadRequest?, originalRequest: DownloadRequest) {
+        self.retryRequest = retryRequest
+        self.originalRequest = originalRequest
+    }
+    
     public var id : String {
         return originalRequest.id
     }

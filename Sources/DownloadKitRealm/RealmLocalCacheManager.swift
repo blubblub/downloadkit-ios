@@ -6,8 +6,9 @@
 //
 
 import Foundation
-import os.log
+import DownloadKitCore
 import RealmSwift
+import os.log
 
 public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where L: LocalResourceFile {
     public let file = FileManager.default

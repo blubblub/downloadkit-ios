@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import DownloadKitCore
 import RealmSwift
 import os.log
 
@@ -149,5 +150,16 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     
     public func assetImage(url: URL) async -> LocalImage? {
         return await memoryCache?.assetImage(url: url)
+    }
+    
+    // MARK: - ResourceFileCacheable
+    
+    public func currentAssets() async -> [ResourceFile] {
+        // This should return cached assets from Realm, for now returning empty
+        return []
+    }
+    
+    public func currentDownloadRequests() async -> [DownloadRequest] {
+        return Array(downloadableMap.values)
     }
 }

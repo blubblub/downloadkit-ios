@@ -9,7 +9,9 @@
 import Foundation
 
 /// Measured metrics on ResourceManager
-public struct ResourceManagerMetrics : Sendable {
+public struct ResourceManagerMetrics: Sendable {
+    
+    public init() {}
 
     // MARK: - Private Properties
     private var updateDate = Date()

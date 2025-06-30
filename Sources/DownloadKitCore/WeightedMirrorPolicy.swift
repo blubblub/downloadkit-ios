@@ -136,7 +136,7 @@ extension WeightedMirrorPolicy {
     /// For testing purposes.
     /// - Parameter asset: asset file
     /// - Returns: Array of retry counters for each mirror the asset has.
-    func retryCounters(for asset: ResourceFile) -> [Int] {
+    public func retryCounters(for asset: ResourceFile) -> [Int] {
         let keys = asset.sortedMirrors().map { "\(asset.id)-\($0.id)" }
         return keys.compactMap { retryCounters[$0] }
     }

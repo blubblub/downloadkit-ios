@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import DownloadKitCore
 import RealmSwift
 
 #if canImport(UIKit)
@@ -21,11 +22,6 @@ extension NSImage: @retroactive @unchecked Sendable {}
 public typealias LocalImage = UIImage
 extension UIImage: @retroactive @unchecked Sendable {}
 #endif
-
-public protocol ResourceFileCacheable: Actor {
-    subscript(id: String) -> URL? { get async }
-    func assetImage(url: URL) async -> LocalImage?
-}
 
 /// Will cache asset URL's and images in memory for quick access.
 /// URL's are stored in a local dictionary, images are stored in NSCache.
@@ -103,5 +99,17 @@ public actor RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalRe
         if let localUrl = localAsset.fileURL {
             assetURLs[localAsset.id] = localUrl
         }
+    }
+    
+    // MARK: - ResourceFileCacheable
+    
+    public func currentAssets() async -> [ResourceFile] {
+        // This should return cached assets from Realm, for now returning empty
+        return []
+    }
+    
+    public func currentDownloadRequests() async -> [DownloadRequest] {
+        // Memory cache doesn't store download requests
+        return []
     }
 }

@@ -1,10 +1,11 @@
 import XCTest
 import RealmSwift
 @testable import DownloadKit
+@testable import DownloadKitRealm
 
 class ResourceManagerTests: XCTestCase {
     
-    var manager: ResourceManager!
+    var manager: DownloadKitRealm.ResourceManager!
     var cache: RealmCacheManager<LocalFile>!
     
     var resources: [Resource] {
@@ -131,7 +132,7 @@ class ResourceManagerTests: XCTestCase {
     func testThatAddingResourceCompletionBeforeRequestingDownloadsFails() async throws {
         let expectation = self.expectation(description: "Resource completion should be called immediately.")
 
-        await manager.addResourceCompletion(for: "resource-id") { (success, resourceID) in
+        await manager.addResourceCompletion(for: "resource-id") { (success: Bool, resourceID: String) in
             XCTAssertFalse(success)
             expectation.fulfill()
         }
@@ -150,7 +151,7 @@ class ResourceManagerTests: XCTestCase {
                                 alternatives: [],
                                 fileURL: nil)
         await manager.request(resources: [resource])
-        await manager.addResourceCompletion(for: "invalid-resource") { (success, resourceID) in
+        await manager.addResourceCompletion(for: "invalid-resource") { (success: Bool, resourceID: String) in
             // For unsupported URL schemes, this should fail quickly
             XCTAssertFalse(success)
             XCTAssertEqual("invalid-resource", resourceID)
@@ -164,7 +165,7 @@ class ResourceManagerTests: XCTestCase {
         let expectation = self.expectation(description: "Canceling all downloads should call completion.")
         
         await manager.request(resources: resources)
-        await manager.addResourceCompletion(for: "resource-id") { (success, resourceID) in
+        await manager.addResourceCompletion(for: "resource-id") { (success: Bool, resourceID: String) in
             XCTAssertFalse(success)
             XCTAssertEqual("resource-id", resourceID)
             expectation.fulfill()
