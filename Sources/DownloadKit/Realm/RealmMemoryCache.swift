@@ -16,15 +16,11 @@ import UIKit
 #if os(OSX)
 import AppKit
 public typealias LocalImage = NSImage
+extension NSImage: @retroactive @unchecked Sendable {}
 #else
 public typealias LocalImage = UIImage
-#endif
-
-extension NSImage: @retroactive @unchecked Sendable {}
-#if !os(OSX)
 extension UIImage: @retroactive @unchecked Sendable {}
 #endif
-
 
 public protocol ResourceFileCacheable: Actor {
     subscript(id: String) -> URL? { get async }
