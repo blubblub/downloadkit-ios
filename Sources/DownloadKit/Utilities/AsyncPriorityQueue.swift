@@ -122,7 +122,7 @@ extension AsyncPriorityQueue: Collection {
     
     public subscript(i: Int) -> T { return heap[i] }
     
-    public func index(after i: PriorityQueue.Index) -> PriorityQueue.Index {
+    public func index(after i: AsyncPriorityQueue.Index) -> AsyncPriorityQueue.Index {
         return heap.index(after: i)
     }
 }
