@@ -1,0 +1,165 @@
+//
+//  RealmCacheManager.swift
+//  
+//
+//  Created by Dal Rupnik on 2/11/21.
+//
+
+import Foundation
+import DownloadKitCore
+import RealmSwift
+import os.log
+
+public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResourceFile {
+       
+    public let log = Logger(subsystem: "org.blubblub.downloadkit.realm.cache.manager", category: "Cache")
+    
+    public let memoryCache: RealmMemoryCache<L>?
+    public let localCache: RealmLocalCacheManager<L>
+    
+    public var mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()
+    
+    private var downloadableMap = [String: DownloadRequest]()
+    
+    public init(configuration: Realm.Configuration,
+                mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()) {
+        self.memoryCache = RealmMemoryCache<L>(configuration: configuration)
+        self.localCache = RealmLocalCacheManager<L>(configuration: configuration)
+        self.mirrorPolicy = mirrorPolicy
+    }
+    
+    public init(memoryCache: RealmMemoryCache<L>?,
+                localCache: RealmLocalCacheManager<L>,
+                mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()) {
+        self.memoryCache = memoryCache
+        self.localCache = localCache
+        self.mirrorPolicy = mirrorPolicy
+    }
+    
+    // MARK: - AssetCachable
+    public func requestDownloads(assets: [ResourceFile], options: RequestOptions) async -> [DownloadRequest] {
+        // Update storage for assets that exists.
+        localCache.updateStorage(assets: assets, to: options.storagePriority) { [weak self] asset in
+            guard let self = self else { return }
+            Task {
+                await self.memoryCache?.update(for: asset)
+            }
+        }
+
+        // Filter out binary and existing assets in local asset.
+        let downloadableAssets = localCache.downloads(from: assets, options: options)
+        
+        log.info("Downloading from cache asset count: \(downloadableAssets.count)")
+        
+        let downloadRequests: [DownloadRequest] = downloadableAssets.compactMap { asset in
+            guard let mirrorSelection = mirrorPolicy.mirror(for: asset, lastMirrorSelection: nil, error: nil) else {
+                return nil
+            }
+            
+            return DownloadRequest(resource: asset, options: options, mirror: mirrorSelection)
+        }
+        
+        for request in downloadRequests {
+            let downloadIdentifier = await request.downloadableIdentifier()
+            downloadableMap[downloadIdentifier] = request
+        }
+        
+        return downloadRequests
+    }
+    
+    public func downloadRequest(for downloadable: Downloadable) async -> DownloadRequest? {
+        return await downloadableMap[downloadable.identifier]
+    }
+    
+    public func download(_ downloadable: Downloadable, didFinishTo location: URL) async throws -> DownloadRequest? {
+
+        let identifier = await downloadable.identifier
+        
+        guard let downloadRequest = self.downloadableMap[identifier] else {
+            log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without asset information: \(identifier)")
+            return nil
+        }
+        
+        do {
+            _ = try localCache.store(resource: downloadRequest.resource,
+                                                  mirror: downloadRequest.mirror.mirror,
+                                                  at: location,
+                                                  options: downloadRequest.options)
+            downloadableMap[identifier] = nil
+        }
+        catch {
+            downloadableMap[identifier] = nil
+            throw error
+        }
+        
+        // Let mirror policy know that the download completed, so it can clean up after itself.
+        mirrorPolicy.downloadComplete(for: downloadRequest.resource)
+                
+        return downloadRequest
+    }
+    
+    public func download(_ downloadable: Downloadable, didFailWith error: Error) async -> RetryDownloadRequest? {
+
+        let identifier = await downloadable.identifier
+        
+        guard let downloadRequest = downloadableMap[identifier] else {
+            log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without asset information: \(identifier)")
+            return nil
+        }
+        
+        // Clear download selection for the identifier.
+        downloadableMap[identifier] = nil
+        
+        guard let mirrorSelection = mirrorPolicy.mirror(for: downloadRequest.resource,
+                                                        lastMirrorSelection: downloadRequest.mirror,
+                                                        error: error) else {
+            log.error("[RealmCacheManager]: Download failed: \(identifier) Error: \(error.localizedDescription)")
+            
+            return RetryDownloadRequest(retryRequest: nil, originalRequest: downloadRequest)
+        }
+        
+        let downloadableIdentifier = await mirrorSelection.downloadable.identifier
+        
+        log.error("[RealmCacheManager]: Retrying download of: \(identifier) with: \(downloadableIdentifier)")
+        
+        let retryDownloadRequest = DownloadRequest(resource: downloadRequest.resource, options: downloadRequest.options, mirror: mirrorSelection)
+        
+        // Write it to downloadable map with new download selection
+        let newDownloadIdentifier = await retryDownloadRequest.downloadableIdentifier()
+        downloadableMap[newDownloadIdentifier] = retryDownloadRequest
+
+        return RetryDownloadRequest(retryRequest: retryDownloadRequest, originalRequest: downloadRequest)
+    }
+    
+    public func cleanup(excluding urls: Set<URL>) {
+        do {
+            try localCache.cleanup(excluding: urls)
+        }
+        catch let error {
+            log.error("[RealmCacheManager]: Error Cleaning up: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - AssetFileCacheable
+    
+    public subscript(id: String) -> URL? {
+        get async {
+            return await memoryCache?[id]
+        }
+    }
+    
+    public func assetImage(url: URL) async -> LocalImage? {
+        return await memoryCache?.assetImage(url: url)
+    }
+    
+    // MARK: - ResourceFileCacheable
+    
+    public func currentAssets() async -> [ResourceFile] {
+        // This should return cached assets from Realm, for now returning empty
+        return []
+    }
+    
+    public func currentDownloadRequests() async -> [DownloadRequest] {
+        return Array(downloadableMap.values)
+    }
+}
