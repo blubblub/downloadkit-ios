@@ -25,7 +25,8 @@ class LocalCacheManagerTests: XCTestCase {
     }
     
     func testStoringResourceFile() throws {
-        let resource = Resource(id: UUID().uuidString, main: ())
+let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
+        let resource = Resource(id: UUID().uuidString, main: sampleMain)
         
         let stored = try manager.store(resource: resource, mirror: resource.main, at: url, options: cachedOptions)
         
@@ -34,14 +35,20 @@ class LocalCacheManagerTests: XCTestCase {
     }
     
     func testRequestingDownloadsOnEmptyCacheReturnsAllResources() {
-        let resources: [Resource] = (0..<5).map({ _ in Resource(id: UUID().uuidString) })
+let resources: [Resource] = (0..<5).map({ _ in
+            let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
+            return Resource(id: UUID().uuidString, main: sampleMain)
+        })
         let requests = manager.downloads(from: resources, options: cachedOptions)
         
         XCTAssertEqual(5, requests.count, "Manager should return 5 resources that need to be downloaded.")
     }
     
     func testRequestingDownloadsReturnsCorrectResources() throws {
-        let resources: [Resource] = (0..<5).map({ _ in Resource(id: UUID().uuidString) })
+let resources: [Resource] = (0..<5).map({ _ in
+            let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
+            return Resource(id: UUID().uuidString, main: sampleMain)
+        })
         
         // store first resource
         let first = resources.first!
@@ -54,7 +61,10 @@ class LocalCacheManagerTests: XCTestCase {
     }
     
     func testUpdatingStorage() throws {
-        let resources: [Resource] = (0..<5).map({ _ in Resource(id: UUID().uuidString) })
+let resources: [Resource] = (0..<5).map({ _ in
+            let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
+            return Resource(id: UUID().uuidString, main: sampleMain)
+        })
         
         // store to realm
         for resource in resources {
@@ -69,7 +79,10 @@ class LocalCacheManagerTests: XCTestCase {
     }
     
     func testResetingLocalCache() throws {
-        let resources: [Resource] = (0..<5).map({ _ in Resource(id: UUID().uuidString) })
+let resources: [Resource] = (0..<5).map({ _ in
+            let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
+            return Resource(id: UUID().uuidString, main: sampleMain)
+        })
         
         // store to realm
         for resource in resources {
@@ -84,7 +97,10 @@ class LocalCacheManagerTests: XCTestCase {
     }
     
     func testCleanup() throws {
-        let resources: [Resource] = (0..<5).map({ _ in Resource(id: UUID().uuidString) })
+let resources: [Resource] = (0..<5).map({ _ in
+            let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
+            return Resource(id: UUID().uuidString, main: sampleMain)
+        })
         
         // store to realm
         let localResources = resources.map { resource in
