@@ -5,10 +5,10 @@ import RealmSwift
 class MemoryCacheTests: XCTestCase {
     
     let config = Realm.Configuration(inMemoryIdentifier: "memory-id")
-    var cache: RealmMemoryCache<LocalFile>!
+    var cache: RealmMemoryCache<CachedLocalFile>!
     
     override func setUpWithError() throws {
-        cache = RealmMemoryCache<LocalFile>(configuration: config)
+        cache = RealmMemoryCache<CachedLocalFile>(configuration: config)
     }
 
     override func tearDownWithError() throws {

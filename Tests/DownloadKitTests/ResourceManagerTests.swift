@@ -5,8 +5,8 @@ import RealmSwift
 
 class ResourceManagerTests: XCTestCase {
     
-    var manager: DownloadKitRealm.ResourceManager!
-    var cache: RealmCacheManager<LocalFile>!
+    var manager: ResourceManager!
+    var cache: RealmCacheManager<CachedLocalFile>!
     
     var resources: [Resource] {
         let resources = [
@@ -29,7 +29,7 @@ class ResourceManagerTests: XCTestCase {
         }
         
         // Uses weighted mirror policy by default
-        cache = RealmCacheManager<LocalFile>(configuration: .defaultConfiguration)
+        cache = RealmCacheManager<CachedLocalFile>(configuration: .defaultConfiguration)
         manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
     }
     
@@ -41,7 +41,7 @@ class ResourceManagerTests: XCTestCase {
         await priorityQueue.add(processor: WebDownloadProcessor.priorityProcessor())
         
         // Uses weighted mirror policy by default
-        cache = RealmCacheManager<LocalFile>(configuration: .defaultConfiguration)
+        cache = RealmCacheManager<CachedLocalFile>(configuration: .defaultConfiguration)
         manager = ResourceManager(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue)
     }
 

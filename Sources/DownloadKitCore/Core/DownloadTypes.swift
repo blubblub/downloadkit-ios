@@ -32,15 +32,6 @@ public struct RequestOptions: Sendable {
     }
 }
 
-/// Alias for RequestOptions to maintain backward compatibility
-public typealias DownloadOptions = RequestOptions
-
-/// Alias for ResourceFile to maintain backward compatibility  
-public typealias Resource = ResourceFile
-
-/// Alias for CoreResourceManager to maintain backward compatibility in Core module
-public typealias ResourceManager = CoreResourceManager
-
 /// Completion block, having success flag and item identifier
 public typealias ProgressCompletion = (Bool, String) -> Void
 

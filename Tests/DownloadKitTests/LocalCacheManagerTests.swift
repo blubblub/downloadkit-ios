@@ -9,14 +9,14 @@ class LocalCacheManagerTests: XCTestCase {
     let cachedOptions = RequestOptions(downloadPriority: .normal, storagePriority: .cached)
     let permanentOptions = RequestOptions(downloadPriority: .normal, storagePriority: .permanent)
     
-    var manager: RealmLocalCacheManager<LocalFile>!
+    var manager: RealmLocalCacheManager<CachedLocalFile>!
     
     var url: URL {
         return try! FileManager.createFileOnDisk()
     }
     
     override func setUpWithError() throws {
-        manager = RealmLocalCacheManager<LocalFile>(configuration: config)
+        manager = RealmLocalCacheManager<CachedLocalFile>(configuration: config)
     }
 
     override func tearDownWithError() throws {
@@ -25,7 +25,7 @@ class LocalCacheManagerTests: XCTestCase {
     }
     
     func testStoringResourceFile() throws {
-        let resource = Resource(id: UUID().uuidString)
+        let resource = Resource(id: UUID().uuidString, main: ())
         
         let stored = try manager.store(resource: resource, mirror: resource.main, at: url, options: cachedOptions)
         

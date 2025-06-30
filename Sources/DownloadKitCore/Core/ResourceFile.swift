@@ -7,7 +7,7 @@
 
 import Foundation
 
-public typealias ResourceFileInfo = [String: Any]
+public typealias ResourceFileInfo = [String: any Sendable]
 
 /// Base DownloadKit Resource that can be downloaded.
 public protocol ResourceFile : Sendable {
@@ -49,7 +49,7 @@ public protocol LocalResourceFile : Sendable {
     /// Storage priority when the file was saved locally.
     var storage: StoragePriority { get set }
     
-    static func targetUrl(for asset: ResourceFile, mirror: ResourceFileMirror, at url: URL, storagePriority: StoragePriority, file: FileManager) -> URL
+    static func targetUrl(for resource: ResourceFile, mirror: ResourceFileMirror, at url: URL, storagePriority: StoragePriority, file: FileManager) -> URL
 }
 
 public extension LocalResourceFile {

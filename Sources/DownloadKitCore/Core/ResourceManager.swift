@@ -15,7 +15,7 @@ public protocol ResourceManagerObserver: AnyObject {
 
 /// ResourceManager manages a set of resources, allowing a user to request downloads from multiple mirrors,
 /// managing caching and retries internally.
-public actor CoreResourceManager: DownloadQueuable {
+public actor ResourceManager: DownloadQueuable {
     
     // MARK: - Private Properties
     
@@ -43,7 +43,7 @@ public actor CoreResourceManager: DownloadQueuable {
         weak var instance: ResourceManagerObserver?
     }
     
-    private var observers: [AnyHashable: Observer] = [:]
+    private var observers: [ObjectIdentifier: Observer] = [:]
     
     /// Returns all queues in an array for convenience.
     private var queues: [DownloadQueue] {
@@ -156,7 +156,7 @@ public actor CoreResourceManager: DownloadQueuable {
     ///   - options: download options
     /// - Returns: list of download requests
     @discardableResult
-    public func request(resources: [Resource], options: DownloadOptions = DownloadOptions()) async -> [DownloadRequest] {
+    public func request(resources: [Resource], options: RequestOptions = RequestOptions()) async -> [DownloadRequest] {
         
         await downloadQueue.set(delegate: self)
         await priorityQueue?.set(delegate: self)
@@ -274,7 +274,7 @@ public actor CoreResourceManager: DownloadQueuable {
 
 // MARK: - DownloadQueueDelegate
 
-extension CoreResourceManager: DownloadQueueDelegate {
+extension ResourceManager: DownloadQueueDelegate {
     public func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadable: Downloadable, with processor: DownloadProcessor) async {
         guard let downloadRequest = await cache.downloadRequest(for: downloadable) else {
             return
@@ -367,7 +367,7 @@ extension CoreResourceManager: DownloadQueueDelegate {
 
 // MARK: - Private Methods
 
-extension CoreResourceManager {
+extension ResourceManager {
     
     private func completeProgress(_ downloadRequest: DownloadRequest, downloadable: Downloadable, with error: Error?) {
         Task {
@@ -393,7 +393,7 @@ extension CoreResourceManager {
 
 // MARK: - Resource Completion Callbacks
 
-extension CoreResourceManager {
+extension ResourceManager {
     /// Add a completion callback for a given resource identifier. Callback will be called once when the resource
     /// request either finishes or fails. The boolean will indicate success or failure.
     /// Note: If resource identifier doesn't exist, completion callback will be called immediately.
