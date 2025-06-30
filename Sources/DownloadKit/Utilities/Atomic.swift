@@ -8,37 +8,3 @@
 import Foundation
 import os.lock
 
-class AtomicDictionary<Key: Hashable & Sendable, Value: Sendable>: CustomDebugStringConvertible, @unchecked Sendable {
-    private var store = [Key: Value]()
-    
-    private let queue = DispatchQueue(label: "org.blubblub.downloadkit.dict.\(UUID().uuidString)",
-                                      qos: .utility,
-                                      attributes: .concurrent)
-    
-    public init() {}
-    
-    public subscript(key: Key) -> Value? {
-        get { queue.sync { store[key] }}
-        set { queue.async(flags: .barrier) { [weak self] in self?.store[key] = newValue } }
-    }
-    
-    var values: Dictionary<Key, Value>.Values {
-        return queue.sync { store.values }
-    }
-    
-    public var count: Int {
-        return queue.sync { store.count }
-    }
-    
-    public var keys : [Key] {
-        return queue.sync { Array(store.keys) }
-    }
-    
-    public var debugDescription: String {
-        return store.debugDescription
-    }
-    
-    public func removeAll() {
-        return queue.sync { store.removeAll() }
-    }
-}
