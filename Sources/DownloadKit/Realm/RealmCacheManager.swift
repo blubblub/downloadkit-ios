@@ -11,10 +11,11 @@ import os.log
 
 public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResourceFile {
        
-    public let log: os.Logger = logDK
+    public let log = Logger(subsystem: "org.blubblub.downloadkit.realm.cache.manager", category: "Cache")
     
-    public var memoryCache: RealmMemoryCache<L>?
-    public var localCache: RealmLocalCacheManager<L>
+    public let memoryCache: RealmMemoryCache<L>?
+    public let localCache: RealmLocalCacheManager<L>
+    
     public var mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()
     
     private var downloadableMap = [String: DownloadRequest]()

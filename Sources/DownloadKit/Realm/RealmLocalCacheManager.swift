@@ -10,8 +10,8 @@ import os.log
 import RealmSwift
 
 public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where L: LocalResourceFile {
-    public var file = FileManager.default
-    public var log: os.Logger = logDK
+    public let file = FileManager.default
+    public let log = Logger(subsystem: "org.blubblub.downloadkit.realm.cache.local", category: "Cache")
     
     /// Target Realm to update
     public let configuration: Realm.Configuration
@@ -78,7 +78,7 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
             realm.add(localAsset, update: .modified)
         }
         
-        log.info("[RealmLocalCacheManager]: Stored: \(resource.id) at: \(finalFileUrl.absoluteString)")
+        log.info("Stored: \(resource.id) at: \(finalFileUrl.absoluteString)")
         
         return localAsset
     }
@@ -122,21 +122,19 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
                             realm.add(localAsset, update: .modified)
                             onAssetChange?(localAsset)
                             try realm.commitWrite()
-                            log.info("[RealmLocalCacheManager]: Moved \(localURL.absoluteString) from to \(targetURL.absoluteString)")
+                            log.info("Moved \(localURL.absoluteString) from to \(targetURL.absoluteString)")
                         } catch {
-                            log.error("[RealmLocalCacheManager]: Error \(error.localizedDescription) moving file from: \(localURL.absoluteString) to \(targetURL.absoluteString)")
+                            log.error("Error \(error.localizedDescription) moving file from: \(localURL.absoluteString) to \(targetURL.absoluteString)")
                         }
                     }
                 }
 
             }
             catch {
-                log.error("[RealmLocalCacheManager]: Error updating Realm store for files.")
+                log.error("Error updating Realm store for files.")
             }
-            
         }
     }
-    
     
     /// Filters through `assets` and returns only those that are not downloaded.
     /// - Parameters:
@@ -193,8 +191,8 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
             realm.delete(objects)
         }
         
-        log.debug("[RealmLocalCacheManager]: Removed \(filesToRemove.count) files.")
-        log.debug("[RealmLocalCacheManager]: Removed \(objects.count) objects.")
+        log.debug("Removed \(filesToRemove.count) files.")
+        log.debug("Removed \(objects.count) objects.")
     }
     
     public func cleanup(excluding urls: Set<URL>) throws {
@@ -204,7 +202,7 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         let filesToRemove = files.filter({ !urls.contains($0) })
         removeFiles(filesToRemove)
         
-        log.debug("[RealmLocalCacheManager]: Removed \(filesToRemove.count) files.")
+        log.debug("Removed \(filesToRemove.count) files.")
         
         try cleanupRealm(excluding: Set(urls))
     }
@@ -218,9 +216,9 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         for item in items {
             do {
                 try file.removeItem(at: item)
-                log.debug("[RealmLocalCacheManager]: Removed file: \(item.absoluteString)")
+                log.debug("Removed file: \(item.absoluteString)")
             } catch {
-                log.error("[RealmLocalCacheManager]: Error removing file: \(error.localizedDescription)")
+                log.error("Error removing file: \(error.localizedDescription)")
             }
         }
     }
@@ -251,7 +249,7 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
             }
         }
         
-        log.debug("[RealmLocalCacheManager]: Removed \(deleteCounter) objects.")
+        log.debug("Removed \(deleteCounter) objects.")
     }
     
     private func removeAssetsWithoutLocalFile(assets: [ResourceFile]) throws {
@@ -265,7 +263,7 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
                 }
             }
         } catch {
-            log.error("[RealmLocalCacheManager]: Error while removing assets \(error.localizedDescription)")
+            log.error("Error while removing assets \(error.localizedDescription)")
         }
     }
     
@@ -294,7 +292,6 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
 }
 
 public extension FileManager {
-    
     func cachedFiles(directory: URL, subdirectory: String) -> [URL] {
         do {
             let directory = directory.appendingPathComponent(subdirectory)
