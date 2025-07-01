@@ -5,17 +5,16 @@
 //  Created by Dal Rupnik on 30.06.2025.
 //
 
-#if canImport(UIKit)
-import UIKit
-#endif
-
 #if os(OSX)
 import AppKit
 public typealias LocalImage = NSImage
 extension NSImage: @retroactive @unchecked Sendable {}
-#else
+#elseif canImport(UIKit)
+import UIKit
 public typealias LocalImage = UIImage
 extension UIImage: @retroactive @unchecked Sendable {}
+#else
+public typealias LocalImage = Never
 #endif
 
 import Foundation
