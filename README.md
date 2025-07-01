@@ -160,28 +160,69 @@ Task {
 }
 ```
 
+### DownloadProcessors
+
+DownloadKit uses a modular processor architecture. **DownloadProcessors** are responsible for handling the actual download logic for different types of resources (web URLs, CloudKit assets, etc.). Each processor knows how to handle specific download types:
+
+- **WebDownloadProcessor**: Handles HTTP/HTTPS downloads using URLSession
+- **CloudKitDownloadProcessor**: Handles CloudKit CKAsset downloads
+- Custom processors can be created by implementing the `DownloadProcessor` protocol
+
 ### Resource Manager Setup
 
-To use DownloadKit, you'll need to set up a ResourceManager with a cache:
+To use DownloadKit, you need to set up a ResourceManager with:
+1. A cache implementation
+2. DownloadQueues configured with the appropriate DownloadProcessors
 
 ```swift
 import DownloadKit
 
-// Set up cache and queues
-let cache = RealmCacheManager()  // or your preferred cache implementation
-let downloadQueue = DownloadQueue()
-let priorityQueue = DownloadQueue()  // optional for high-priority downloads
-
-// Create resource manager
-let resourceManager = ResourceManager(
-    cache: cache,
-    downloadQueue: downloadQueue,
-    priorityQueue: priorityQueue
-)
-
-// Start the manager
 Task {
+    // 1. Set up download queues with processors
+    let downloadQueue = DownloadQueue()
+    await downloadQueue.add(processor: WebDownloadProcessor())  // For web downloads
+    await downloadQueue.add(processor: CloudKitDownloadProcessor())  // For CloudKit downloads
+    
+    // 2. (Optional) Set up a priority queue for high-priority downloads
+    let priorityQueue = DownloadQueue()
+    await priorityQueue.add(processor: WebDownloadProcessor.priorityProcessor())
+    await priorityQueue.add(processor: CloudKitDownloadProcessor())
+    
+    // 3. Set up cache (using Realm-based cache)
+    let cache = RealmCacheManager<CachedLocalFile>()
+    
+    // 4. Create resource manager
+    let resourceManager = ResourceManager(
+        cache: cache,
+        downloadQueue: downloadQueue,
+        priorityQueue: priorityQueue  // optional
+    )
+    
+    // 5. Start the manager
     await resourceManager.resume()
+}
+```
+
+### Processor Configuration
+
+You can customize processors during setup:
+
+```swift
+// Custom web processor with specific URLSession configuration
+let customConfig = URLSessionConfiguration.background(withIdentifier: "my-app-downloads")
+customConfig.allowsCellularAccess = false  // WiFi only
+let webProcessor = WebDownloadProcessor(configuration: customConfig)
+
+// CloudKit processor with specific database
+let container = CKContainer(identifier: "iCloud.com.yourapp.container")
+let cloudKitProcessor = CloudKitDownloadProcessor(database: container.publicCloudDatabase)
+
+Task {
+    let downloadQueue = DownloadQueue()
+    await downloadQueue.add(processor: webProcessor)
+    await downloadQueue.add(processor: cloudKitProcessor)
+    
+    // Continue with ResourceManager setup...
 }
 ```
 
