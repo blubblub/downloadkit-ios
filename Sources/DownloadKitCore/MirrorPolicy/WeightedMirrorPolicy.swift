@@ -50,7 +50,7 @@ open class WeightedMirrorPolicy: MirrorPolicy {
         
         // If we have tried a mirror and gotten an error, select a lower weight mirror.
         if let mirrorSelection = lastMirrorSelection, error != nil {
-            log.info("[WeightedMirrorPolicy]: Mirror errored: \(mirrorSelection.mirror.location), searching for next available on resource: \(resource.id)")
+            log.info("Mirror errored: \(mirrorSelection.mirror.location), searching for next available on resource: \(resource.id)")
             
             // Find index of last mirror
             if let index = mirrors.firstIndex(where: { $0.id == mirrorSelection.mirror.id }) {
@@ -64,7 +64,7 @@ open class WeightedMirrorPolicy: MirrorPolicy {
                 downloadable = mirrors[counter].downloadable
                 
                 if downloadable != nil {
-                    log.info("[WeightedMirrorPolicy]: Selected next mirror: \(mirrors[counter].location) for resource: \(resource.id)")
+                    log.info("Selected next mirror: \(mirrors[counter].location) for resource: \(resource.id)")
                     
                     selectedIndex = counter
                     break
@@ -86,19 +86,19 @@ open class WeightedMirrorPolicy: MirrorPolicy {
         
         // Only ask if we should retry in case there was an error.
         if error != nil && !shouldRetry(mirror: mirrors[selectedIndex], for: resource) {
-            log.debug("[WeightedMirrorPolicy]: Exhaused mirrors for resource: \(resource.id) Last: \(mirrors[selectedIndex].location)")
+            log.debug("Exhaused mirrors for resource: \(resource.id) Last: \(mirrors[selectedIndex].location)")
             
             delegate?.mirrorPolicy(self, didExhaustMirrorsIn: resource)
             return nil
         }
         
         guard let finalDownloadable = downloadable else {
-            log.error("[WeightedMirrorPolicy]: No Downloadable Mirrors found for resource: \(resource.id)")
+            log.error("No Downloadable Mirrors found for resource: \(resource.id)")
             delegate?.mirrorPolicy(self, didFailToGenerateDownloadableIn: resource, for: mirrors[selectedIndex])
             return nil
         }
                 
-        //log.debug("[WeightedMirrorPolicy]: Downloading resource: \(resource.id) from: \(mirrors[selectedIndex].location)")
+        //log.debug("Downloading resource: \(resource.id) from: \(mirrors[selectedIndex].location)")
 
         return ResourceMirrorSelection(id: resource.id, mirror: mirrors[selectedIndex], downloadable: finalDownloadable)
     }

@@ -76,7 +76,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         let identifier = await downloadable.identifier
         
         guard let downloadRequest = self.downloadableMap[identifier] else {
-            log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without resource information: \(identifier)")
+            log.fault("NO-OP: Received a downloadable without resource information: \(identifier)")
             return nil
         }
         
@@ -103,7 +103,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         let identifier = await downloadable.identifier
         
         guard let downloadRequest = downloadableMap[identifier] else {
-            log.fault("[RealmCacheManager]: NO-OP: Received a downloadable without resource information: \(identifier)")
+            log.fault("NO-OP: Received a downloadable without resource information: \(identifier)")
             return nil
         }
         
@@ -113,14 +113,14 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         guard let mirrorSelection = mirrorPolicy.mirror(for: downloadRequest.resource,
                                                         lastMirrorSelection: downloadRequest.mirror,
                                                         error: error) else {
-            log.error("[RealmCacheManager]: Download failed: \(identifier) Error: \(error.localizedDescription)")
+            log.error("Download failed: \(identifier) Error: \(error.localizedDescription)")
             
             return RetryDownloadRequest(retryRequest: nil, originalRequest: downloadRequest)
         }
         
         let downloadableIdentifier = await mirrorSelection.downloadable.identifier
         
-        log.error("[RealmCacheManager]: Retrying download of: \(identifier) with: \(downloadableIdentifier)")
+        log.error("Retrying download of: \(identifier) with: \(downloadableIdentifier)")
         
         let retryDownloadRequest = DownloadRequest(resource: downloadRequest.resource, options: downloadRequest.options, mirror: mirrorSelection)
         
@@ -136,7 +136,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
             try localCache.cleanup(excluding: urls)
         }
         catch let error {
-            log.error("[RealmCacheManager]: Error Cleaning up: \(error.localizedDescription)")
+            log.error("Error Cleaning up: \(error.localizedDescription)")
         }
     }
     

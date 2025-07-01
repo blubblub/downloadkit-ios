@@ -337,7 +337,7 @@ public actor DownloadQueue: DownloadQueuable {
             self.notificationCenter.post(name: DownloadQueue.downloadErrorNotification, object: error, userInfo: [ "downloadItem": downloadable])
         }
         
-        log.info("[DownloadQueue]: Metrics: \(self.metrics.description) - Processing item: \(identifier)")
+        log.info("Metrics: \(self.metrics.description) - Processing item: \(identifier)")
     }
     
     private func findProcessor(for downloadable: Downloadable) async -> DownloadProcessor? {
@@ -368,7 +368,7 @@ extension DownloadQueue: DownloadProcessorObserver {
                 // This could also be a resume of a very old download, if processor has that ability (such as in case of URLSession).
                 
                 if self.progressDownloadMap[identifier] == nil {
-                    log.error("[DownloadQueue]: Internal download inconsistency state for: \(identifier)")
+                    log.error("Internal download inconsistency state for: \(identifier)")
                     
                     self.progressDownloadMap[identifier] = trackedItem
                     self.queuedDownloadMap[identifier] = nil

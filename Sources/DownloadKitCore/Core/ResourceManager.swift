@@ -171,7 +171,7 @@ public actor ResourceManager: DownloadQueuable {
         log.info("Requested unique resource count: \(uniqueResources.count) Downloads: \(downloads.count)")
                 
         guard downloads.count > 0 else {
-            log.info("[ResourceManager]: Metrics on no downloads: \(self.metrics.description)")
+            log.info("Metrics on no downloads: \(self.metrics.description)")
             return []
         }
         
@@ -184,7 +184,7 @@ public actor ResourceManager: DownloadQueuable {
         }
                 
         if downloads.count != finalDownloads.count {
-            log.error("[ResourceManager]: Final downloads mismatch: \(downloads.count) \(finalDownloads.count)")
+            log.error("Final downloads mismatch: \(downloads.count) \(finalDownloads.count)")
         }
         
         if let priorityQueue = priorityQueue, options.downloadPriority == .high {
@@ -224,7 +224,7 @@ public actor ResourceManager: DownloadQueuable {
         // Add downloads to monitor progresses.
         await progress.add(downloadItems: finalDownloads.map { $0.mirror.downloadable })
         
-        log.info("[ResourceManager]: Metrics on request: \(self.metrics.description)")
+        log.info("Metrics on request: \(self.metrics.description)")
         
         return downloads
     }
@@ -309,17 +309,17 @@ extension ResourceManager: DownloadQueueObserver {
                     
                     self.completeProgress(downloadRequest, downloadable: downloadable, with: nil)
                     
-                    log.info("[ResourceManager]: Download finished: \(identifier)")
+                    log.info("Download finished: \(identifier)")
                     
-                    log.info("[ResourceManager]: Metrics on download finished: \(self.metrics.description)")
+                    log.info("Metrics on download finished: \(self.metrics.description)")
                 }
             }
             catch let error {
-                log.error("[ResourceManager]: Error caching file: \(error.localizedDescription)")
+                log.error("Error caching file: \(error.localizedDescription)")
                 await self.downloadQueue(queue, downloadDidFail: downloadable, with: error)
             }
         } catch let error {
-            log.error("[ResourceManager]: Error moving temporary file: \(error.localizedDescription)")
+            log.error("Error moving temporary file: \(error.localizedDescription)")
 
             // Ensure error is handled, download actually did fail.
             Task {
@@ -348,7 +348,7 @@ extension ResourceManager: DownloadQueueObserver {
                 }
                 
                 let identifier = await retryDownloadable.identifier
-                log.error("[ResourceManager]: Download failed, retrying: \(identifier) Error: \(error.localizedDescription)")
+                log.error("Download failed, retrying: \(identifier) Error: \(error.localizedDescription)")
                 
                 await queue.download([retryDownloadable])
             }
@@ -356,12 +356,12 @@ extension ResourceManager: DownloadQueueObserver {
             metrics.failed += 1
             
             let identifier = await downloadable.identifier
-            log.error("[ResourceManager]: Download failed, done: \(identifier) Error: \(error.localizedDescription)")
+            log.error("Download failed, done: \(identifier) Error: \(error.localizedDescription)")
                 
             self.completeProgress(originalRequest, downloadable: downloadable, with: error)
         }
         
-        log.info("[ResourceManager]: Metrics on download failed: \(self.metrics.description)")
+        log.info("Metrics on download failed: \(self.metrics.description)")
     }
 }
 
