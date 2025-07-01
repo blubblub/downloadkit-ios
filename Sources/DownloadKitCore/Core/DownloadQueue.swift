@@ -101,12 +101,6 @@ public actor DownloadQueue: DownloadQueuable {
     
     private let log = Logger.logDownloadQueue
     
-    /// Queue that executes after-download operations, such as moving the file.
-    private let processQueue = DispatchQueue(label: "org.blubblub.core.synchronization.queue", qos: .background, attributes: .concurrent)
-    
-    private let processQueueKey = DispatchSpecificKey<String>()
-    private let processQueueIdentifier = "ProcessQueueIdentifier"
-    
     /// Holds pending downloads.
     private var downloadQueue = AsyncPriorityQueue<Downloadable>()
     
@@ -168,8 +162,6 @@ public actor DownloadQueue: DownloadQueuable {
     
     public init() {
         downloadQueue.order = { await $0.priority > $1.priority }
-        
-        processQueue.setSpecific(key: processQueueKey, value: processQueueIdentifier)
     }
     
     public func enqueuePending() async {
@@ -233,13 +225,7 @@ public actor DownloadQueue: DownloadQueuable {
     }
     
     public func downloadable(for identifier: String) -> Downloadable? {
-        if DispatchQueue.getSpecific(key: processQueueKey) == processQueueIdentifier {
-            return progressDownloadMap[identifier] ?? queuedDownloadMap[identifier]
-        }
-        
-        return processQueue.sync {
-            progressDownloadMap[identifier] ?? queuedDownloadMap[identifier]
-        }
+        progressDownloadMap[identifier] ?? queuedDownloadMap[identifier]
     }
     
     public func isDownloading(item: Downloadable) async -> Bool {
