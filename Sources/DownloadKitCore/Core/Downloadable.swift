@@ -15,7 +15,7 @@ public struct DownloadParameter: Codable, Sendable, Hashable, Equatable, RawRepr
     }
 }
 
-public typealias DownloadParameters = [DownloadParameter: Any]
+public typealias DownloadParameters = [DownloadParameter: any Sendable]
 
 
 public protocol Downloadable: Actor {

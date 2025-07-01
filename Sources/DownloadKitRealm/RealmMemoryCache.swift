@@ -17,20 +17,7 @@ import RealmSwift
 /// Note:
 /// Cache Manager will load the image into memory after downloading it.
 public actor RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalResourceFile {
-    private var cacheQueue = DispatchQueue(label: "org.blubblub.downloadkit.memorycache.queue")
-    private var _resourceURLs = [String: URL]()
-    private var resourceURLs: [String: URL] {
-        get {
-            return cacheQueue.sync {
-                return _resourceURLs
-            }
-        }
-        set {
-            cacheQueue.sync {
-                _resourceURLs = newValue
-            }
-        }
-    }
+    private var resourceURLs = [String: URL]()
     
     private let cache = NSCache<NSURL, LocalImage>()
     
