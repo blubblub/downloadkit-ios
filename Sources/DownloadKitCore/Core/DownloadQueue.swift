@@ -171,7 +171,7 @@ public actor DownloadQueue: DownloadQueuable {
     }
     
     public func add(processor: DownloadProcessor) async {
-        await processor.set(delegate: self)
+        await processor.set(observer: self)
         downloadProcessors.append(processor)
     }
     
@@ -351,7 +351,7 @@ public actor DownloadQueue: DownloadQueuable {
     }
 }
 
-extension DownloadQueue: DownloadProcessorDelegate {
+extension DownloadQueue: DownloadProcessorObserver {
     public func downloadDidTransferData(_ processor: DownloadProcessor, downloadable: Downloadable) {
         Task {
             await self.delegate?.downloadQueue(self, downloadDidTransferData: downloadable, using: processor)

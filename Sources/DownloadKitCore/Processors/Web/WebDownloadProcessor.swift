@@ -28,7 +28,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
     
     // MARK: - Public Properties
     
-    public weak var delegate: DownloadProcessorDelegate?
+    public weak var observer: DownloadProcessorObserver?
     
     private let log = Logger.logWebDownloadProcessor
     
@@ -50,8 +50,8 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
     }
     
     // MARK: - DownloadProcessor
-    public func set(delegate: (any DownloadProcessorDelegate)?) {
-        self.delegate = delegate
+    public func set(observer: (any DownloadProcessorObserver)?) {
+        self.observer = observer
     }
     
     public func canProcess(downloadable: Downloadable) -> Bool {
@@ -61,7 +61,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
     public func process(_ downloadable: Downloadable) async {
         guard let webDownload = downloadable as? WebDownload else {
             let error = "Cannot process the unsupported download type. Item: \(downloadable)"
-            await delegate?.downloadDidError(self,
+            await observer?.downloadDidError(self,
                                        downloadable: downloadable,
                                        error: ProcessorError.cannotProcess(error))
             return
@@ -80,7 +80,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
         
         self.downloadables.append(webDownload)
         
-        await self.delegate?.downloadDidBegin(self, downloadable: webDownload)
+        await self.observer?.downloadDidBegin(self, downloadable: webDownload)
     }
     
     public func pause() async {
@@ -115,7 +115,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
             if let item = item {
                 self.downloadables.append(item)
                 
-                await self.delegate?.downloadDidBegin(self, downloadable: item)
+                await self.observer?.downloadDidBegin(self, downloadable: item)
             }
         }
     }
@@ -128,9 +128,9 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
                 case .failure(let error):
                     // Remove
                     
-                    await self.delegate?.downloadDidError(self, downloadable: downloadable, error: error)
+                    await self.observer?.downloadDidError(self, downloadable: downloadable, error: error)
                 case .success(let url):
-                    await self.delegate?.downloadDidFinishTransfer(self, downloadable: downloadable, to: url)
+                    await self.observer?.downloadDidFinishTransfer(self, downloadable: downloadable, to: url)
                 }
             }
         }
@@ -139,10 +139,10 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
             Task {
                 // Ensure there was at least some progress written.
                 if totalBytesWritten > 0 && totalSize == 0 {
-                    await self.delegate?.downloadDidStartTransfer(self, downloadable: downloadable)
+                    await self.observer?.downloadDidStartTransfer(self, downloadable: downloadable)
                 }
                 
-                await self.delegate?.downloadDidTransferData(self, downloadable: downloadable)
+                await self.observer?.downloadDidTransferData(self, downloadable: downloadable)
             }
         }
     }

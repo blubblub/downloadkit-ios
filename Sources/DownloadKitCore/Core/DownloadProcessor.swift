@@ -10,7 +10,7 @@ import Foundation
 public protocol DownloadProcessor: Actor {
     var isActive: Bool { get }
     
-    func set(delegate: DownloadProcessorDelegate?)
+    func set(observer: DownloadProcessorObserver?)
 
     func canProcess(downloadable: Downloadable) -> Bool
     func process(_ downloadable: Downloadable) async
@@ -23,7 +23,7 @@ public protocol DownloadProcessor: Actor {
     func resume() async
 }
 
-public protocol DownloadProcessorDelegate: AnyObject, Actor {
+public protocol DownloadProcessorObserver: AnyObject, Actor {
     /// Sent when a Downloadable is being worked on.
     func downloadDidBegin(_ processor: DownloadProcessor, downloadable: Downloadable)
     

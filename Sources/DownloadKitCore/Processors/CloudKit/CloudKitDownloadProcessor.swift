@@ -34,7 +34,7 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
     
     public var throttlingProtectionEnabled = true
     
-    public weak var delegate: DownloadProcessorDelegate?
+    public weak var observer: DownloadProcessorObserver?
     
     // MARK: - Initialization
     init() {
@@ -50,8 +50,8 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
     }
     
     // MARK: - DownloadProcessor
-    public func set(delegate: (any DownloadProcessorDelegate)?) {
-        self.delegate = delegate
+    public func set(observer: (any DownloadProcessorObserver)?) {
+        self.observer = observer
     }
     
     public func canProcess(downloadable: Downloadable) -> Bool {
@@ -65,7 +65,7 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
         
         // Fetch CloudKit Record
         guard await item.recordID != nil else {
-            await self.delegate?.downloadDidError(self, downloadable: downloadable, error: CloudKitError.noRecord)
+            await self.observer?.downloadDidError(self, downloadable: downloadable, error: CloudKitError.noRecord)
             return
         }
         
@@ -132,14 +132,14 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
                 let itemProgress = await item.progress
                 
                 if itemProgress == nil {
-                    await self.delegate?.downloadDidStartTransfer(self, downloadable: item)
+                    await self.observer?.downloadDidStartTransfer(self, downloadable: item)
                 }
                 
                 // Progress report
                 await item.update(progress: progress)
                 
-                // Update delegate
-                await self.delegate?.downloadDidTransferData(self, downloadable: item)
+                // Update observer
+                await self.observer?.downloadDidTransferData(self, downloadable: item)
             }
         }
         
@@ -159,7 +159,7 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
                             let asset = record.allKeys().compactMap({ record[$0] as? CKAsset }).first,
                             let url = asset.fileURL
                         else {
-                            await self.delegate?.downloadDidError(self, downloadable: item, error: CloudKitError.noAssetData)
+                            await self.observer?.downloadDidError(self, downloadable: item, error: CloudKitError.noAssetData)
                             return
                         }
                         
@@ -167,10 +167,10 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
                             await item.update(totalBytes: Int64(totalBytes))
                         }
                         
-                        await self.delegate?.downloadDidFinishTransfer(self, downloadable: item, to: url)
+                        await self.observer?.downloadDidFinishTransfer(self, downloadable: item, to: url)
                         
                     case .failure(let error):
-                        await self.delegate?.downloadDidError(self, downloadable: item, error: error)
+                        await self.observer?.downloadDidError(self, downloadable: item, error: error)
                     }
                 }
             }
@@ -184,7 +184,7 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
                     await item.finish()
                     
                     if let error = error {
-                        await self.delegate?.downloadDidError(self, downloadable: item, error: error)
+                        await self.observer?.downloadDidError(self, downloadable: item, error: error)
                         return
                     }
                     
@@ -194,7 +194,7 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
                         let asset = record.allKeys().compactMap({ record[$0] as? CKAsset }).first,
                         let url = asset.fileURL
                     else {
-                        await self.delegate?.downloadDidError(self, downloadable: item, error: CloudKitError.noAssetData)
+                        await self.observer?.downloadDidError(self, downloadable: item, error: CloudKitError.noAssetData)
                         return
                     }
                     
@@ -202,15 +202,15 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
                         await item.update(totalBytes: Int64(totalBytes))
                     }
                     
-                    await self.delegate?.downloadDidFinishTransfer(self, downloadable: item, to: url)
+                    await self.observer?.downloadDidFinishTransfer(self, downloadable: item, to: url)
                 }
             }
         }
         
-        // Run all start and on delegate.
+        // Run all start and on observer.
         for item in currentItems {
             await item.start(with: [:])
-            await self.delegate?.downloadDidBegin(self, downloadable: item)
+            await self.observer?.downloadDidBegin(self, downloadable: item)
         }
         
         self.database.add(fetchOperation)

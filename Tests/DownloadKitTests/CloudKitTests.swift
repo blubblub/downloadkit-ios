@@ -6,10 +6,10 @@ class CloudKitTests: XCTestCase, @unchecked Sendable {
     
     var cloudKitDownload: CloudKitDownload!
     var processor: CloudKitDownloadProcessor!
-    var delegate: DownloadProcessorDelegateMock!
+    var observer: DownloadProcessorObserverMock!
     
     override func setUpWithError() throws {
-        delegate = DownloadProcessorDelegateMock()
+        observer = DownloadProcessorObserverMock()
         
         // Create CloudKit downloads with test URLs (skip processor creation to avoid CloudKit setup)
         cloudKitDownload = CloudKitDownload(identifier: "test-cloudkit-item", 
@@ -19,7 +19,7 @@ class CloudKitTests: XCTestCase, @unchecked Sendable {
     override func tearDownWithError() throws {
         cloudKitDownload = nil
         processor = nil
-        delegate = nil
+        observer = nil
     }
     
     // MARK: - CloudKitDownload Tests

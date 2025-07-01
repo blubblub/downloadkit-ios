@@ -1,5 +1,5 @@
 //
-//  DownloadProcessorDelegateMock.swift
+//  DownloadProcessorObserverMock.swift
 //  BlubBlubCore_Example
 //
 //  Created by Dal Rupnik on 2/11/21.
@@ -8,7 +8,7 @@
 import DownloadKit
 import Foundation
 
-actor DownloadProcessorDelegateMock: DownloadProcessorDelegate {
+actor DownloadProcessorObserverMock: DownloadProcessorObserver {
     var beginCallback: (() -> Void)?
     var startTransferCallback: (() -> Void)?
     var errorCallback: ((Error) -> Void)?

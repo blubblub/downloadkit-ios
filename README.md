@@ -49,7 +49,45 @@ After adding the package, run `swift build` or use Xcode’s build to fetch the 
 ```swift
 import DownloadKit
 ```
-Now you’re ready to use the library in your app.
+Now you're ready to use the library in your app.
+
+## Package Architecture
+
+DownloadKit is split into two main components:
+
+### DownloadKitCore
+The core functionality that handles:
+- Download queue management and prioritization
+- Download processors (Web, CloudKit)
+- Resource and mirror abstractions
+- Progress tracking and metrics
+- Basic caching protocols
+
+**Dependencies**: Only Foundation and system frameworks (URLSession, CloudKit)
+
+### DownloadKitRealm
+Realm-based implementation for local file cache tracking:
+- Persistent storage of download metadata
+- File location tracking and cache management
+- Default ResourceManager convenience methods
+- Local file deduplication and cleanup
+
+**Dependencies**: RealmSwift for local database operations
+
+### Importing Components
+
+You can import either the complete package or individual components:
+
+```swift
+// Import everything (recommended for most users)
+import DownloadKit
+
+// Or import only specific components
+import DownloadKitCore     // Core download functionality only
+import DownloadKitRealm    // Realm-based cache + convenience methods
+```
+
+**Note**: The `ResourceManager.default()` convenience method is provided by DownloadKitRealm. If you only import DownloadKitCore, you'll need to manually set up your ResourceManager with a custom cache implementation.
 
 ## Usage
 
