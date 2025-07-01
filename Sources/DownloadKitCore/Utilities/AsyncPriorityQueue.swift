@@ -133,22 +133,6 @@ extension AsyncPriorityQueue: CustomStringConvertible, CustomDebugStringConverti
     public var debugDescription: String { return heap.debugDescription }
 }
 
-//extension RandomAccessCollection where Element : Comparable {
-//    fileprivate func insertionIndex(of value: Element) -> Index {
-//        var slice : SubSequence = self[...]
-//        
-//        while !slice.isEmpty {
-//            let middle = slice.index(slice.startIndex, offsetBy: slice.count / 2)
-//            if value < slice[middle] {
-//                slice = slice[..<middle]
-//            } else {
-//                slice = slice[index(after: middle)...]
-//            }
-//        }
-//        return slice.startIndex
-//    }
-//}
-
 extension RandomAccessCollection {
     fileprivate func insertionIndex(for predicate: (Element) async -> Bool) async -> Index {
         var slice: SubSequence = self[...]

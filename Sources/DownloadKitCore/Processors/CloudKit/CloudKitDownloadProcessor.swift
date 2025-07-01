@@ -14,6 +14,7 @@ public enum CloudKitError: Error {
     case noRecord
 }
 
+
 public actor CloudKitDownloadProcessor: DownloadProcessor {
     
     // MARK: - Private Properties
@@ -105,7 +106,9 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
             return
         }
         
-        //log.info("Downloading items in batch: \(currentItems.map({ $0.identifier }).joined(separator: ", "))")
+        let currentIdentifiers = await currentItems.currentIdentifiers()
+        
+        log.info("Downloading items in batch: \(currentIdentifiers)")
         
         // Build map of current items.
         var currentRecordMap : [CKRecord.ID : CloudKitDownload] = [:]
@@ -222,6 +225,18 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
     }
     
     public func enqueuePending() async {
-        // TODO: Resume previous CloudKit downloads from database, which is likely not possible directly.
+        
+    }
+}
+
+extension Array where Element: CloudKitDownload {
+    func currentIdentifiers() async -> String {
+        var identifiers = Array<String>()
+        
+        for item in self {
+            identifiers.append(await item.identifier)
+        }
+        
+        return identifiers.joined(separator: ", ")
     }
 }
