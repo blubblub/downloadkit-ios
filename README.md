@@ -53,37 +53,135 @@ Now you’re ready to use the library in your app.
 
 ## Usage
 
-Using DownloadKit typically involves three steps:
+DownloadKit uses modern Swift concurrency (async/await) and provides a resource-based API. Using DownloadKit typically involves:
 
-1. Create a Resource reference for each file you want to download (this could be an URL or a CloudKit record reference).
-2. Enqueue the download using the shared download manager.
-3. Handle completion or progress via a completion callback, delegate, or observer.
+1. Creating a Resource with one or more mirror locations for each file you want to download.
+2. Enqueuing the download using the ResourceManager (async).
+3. Handling completion via completion callbacks or observers.
 
-Below is an example of downloading a file from an URL:
+### Basic Web Download
+
+Below is an example of downloading a file from a web URL:
 
 ```swift
 import DownloadKit
 
-// 1. Define the resource to download (from a URL in this case)
-let fileURL = URL(string: "https://example.com/path/to/file.zip")!
-let resource = ResourceFile(id: "example-file", url: fileURL, fileName: "file.zip")
+// 1. Create a mirror for the file location
+let mirror = FileMirror(
+    id: "mirror-1",
+    location: "https://example.com/path/to/file.zip",
+    info: [:]
+)
 
-// 2. Enqueue the download request via the ResourceManager
-let requests = ResourceManager.shared.request(resources: [resource])
-guard let downloadRequest = requests.first else {
-    return  // No download started (perhaps already cached or invalid URL)
-}
+// 2. Create a resource with the mirror
+let resource = Resource(
+    id: "example-file",
+    main: mirror,
+    alternatives: [],  // Optional alternative mirrors
+    fileURL: nil,
+    modifyDate: nil
+)
 
-// 3. (Optional) Monitor or handle the download completion
-// You could use an observer/delegate to get progress updates or, for simplicity, 
-// poll the request’s state or use a completion handler if available.
-downloadRequest.onCompletion = { result in
-    switch result {
-    case .success(let fileLocation):
-        print("Download finished. File saved at: \(fileLocation.path)")
-    case .failure(let error):
-        print("Download failed with error: \(error)")
+// 3. Request the download (async)
+Task {
+    let requests = await resourceManager.request(
+        resources: [resource],
+        options: RequestOptions(downloadPriority: .normal, storagePriority: .cached)
+    )
+    
+    guard let downloadRequest = requests.first else {
+        return  // No download started (already cached or invalid)
     }
+    
+    // 4. (Optional) Add completion callback
+    await resourceManager.addResourceCompletion(for: resource.id) { success, identifier in
+        if success {
+            print("Download completed for: \(identifier)")
+        } else {
+            print("Download failed for: \(identifier)")
+        }
+    }
+}
+```
+
+### Advanced Usage with Multiple Mirrors
+
+DownloadKit supports multiple mirror locations for redundancy:
+
+```swift
+import DownloadKit
+
+// Create multiple mirrors for redundancy
+let primaryMirror = FileMirror(
+    id: "primary",
+    location: "https://cdn1.example.com/file.zip",
+    info: ["weight": 1]
+)
+
+let backupMirror = FileMirror(
+    id: "backup",
+    location: "https://cdn2.example.com/file.zip",
+    info: ["weight": 2]
+)
+
+let resource = Resource(
+    id: "redundant-file",
+    main: primaryMirror,
+    alternatives: [backupMirror]
+)
+
+Task {
+    let requests = await resourceManager.request(
+        resources: [resource],
+        options: RequestOptions(downloadPriority: .high, storagePriority: .permanent)
+    )
+}
+```
+
+### CloudKit Downloads
+
+DownloadKit also supports CloudKit asset downloads:
+
+```swift
+// CloudKit resource
+let cloudKitMirror = FileMirror(
+    id: "cloudkit-mirror",
+    location: "cloudkit://database/record/asset",
+    info: [:]
+)
+
+let cloudResource = Resource(
+    id: "cloud-file",
+    main: cloudKitMirror
+)
+
+Task {
+    await resourceManager.request(resources: [cloudResource])
+}
+```
+
+### Resource Manager Setup
+
+To use DownloadKit, you'll need to set up a ResourceManager with a cache:
+
+```swift
+import DownloadKit
+
+// Set up cache and queues
+let cache = RealmCacheManager()  // or your preferred cache implementation
+let downloadQueue = DownloadQueue()
+let priorityQueue = DownloadQueue()  // optional for high-priority downloads
+
+// Create resource manager
+let resourceManager = ResourceManager(
+    cache: cache,
+    downloadQueue: downloadQueue,
+    priorityQueue: priorityQueue
+)
+
+// Start the manager
+Task {
+    await resourceManager.resume()
 }
 ```
 
