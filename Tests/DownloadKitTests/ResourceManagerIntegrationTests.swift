@@ -58,6 +58,10 @@ class ResourceManagerIntegrationTests: XCTestCase {
         
         print("Starting batch download test with \(resourceCount) resources...")
         
+        // Ensure manager is active.
+        let isActive = await manager.isActive
+        XCTAssertTrue(isActive, "Manager should be active, so it starts processing downloads.")
+        
         // Request all downloads
         let requests = await manager.request(resources: resources)
         print("Created \(requests.count) download requests")
@@ -79,12 +83,8 @@ class ResourceManagerIntegrationTests: XCTestCase {
                 countQueue.sync {
                     if success {
                         successCount += 1
-                        // Optionally log success (keeping quiet to reduce noise)
-                        // print("✅ Completed: \(resourceID) (\(successCount) successes)")
                     } else {
                         failureCount += 1
-                        // Handle failures silently - this is expected in test environments
-                        // print("❌ Failed: \(resourceID) (\(failureCount) failures)")
                     }
                 }
                 batchExpectation.fulfill()
@@ -101,6 +101,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         
         // Verify all downloads were processed
         XCTAssertEqual(finalSuccessCount + finalFailureCount, resourceCount, "All downloads should be processed")
+        XCTAssertEqual(finalFailureCount, 0, "No failures are expected in test environment")
         
         // Verify caching for completed downloads
         var cachedCount = 0
