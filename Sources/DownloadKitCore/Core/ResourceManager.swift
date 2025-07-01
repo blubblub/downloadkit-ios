@@ -214,8 +214,12 @@ public actor ResourceManager: DownloadQueuable {
             
             await downloadQueue.cancel(items: normalQueuedDownloads.map { $0.mirror.downloadable })
             
-            // TODO: Log all downloadable identifiers by comma.
-            //log.info("Reprioritising resources: \(finalDownloads.map({ $0.downloadableIdentifier() }).joined(separator: ", "))")
+            // Log all downloadable identifiers being reprioritized
+            var identifiers: [String] = []
+            for download in finalDownloads {
+                identifiers.append(await download.downloadableIdentifier())
+            }
+            log.info("Reprioritising resources: \(identifiers.joined(separator: ", "))")
         }
         else {
             await downloadQueue.download(finalDownloads.map { $0.mirror.downloadable })

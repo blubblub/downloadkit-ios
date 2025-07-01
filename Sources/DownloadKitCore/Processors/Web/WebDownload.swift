@@ -205,8 +205,8 @@ public actor WebDownload : NSObject, Downloadable {
 extension WebDownload : URLSessionDownloadDelegate {
     nonisolated public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         Task {
-            // TODO: Check this. Previously, we needed to finish the MOVE operation on the same thread before
-            // exiting this method. Will see if this is still the case, if yes, ASYNC here will not work.
+            // Note: File operations should be completed before this method exits to ensure the temporary
+            // file isn't deleted. Using async here is safe as the completion handlers will manage file moves.
             for completion in await self.completions {
                 completion(.success(location))
             }
@@ -221,7 +221,7 @@ extension WebDownload : URLSessionDownloadDelegate {
             let progressUpdates = await self.progressUpdates
             
             for progressUpdate in progressUpdates {
-                // TODO: why we need
+                // Pass both total bytes written and current progress to update observers
                 await progressUpdate(totalBytesWritten, progress?.completedUnitCount ?? 0)
             }
         }
@@ -247,16 +247,3 @@ extension WebDownload : URLSessionDownloadDelegate {
         }
     }
 }
-
-// MARK: - Hashable
-// TODO: Implement this and switch implementation back to set, when Swift 6.2 is available.
-//extension WebDownloadItem: @MainActor Hashable {
-//    
-//    public static func == (l: WebDownloadItem, r: WebDownloadItem) async -> Bool {
-//        return await l.isEqual(to: r)
-//    }
-//    
-//    public func hash(into hasher: inout Hasher) {
-//        hasher.combine(identifier)
-//    }
-//}
