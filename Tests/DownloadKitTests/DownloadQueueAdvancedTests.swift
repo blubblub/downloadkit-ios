@@ -5,12 +5,12 @@ class DownloadQueueAdvancedTests: XCTestCase, @unchecked Sendable {
     
     var downloadQueue: DownloadQueue!
     var processor: WebDownloadProcessor!
-    var delegate: DownloadQueueDelegateMock!
+    var observer: DownloadQueueObserverMock!
     
     override func setUpWithError() throws {
         downloadQueue = DownloadQueue()
         processor = WebDownloadProcessor(configuration: .ephemeral)
-        delegate = DownloadQueueDelegateMock()
+        observer = DownloadQueueObserverMock()
     }
     
     override func tearDownWithError() throws {
@@ -19,7 +19,7 @@ class DownloadQueueAdvancedTests: XCTestCase, @unchecked Sendable {
         }
         downloadQueue = nil
         processor = nil
-        delegate = nil
+        observer = nil
     }
     
     // MARK: - Advanced Queue Management Tests
@@ -36,7 +36,7 @@ class DownloadQueueAdvancedTests: XCTestCase, @unchecked Sendable {
     }
     
     func testQueueMetrics() async {
-        await downloadQueue.set(delegate: delegate)
+        await downloadQueue.set(observer: observer)
         await downloadQueue.add(processor: processor)
         
         let metrics = await downloadQueue.metrics
@@ -255,12 +255,12 @@ class DownloadQueueAdvancedTests: XCTestCase, @unchecked Sendable {
     
     func testProcessorNotFoundError() async {
         // Don't add any processors
-        await downloadQueue.set(delegate: delegate)
+        await downloadQueue.set(observer: observer)
         
         let expectation = XCTestExpectation(description: "Should call delegate error for no processor")
         
-        Task { [delegate = delegate!] in
-            await delegate.setDidFailCallback { download, error in
+        Task { [observer = observer!] in
+            await observer.setDidFailCallback { download, error in
                 XCTAssertNotNil(error)
                 expectation.fulfill()
             }
@@ -284,7 +284,7 @@ class DownloadQueueAdvancedTests: XCTestCase, @unchecked Sendable {
 
 // MARK: - Mock Download Queue Delegate
 
-actor DownloadQueueDelegateMock: DownloadQueueDelegate {
+actor DownloadQueueObserverMock: DownloadQueueObserver {
     var didStartCallback: ((Downloadable, DownloadProcessor) -> Void)?
     var didTransferDataCallback: ((Downloadable, DownloadProcessor) -> Void)?
     var didFinishCallback: ((Downloadable, URL) -> Void)?

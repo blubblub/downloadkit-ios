@@ -9,7 +9,7 @@
 import Foundation
 import os.log
 
-public protocol DownloadQueueDelegate: Actor {
+public protocol DownloadQueueObserver: Actor {
     /// Called when download item starts downloading.
     /// - Parameters:
     ///   - queue: queue on which the item was enqueued.
@@ -114,9 +114,9 @@ public actor DownloadQueue: DownloadQueuable {
         
     // MARK: - Public Properties
     
-    public private(set) weak var delegate: DownloadQueueDelegate?
-    public func set(delegate: DownloadQueueDelegate?) {
-        self.delegate = delegate
+    public private(set) weak var observer: DownloadQueueObserver?
+    public func set(observer: DownloadQueueObserver?) {
+        self.observer = observer
     }
     
     public private(set) var simultaneousDownloads = 20
@@ -319,7 +319,7 @@ public actor DownloadQueue: DownloadQueuable {
             await processor.process(downloadable)
             
             Task {
-                await self.delegate?.downloadQueue(self, downloadDidStart: downloadable, with: processor)
+                await self.observer?.downloadQueue(self, downloadDidStart: downloadable, with: processor)
             }
                         
             self.notificationCenter.post(name: DownloadQueue.downloadDidStartNotification, object: downloadable)
@@ -331,7 +331,7 @@ public actor DownloadQueue: DownloadQueuable {
             let error = NSError(domain: "org.blubblub.downloadkit", code: -1, userInfo: [ NSLocalizedDescriptionKey: "Cannot process download item, no processor available." ])
             
             Task {
-                await self.delegate?.downloadQueue(self, downloadDidFail: downloadable, with: error)
+                await self.observer?.downloadQueue(self, downloadDidFail: downloadable, with: error)
             }
             
             self.notificationCenter.post(name: DownloadQueue.downloadErrorNotification, object: error, userInfo: [ "downloadItem": downloadable])
@@ -354,7 +354,7 @@ public actor DownloadQueue: DownloadQueuable {
 extension DownloadQueue: DownloadProcessorObserver {
     public func downloadDidTransferData(_ processor: DownloadProcessor, downloadable: Downloadable) {
         Task {
-            await self.delegate?.downloadQueue(self, downloadDidTransferData: downloadable, using: processor)
+            await self.observer?.downloadQueue(self, downloadDidTransferData: downloadable, using: processor)
         }
     }
 
@@ -393,7 +393,7 @@ extension DownloadQueue: DownloadProcessorObserver {
         Task {
             let identifier = await downloadable.identifier
             do {
-                try await delegate?.downloadQueue(self, downloadDidFinish: downloadable, to: url)
+                try await observer?.downloadQueue(self, downloadDidFinish: downloadable, to: url)
                 notificationCenter.post(name: DownloadQueue.downloadDidFinishNotification, object: downloadable)
                 
                 self.metrics.processed += 1
@@ -431,7 +431,7 @@ extension DownloadQueue: DownloadProcessorObserver {
 
             self.notificationCenter.post(name: DownloadQueue.downloadErrorNotification, object: error, userInfo: [ "downloadItem": downloadable])
             
-            await self.delegate?.downloadQueue(self, downloadDidFail: downloadable, with: error)
+            await self.observer?.downloadQueue(self, downloadDidFail: downloadable, with: error)
             
             // Resume processing
             await self.process()

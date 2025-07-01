@@ -158,8 +158,8 @@ public actor ResourceManager: DownloadQueuable {
     @discardableResult
     public func request(resources: [Resource], options: RequestOptions = RequestOptions()) async -> [DownloadRequest] {
         
-        await downloadQueue.set(delegate: self)
-        await priorityQueue?.set(delegate: self)
+        await downloadQueue.set(observer: self)
+        await priorityQueue?.set(observer: self)
         
         let uniqueResources = resources.unique(\.id)
         
@@ -233,8 +233,8 @@ public actor ResourceManager: DownloadQueuable {
         await setActive(true)
         
         // Ensure delegates are set.
-        await downloadQueue.set(delegate: self)
-        await priorityQueue?.set(delegate: self)
+        await downloadQueue.set(observer: self)
+        await priorityQueue?.set(observer: self)
                 
         await downloadQueue.enqueuePending()
         await priorityQueue?.enqueuePending()
@@ -272,9 +272,9 @@ public actor ResourceManager: DownloadQueuable {
     }
 }
 
-// MARK: - DownloadQueueDelegate
+// MARK: - DownloadQueueObserver
 
-extension ResourceManager: DownloadQueueDelegate {
+extension ResourceManager: DownloadQueueObserver {
     public func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadable: Downloadable, with processor: DownloadProcessor) async {
         guard let downloadRequest = await cache.downloadRequest(for: downloadable) else {
             return
