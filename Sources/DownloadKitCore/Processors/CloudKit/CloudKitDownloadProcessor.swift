@@ -26,7 +26,7 @@ public actor CloudKitDownloadProcessor: DownloadProcessor {
     private let fetchThrottleTimeout: TimeInterval = 0.5
     
     // MARK: - Public Properties
-    public let log = Logger(subsystem: "org.blubblub.downloadkit.cloudkit", category: "CloudKitProcessor")
+    public let log = Logger.logCloudKitDownloadProcessor
     
     public var database: CKDatabase
     
