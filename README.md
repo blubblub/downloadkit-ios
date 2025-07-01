@@ -82,8 +82,10 @@ let resource = Resource(
     modifyDate: nil
 )
 
-// 3. Request the download (async)
+// 3. Get default resource manager and request the download
 Task {
+    let resourceManager = await ResourceManager.default()
+    
     let requests = await resourceManager.request(
         resources: [resource],
         options: RequestOptions(downloadPriority: .normal, storagePriority: .cached)
@@ -131,6 +133,8 @@ let resource = Resource(
 )
 
 Task {
+    let resourceManager = await ResourceManager.default()
+    
     let requests = await resourceManager.request(
         resources: [resource],
         options: RequestOptions(downloadPriority: .high, storagePriority: .permanent)
@@ -156,6 +160,7 @@ let cloudResource = Resource(
 )
 
 Task {
+    let resourceManager = await ResourceManager.default()
     await resourceManager.request(resources: [cloudResource])
 }
 ```
@@ -170,7 +175,18 @@ DownloadKit uses a modular processor architecture. **DownloadProcessors** are re
 
 ### Resource Manager Setup
 
-To use DownloadKit, you need to set up a ResourceManager with:
+**Quick Start**: For most use cases, you can use the convenient default setup:
+
+```swift
+let resourceManager = await ResourceManager.default()
+```
+
+This creates a ResourceManager with:
+- Realm-based cache using the default configuration
+- WebDownloadProcessor for HTTP/HTTPS downloads
+- Proper async setup
+
+**Custom Setup**: For advanced use cases, you can manually configure a ResourceManager with:
 1. A cache implementation
 2. DownloadQueues configured with the appropriate DownloadProcessors
 
