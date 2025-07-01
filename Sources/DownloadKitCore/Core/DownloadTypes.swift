@@ -5,6 +5,19 @@
 //  Created by Dal Rupnik on 30.06.2025.
 //
 
+#if canImport(UIKit)
+import UIKit
+#endif
+
+#if os(OSX)
+import AppKit
+public typealias LocalImage = NSImage
+extension NSImage: @retroactive @unchecked Sendable {}
+#else
+public typealias LocalImage = UIImage
+extension UIImage: @retroactive @unchecked Sendable {}
+#endif
+
 import Foundation
 
 public enum DownloadPriority: Sendable {
@@ -37,8 +50,7 @@ public typealias ProgressCompletion = (Bool, String) -> Void
 
 /// Protocol for cache implementations that don't require specific database dependencies
 public protocol ResourceFileCacheable {
-    func currentResources() async -> [ResourceFile]
-    func currentDownloadRequests() async -> [DownloadRequest]
+    func resourceImage(url: URL) async -> LocalImage?
     subscript(id: String) -> URL? { get async }
 }
 

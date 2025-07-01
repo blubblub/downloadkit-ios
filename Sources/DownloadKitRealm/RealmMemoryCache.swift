@@ -10,18 +10,6 @@ import Foundation
 import DownloadKitCore
 import RealmSwift
 
-#if canImport(UIKit)
-import UIKit
-#endif
-
-#if os(OSX)
-import AppKit
-public typealias LocalImage = NSImage
-extension NSImage: @retroactive @unchecked Sendable {}
-#else
-public typealias LocalImage = UIImage
-extension UIImage: @retroactive @unchecked Sendable {}
-#endif
 
 /// Will cache resource URL's and images in memory for quick access.
 /// URL's are stored in a local dictionary, images are stored in NSCache.

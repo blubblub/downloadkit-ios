@@ -402,27 +402,20 @@ extension ResourceManager {
     ///   - completion: callback to call once resource is finished.
     public func addResourceCompletion(for identifier: String, completion: @escaping (Bool, String) -> Void) async {
         
-        // Check if resource is already cached, if yes, complete immediately
-        let currentResources = await cache.currentResources()
-        if currentResources.contains(where: { $0.id == identifier }) {
-            completion(true, identifier)
-            return
-        }
-        
-        // Check if there is an ongoing download request for resource
-        let currentDownloadRequests = await cache.currentDownloadRequests()
-        let hasMatchingRequest = await currentDownloadRequests.asyncContains { await $0.resourceIdentifier() == identifier }
-        if !hasMatchingRequest {
-            // No download request exists, so this is a completed request with an error.
+        guard await hasDownloadable(with: identifier) else {
             completion(false, identifier)
             return
         }
-        
+
         if var completions = resourceCompletions[identifier] {
             completions.append(completion)
             resourceCompletions[identifier] = completions
         } else {
             resourceCompletions[identifier] = [completion]
         }
+    }
+    
+    public func removeResourceCompletion(for identifier: String) {
+        resourceCompletions[identifier] = nil
     }
 }

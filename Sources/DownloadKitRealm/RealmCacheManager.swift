@@ -151,15 +151,4 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     public func resourceImage(url: URL) async -> LocalImage? {
         return await memoryCache?.resourceImage(url: url)
     }
-    
-    // MARK: - ResourceFileCacheable
-    
-    public func currentResources() async -> [ResourceFile] {
-        // This should return cached resources from Realm, for now returning empty
-        return []
-    }
-    
-    public func currentDownloadRequests() async -> [DownloadRequest] {
-        return Array(downloadableMap.values)
-    }
 }
