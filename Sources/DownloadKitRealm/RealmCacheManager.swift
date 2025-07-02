@@ -78,11 +78,13 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
             }
         }
         
-        return await requestMap[downloadable.identifier]
+        return nil
     }
     
     public func download(_ downloadable: any Downloadable, didFinishTo location: URL) async throws -> DownloadRequest? {
         let downloadableIdentifier = await downloadable.identifier
+        
+        log.debug("Downloadable finished: \(downloadableIdentifier) to: \(location)")
         
         guard let request = await downloadRequest(for: downloadable) else {
             log.fault("NO-OP: Received a downloadable without resource information: \(downloadableIdentifier)")
@@ -108,8 +110,9 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     }
     
     public func download(_ downloadable: any Downloadable, didFailWith error: Error) async -> RetryDownloadRequest? {
-
         let downloadableIdentifier = await downloadable.identifier
+        
+        log.debug("Downloadable failed: \(downloadableIdentifier) Error: \(error.localizedDescription)")
         
         guard let request = await downloadRequest(for: downloadable) else {
             log.fault("NO-OP: Received a downloadable without resource information: \(downloadableIdentifier)")

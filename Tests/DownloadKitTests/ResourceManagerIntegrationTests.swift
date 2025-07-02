@@ -374,6 +374,8 @@ class ResourceManagerIntegrationTests: XCTestCase {
         let batchExpectation = XCTestExpectation(description: "Batch operations should complete")
         batchExpectation.expectedFulfillmentCount = resourceCount
         
+        print("Waiting for batch downloads to complete...")
+        
         await manager.process(requests: requests)
                 
         // Await until all
@@ -397,8 +399,8 @@ class ResourceManagerIntegrationTests: XCTestCase {
         }
         
         // Wait for all download attempts to complete
-        print("Waiting for batch downloads to complete...")
-        await fulfillment(of: [batchExpectation], timeout: 180) // 3 minutes
+        
+        await fulfillment(of: [batchExpectation], timeout: 10) // 3 minutes
         
         // Get final results
         let finalCompletedCount = resultsQueue.sync { completedResources.count }
