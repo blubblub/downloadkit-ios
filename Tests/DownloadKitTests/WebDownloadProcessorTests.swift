@@ -35,7 +35,7 @@ class WebDownloadProcessorTests: XCTestCase {
     override func setUpWithError() throws {
         observer = DownloadProcessorObserverMock()
         
-        processor = WebDownloadProcessor(configuration: .ephemeral)
+        processor = WebDownloadProcessor()
         // Note: observer will be set in async test methods
     }
 
@@ -114,7 +114,7 @@ await observer.setErrorCallback { error in
     }
     
     func testEnqueuePendingWithPendingItems() async {
-        processor = WebDownloadProcessor(configuration: .ephemeral)
+        processor = WebDownloadProcessor()
         await processor.set(observer: observer)
         
         await processor.process(WebDownload.createSample())

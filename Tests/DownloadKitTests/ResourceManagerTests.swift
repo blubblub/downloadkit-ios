@@ -25,7 +25,7 @@ class ResourceManagerTests: XCTestCase {
     override func setUpWithError() throws {
         let downloadQueue = DownloadQueue()
         Task {
-            await downloadQueue.add(processor: WebDownloadProcessor(configuration: .ephemeral))
+            await downloadQueue.add(processor: WebDownloadProcessor())
         }
         
         // Uses weighted mirror policy by default
@@ -35,7 +35,7 @@ class ResourceManagerTests: XCTestCase {
     
     func setupWithPriorityQueue() async {
         let downloadQueue = DownloadQueue()
-        await downloadQueue.add(processor: WebDownloadProcessor(configuration: .ephemeral))
+        await downloadQueue.add(processor: WebDownloadProcessor())
         
         let priorityQueue = DownloadQueue()
         await priorityQueue.add(processor: WebDownloadProcessor.priorityProcessor())

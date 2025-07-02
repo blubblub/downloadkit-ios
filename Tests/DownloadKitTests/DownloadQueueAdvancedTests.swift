@@ -9,7 +9,7 @@ class DownloadQueueAdvancedTests: XCTestCase, @unchecked Sendable {
     
     override func setUpWithError() throws {
         downloadQueue = DownloadQueue()
-        processor = WebDownloadProcessor(configuration: .ephemeral)
+        processor = WebDownloadProcessor()
         observer = DownloadQueueObserverMock()
     }
     
@@ -27,7 +27,7 @@ class DownloadQueueAdvancedTests: XCTestCase, @unchecked Sendable {
     func testQueueWithMultipleProcessors() async {
         await downloadQueue.add(processor: processor)
         
-        let processor2 = WebDownloadProcessor(configuration: .ephemeral)
+        let processor2 = WebDownloadProcessor()
         await downloadQueue.add(processor: processor2)
         
         // Both processors should be added
