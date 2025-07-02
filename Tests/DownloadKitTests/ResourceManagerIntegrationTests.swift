@@ -79,7 +79,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         
         // Set up completion handlers for all resources
         for resource in resources {
-            await manager.addResourceCompletion(for: resource.id) { @Sendable (success, resourceID) in
+            await manager.addResourceCompletion(for: resource) { @Sendable (success, resourceID) in
                 countQueue.sync {
                     if success {
                         successCount += 1
@@ -168,7 +168,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         // Set up completion handler
         let downloadExpectation = XCTestExpectation(description: "Single download should complete")
         
-        await manager.addResourceCompletion(for: resource.id) { @Sendable (success, resourceID) in
+        await manager.addResourceCompletion(for: resource) { @Sendable (success, resourceID) in
             // Handle completion silently to reduce test noise
             // In test environments, failures are expected and don't indicate framework issues
             downloadExpectation.fulfill()
@@ -225,7 +225,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         
         // Set up completion tracking
         for resource in normalResources {
-            await manager.addResourceCompletion(for: resource.id) { @Sendable (success, resourceID) in
+            await manager.addResourceCompletion(for: resource) { @Sendable (success, resourceID) in
                 if success {
                     completionQueue.sync {
                         normalCompletions.append(Date())
@@ -236,7 +236,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         }
         
         for resource in highPriorityResources {
-            await manager.addResourceCompletion(for: resource.id) { @Sendable (success, resourceID) in
+            await manager.addResourceCompletion(for: resource) { @Sendable (success, resourceID) in
                 if success {
                     completionQueue.sync {
                         highPriorityCompletions.append(Date())
@@ -280,7 +280,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         metricsExpectation.expectedFulfillmentCount = requests.count
         
         for resource in resources {
-            await manager.addResourceCompletion(for: resource.id) { @Sendable (success, resourceID) in
+            await manager.addResourceCompletion(for: resource) { @Sendable (success, resourceID) in
                 metricsExpectation.fulfill()
             }
         }
@@ -370,19 +370,49 @@ class ResourceManagerIntegrationTests: XCTestCase {
         let batchExpectation = XCTestExpectation(description: "Batch operations should complete")
         batchExpectation.expectedFulfillmentCount = resourceCount
         
-        // Track all completions
-        for resource in resources {
-            await manager.addResourceCompletion(for: resource.id) { @Sendable (success, resourceID) in
-                resultsQueue.sync {
-                    if success {
-                        completedResources.insert(resourceID)
-                    } else {
-                        failedResources.insert(resourceID)
+        await manager.process(requests: requests)
+                
+        // Await until all
+        await withTaskGroup { group in
+            for request in requests {
+                
+                group.addTask { @Sendable in
+                    let resourceID = request.resource.id
+                    
+                    do {
+                        try await request.waitTillComplete()
+                        
+                        //completedResources.insert(resourceID)
+                    }
+                    catch {
+                        //failedResources.insert(resourceID)
                     }
                 }
+            }
+            
+            for await _ in group {
                 batchExpectation.fulfill()
             }
         }
+        
+        
+        // Track all completions
+        //for resource in resources {
+            // Await all requests until completed in parallel.
+            
+            
+//
+//            await manager.addResourceCompletion(for: resource) { @Sendable (success, resourceID) in
+//                resultsQueue.sync {
+//                    if success {
+//                        completedResources.insert(resourceID)
+//                    } else {
+//                        failedResources.insert(resourceID)
+//                    }
+//                }
+//                batchExpectation.fulfill()
+//            }
+        //}
         
         // Wait for all download attempts to complete
         print("Waiting for batch downloads to complete...")

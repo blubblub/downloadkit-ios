@@ -130,13 +130,15 @@ public actor WebDownload : NSObject, Downloadable {
             self.task = downloadTask
         }
         
+        downloadTask?.delegate = self
+        
         // Only set delegate for ephemeral sessions, not background sessions
         // Background sessions don't support individual task delegates
-        if #available(macOS 12.0, iOS 15.0, *), 
-           let session = parameters[.urlSession] as? URLSession,
-           session.configuration.identifier == nil {
-            downloadTask?.delegate = self
-        }
+//        if #available(macOS 12.0, iOS 15.0, *), 
+//           let session = parameters[.urlSession] as? URLSession,
+//           session.configuration.identifier == nil {
+//        }
+        
         downloadTask?.resume()
     }
 

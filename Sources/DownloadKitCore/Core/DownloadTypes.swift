@@ -19,9 +19,10 @@ public typealias LocalImage = Never
 
 import Foundation
 
-public enum DownloadPriority: Sendable {
+public enum DownloadPriority: UInt, Sendable {
     case normal
-    case high
+    case high       // Will place download in priority queue.
+    case urgent     // Will place download in priority queue and downgrade all other downloads.
 }
 
 public enum StoragePriority: String, Sendable {
@@ -45,7 +46,7 @@ public struct RequestOptions: Sendable {
 }
 
 /// Completion block, having success flag and item identifier
-public typealias ProgressCompletion = (Bool, String) -> Void
+public typealias ProgressCompletion = @Sendable (Bool, String) -> Void
 
 /// Protocol for cache implementations that don't require specific database dependencies
 public protocol ResourceFileCacheable {
@@ -53,41 +54,8 @@ public protocol ResourceFileCacheable {
     subscript(id: String) -> URL? { get async }
 }
 
-// MARK: - Extensions
-
-public extension Array {
-    func unique(_ by: ((Element) -> String)) -> Array {
-        var seen: [String: Bool] = [:]
-        
-        return self.filter { seen.updateValue(true, forKey: by($0)) == nil }
-    }
-}
-
-public extension Array where Element: Sendable {
-    func filterAsync(_ transform: @escaping @Sendable (Element) async -> Bool) async -> [Element] {
-        var finalResult = Array<Element>()
-        
-        for element in self {
-            if await transform(element) {
-                finalResult.append(element)
-            }
-        }
-        
-        return finalResult
-    }
-    
-    func asyncContains(_ predicate: @escaping @Sendable (Element) async -> Bool) async -> Bool {
-        for element in self {
-            if await predicate(element) {
-                return true
-            }
-        }
-        return false
-    }
-}
-
 public extension DownloadRequest {
-    func resourceIdentifier() async -> String {
+    func resourceId() async -> String {
         return resource.id
     }
 }

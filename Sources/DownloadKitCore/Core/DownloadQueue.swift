@@ -212,8 +212,8 @@ public actor DownloadQueue: DownloadQueuable {
             
             var downloadQueueCopy = self.downloadQueue
             
-            await downloadQueueCopy.remove(where: { item in
-                return await item.identifier == identifier
+            await downloadQueueCopy.remove(where: { downloadable in
+                return await downloadable.identifier == identifier
             })
             
             self.downloadQueue = downloadQueueCopy
@@ -228,8 +228,8 @@ public actor DownloadQueue: DownloadQueuable {
         progressDownloadMap[identifier] ?? queuedDownloadMap[identifier]
     }
     
-    public func isDownloading(item: Downloadable) async -> Bool {
-        return isDownloading(for: await item.identifier)
+    public func isDownloading(_ downloadable: Downloadable) async -> Bool {
+        return isDownloading(for: await downloadable.identifier)
     }
     
     public func isDownloading(for identifier: String) -> Bool {
@@ -248,14 +248,14 @@ public actor DownloadQueue: DownloadQueuable {
         self.isActive = value
     }
     
-    public func download(_ items: [Downloadable]) async {
-        for item in items {
+    public func download(_ downloadable: [Downloadable]) async {
+        for item in downloadable {
             await download(item)
         }
     }
     
-    public func download(_ item: Downloadable) async {
-        let identifier = await item.identifier
+    public func download(_ downloadable: Downloadable) async {
+        let identifier = await downloadable.identifier
         // If item is in incomplete state
         // If the item is already in progress, do nothing.
         guard self.progressDownloadMap[identifier] == nil else {
@@ -263,7 +263,7 @@ public actor DownloadQueue: DownloadQueuable {
         }
         
         let previousItem = self.queuedDownloadMap[identifier]
-        if let previousItem = previousItem, await item.priority > previousItem.priority {
+        if let previousItem = previousItem, await downloadable.priority > previousItem.priority {
             // If current item priority is higher, remove it and enqueue it again, which will place it higher.
             var downloadQueueCopy = self.downloadQueue
             
@@ -279,10 +279,10 @@ public actor DownloadQueue: DownloadQueuable {
         }
         
         var downloadQueueCopy = self.downloadQueue
-        await downloadQueueCopy.enqueue(item)
+        await downloadQueueCopy.enqueue(downloadable)
         self.downloadQueue = downloadQueueCopy
                 
-        self.queuedDownloadMap[identifier] = item
+        self.queuedDownloadMap[identifier] = downloadable
         await self.process()
     }
     
@@ -321,7 +321,7 @@ public actor DownloadQueue: DownloadQueuable {
             Task {
                 await self.observer?.downloadQueue(self, downloadDidStart: downloadable, with: processor)
             }
-                        
+            
             self.notificationCenter.post(name: DownloadQueue.downloadDidStartNotification, object: downloadable)
         }
         else {

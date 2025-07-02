@@ -8,9 +8,10 @@
 import Foundation
 import os
 
-public protocol ResourceManagerObserver: AnyObject {
+public protocol ResourceManagerObserver: AnyObject, Sendable {
     func didStartDownloading(_ downloadRequest: DownloadRequest)
     func willRetryFailedDownload(_ retryRequest: DownloadRequest, originalDownload: DownloadRequest, with error: Error)
+    func didFinishDownload(_ downloadRequest: DownloadRequest, with error: Error?)
 }
 
 /// ResourceManager manages a set of resources, allowing a user to request downloads from multiple mirrors,
@@ -164,73 +165,118 @@ public actor ResourceManager: DownloadQueuable {
         let uniqueResources = resources.unique(\.id)
         
         // Grab resources we need from file manager, filtering out those that are already downloaded.
-        let downloads = await cache.requestDownloads(resources: uniqueResources, options: options)
+        let requests = await cache.requestDownloads(resources: uniqueResources, options: options)
         
         metrics.requested += uniqueResources.count
-                
-        log.info("Requested unique resource count: \(uniqueResources.count) Downloads: \(downloads.count)")
-                
-        guard downloads.count > 0 else {
+        
+        log.info("Requested unique resource count: \(uniqueResources.count) Downloads: \(requests.count)")
+        
+        guard requests.count > 0 else {
             log.info("Metrics on no downloads: \(self.metrics.description)")
             return []
         }
         
+        return requests
+    }
+    
+    public func process(request: DownloadRequest, priority: DownloadPriority = .normal) async {
+       
+        let resourceId = await request.resourceId()
+        let downloadable = request.mirror.downloadable
+        
+        if let priorityQueue = priorityQueue, priority.rawValue > 0 {
+            
+            // Only if urgent priority, we will cancel other priority downloads,
+            // otherwise this just goes to priority queue based on download priority.
+            if priority.rawValue > 1 {
+                let currentPriorityDownloads = await priorityQueue.queuedDownloads
+                await priorityQueue.cancel(items: currentPriorityDownloads)
+                
+                let maxDownloadPriority = await downloadQueue.currentMaximumPriority() + 1
+                
+                for currentPriorityDownload in currentPriorityDownloads {
+                    await currentPriorityDownload.set(priority: maxDownloadPriority)
+                }
+                
+                metrics.priorityDecreased += currentPriorityDownloads.count
+                
+                await downloadQueue.download(currentPriorityDownloads)
+            }
+            
+            metrics.priorityIncreased += 1
+            
+            await priorityQueue.download(request.mirror.downloadable)
+            
+            // If download is on previous queue, we need to cancel, so we do not download it twice.
+            let downloadableIdentifier = await request.downloadableIdentifier()
+            
+            if await downloadQueue.hasDownloadable(with: downloadableIdentifier) {
+                await downloadQueue.cancel(with: downloadableIdentifier)
+            }
+            
+            log.info("Reprioritising resource: \(resourceId)")
+        }
+        else {
+            await downloadQueue.download(request.mirror.downloadable)
+        }
+        
+        // Add downloads to monitor progresses.
+        await progress.add(downloadItem: downloadable)
+        
+        log.info("Metrics on request: \(self.metrics.description)")
+    }
+    
+    public func process(requests: [DownloadRequest], priority: DownloadPriority = .normal) async {
+        
         // We need to filter the downloads that are in progress, since there's not much we will do
         // in that case. For those that are in queue, we might move them to a higher priority queue.
-        let finalDownloads = await downloads.filterAsync { download in 
+        let finalRequests = await requests.filterAsync { download in
             let identifier = await download.downloadableIdentifier()
             let isDownloading = await self.isDownloading(for: identifier)
             return !isDownloading
         }
                 
-        if downloads.count != finalDownloads.count {
-            log.error("Final downloads mismatch: \(downloads.count) \(finalDownloads.count)")
+        if requests.count != finalRequests.count {
+            log.error("Final downloads mismatch: \(requests.count) \(finalRequests.count)")
         }
         
-        if let priorityQueue = priorityQueue, options.downloadPriority == .high {
+        var finalPriority = priority
+        
+        if let priorityQueue = priorityQueue, priority.rawValue > 0 {
             // Move current priority queued downloads back to normal queue, because we have
             // a higher priority downloads now.
-            let currentPriorityDownloads = await priorityQueue.queuedDownloads
-            await priorityQueue.cancel(items: currentPriorityDownloads)
-            
-            let maxDownloadPriority = await downloadQueue.currentMaximumPriority() + 1
-            
-            for currentPriorityDownload in currentPriorityDownloads {
-                await currentPriorityDownload.set(priority: maxDownloadPriority)
+            if priority == .urgent {
+                let currentPriorityDownloads = await priorityQueue.queuedDownloads
+                await priorityQueue.cancel(items: currentPriorityDownloads)
+                
+                let maxDownloadPriority = await downloadQueue.currentMaximumPriority() + 1
+                
+                for currentPriorityDownload in currentPriorityDownloads {
+                    await currentPriorityDownload.set(priority: maxDownloadPriority)
+                }
+                
+                metrics.priorityDecreased += currentPriorityDownloads.count
+                
+                await downloadQueue.download(currentPriorityDownloads)
+                
+                // Since all downloads were cancelled as urgent, reduce priority,
+                // since otherwise each file will cancel out previous download,
+                // so the priotity is kept high for all files in this "batch"
+                finalPriority = .high
             }
-            
-            metrics.priorityIncreased += finalDownloads.count
-            metrics.priorityDecreased += currentPriorityDownloads.count
-            
-            await downloadQueue.download(currentPriorityDownloads)
-            
-            await priorityQueue.download(finalDownloads.map { $0.mirror.downloadable })
-            
-            // If those downloads are on download queue and were now moved to priority,
-            // we need to cancel them on download, so we do not download them twice.
-            let normalQueuedDownloads = await finalDownloads.filterAsync {
-                return await self.downloadQueue.hasDownloadable(with: await $0.downloadableIdentifier())
-            }
-            
-            await downloadQueue.cancel(items: normalQueuedDownloads.map { $0.mirror.downloadable })
-            
+                        
             // Log all downloadable identifiers being reprioritized
             var identifiers: [String] = []
-            for download in finalDownloads {
+            for download in requests {
                 identifiers.append(await download.downloadableIdentifier())
             }
             log.info("Reprioritising resources: \(identifiers.joined(separator: ", "))")
         }
-        else {
-            await downloadQueue.download(finalDownloads.map { $0.mirror.downloadable })
+        
+        // Process the requests.
+        for request in finalRequests {
+            await process(request: request, priority: finalPriority)
         }
-        
-        // Add downloads to monitor progresses.
-        await progress.add(downloadItems: finalDownloads.map { $0.mirror.downloadable })
-        
-        log.info("Metrics on request: \(self.metrics.description)")
-        
-        return downloads
     }
     
     public func resume() async {
@@ -311,11 +357,11 @@ extension ResourceManager: DownloadQueueObserver {
                     await tempMetrics.updateDownloadSpeed(downloadable: downloadable)
                     self.metrics = tempMetrics
                     
-                    self.completeProgress(downloadRequest, downloadable: downloadable, with: nil)
-                    
                     log.info("Download finished: \(identifier)")
                     
                     log.info("Metrics on download finished: \(self.metrics.description)")
+                    
+                    await self.completeProgress(downloadRequest, downloadable: downloadable, with: nil)
                 }
             }
             catch let error {
@@ -362,7 +408,7 @@ extension ResourceManager: DownloadQueueObserver {
             let identifier = await downloadable.identifier
             log.error("Download failed, done: \(identifier) Error: \(error.localizedDescription)")
                 
-            self.completeProgress(originalRequest, downloadable: downloadable, with: error)
+            await self.completeProgress(originalRequest, downloadable: downloadable, with: error)
         }
         
         log.info("Metrics on download failed: \(self.metrics.description)")
@@ -373,12 +419,11 @@ extension ResourceManager: DownloadQueueObserver {
 
 extension ResourceManager {
     
-    private func completeProgress(_ downloadRequest: DownloadRequest, downloadable: Downloadable, with error: Error?) {
-        Task {
+    private func completeProgress(_ downloadRequest: DownloadRequest, downloadable: Downloadable, with error: Error?) async {
             let downloadableIdentifier = await downloadable.identifier
             await self.progress.complete(identifier: downloadableIdentifier, with: error)
             
-            let identifier = await downloadRequest.resourceIdentifier()
+            let identifier = await downloadRequest.resourceId()
             
             guard let completions = self.resourceCompletions[identifier] else {
                 return
@@ -391,20 +436,40 @@ extension ResourceManager {
             for completion in completions {
                 completion(error == nil, identifier)
             }
-        }
+            
+            self.foreachObserver {
+                $0.didFinishDownload(downloadRequest, with: error)
+            }
     }
 }
 
 // MARK: - Resource Completion Callbacks
 
 extension ResourceManager {
+    public func addResourceCompletion(for resource: Resource, completion: @escaping (Bool, String) -> Void) async {
+        // Check if any of the mirrors have downloadable.
+        
+        var mirrorIdentifiers = resource.alternatives.map( \.id )
+        mirrorIdentifiers.append(resource.main.id)
+        
+        // Need to complete on resource, not on one specific mirror. Should complete after retries are exhausted.
+        // to do this, we need to track a map of resource to Downloadables.
+        
+        // Use cache's downloadMap to get back resource ID.
+        
+        for identifier in mirrorIdentifiers {
+            if await hasDownloadable(with: identifier) {
+                
+            }
+        }
+    }
     /// Add a completion callback for a given resource identifier. Callback will be called once when the resource
     /// request either finishes or fails. The boolean will indicate success or failure.
     /// Note: If resource identifier doesn't exist, completion callback will be called immediately.
     /// - Parameters:
     ///   - identifier: resource identifier to add the callback for.
     ///   - completion: callback to call once resource is finished.
-    public func addResourceCompletion(for identifier: String, completion: @escaping (Bool, String) -> Void) async {
+    private func addResourceCompletion(for identifier: String, completion: @escaping (Bool, String) -> Void) async {
         
         guard await hasDownloadable(with: identifier) else {
             completion(false, identifier)

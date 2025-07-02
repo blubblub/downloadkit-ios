@@ -53,7 +53,7 @@ public actor ResourceDownloadProgress {
         }
     }
     
-    private func add(_ progress: Progress, for identifier: String) {
+    public func add(_ progress: Progress, for identifier: String) {
         progresses[identifier] = progress
         
         for (_, node) in nodes {
@@ -122,6 +122,14 @@ extension ResourceDownloadProgress {
         }
     }
     
+    public func add(downloadItem: Downloadable) async {
+        let identifier = await downloadItem.identifier
+        guard let progress = await downloadItem.progress else {
+            return
+        }
+        
+        add(progress, for: identifier)
+    }
     
     public func add(downloadItems: [Downloadable]) async {
         
