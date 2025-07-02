@@ -433,36 +433,29 @@ extension ResourceManager {
 // MARK: - Resource Completion Callbacks
 
 extension ResourceManager {
-    public func addResourceCompletion(for resource: Resource, completion: @Sendable @escaping (Bool, String) -> Void) async {
+    public func addResourceCompletion(for resource: ResourceFile, completion: @Sendable @escaping (Bool, String) -> Void) async {
         // Check if any of the mirrors have downloadable.
         
-        var mirrorIdentifiers = resource.alternatives.map( \.id )
-        mirrorIdentifiers.append(resource.main.id)
+        let mirrorIdentifiers = resource.mirrorIds
+        let identifier = resource.id
         
         // Need to complete on resource, not on one specific mirror. Should complete after retries are exhausted.
         // to do this, we need to track a map of resource to Downloadables.
-        
-        // Use cache's downloadMap to get back resource ID.
+        var found = false
         
         for identifier in mirrorIdentifiers {
             if await hasDownloadable(with: identifier) {
-                
+                found = true
+                break
             }
         }
-    }
-    /// Add a completion callback for a given resource identifier. Callback will be called once when the resource
-    /// request either finishes or fails. The boolean will indicate success or failure.
-    /// Note: If resource identifier doesn't exist, completion callback will be called immediately.
-    /// - Parameters:
-    ///   - identifier: resource identifier to add the callback for.
-    ///   - completion: callback to call once resource is finished.
-    private func addResourceCompletion(for identifier: String, completion: @Sendable @escaping (Bool, String) -> Void) async {
         
-        guard await hasDownloadable(with: identifier) else {
-            completion(false, identifier)
+        // If we did not find the resource being downloaded at all, just call completion.
+        if !found {
+            completion(false, resource.id)
             return
         }
-
+        
         if var completions = resourceCompletions[identifier] {
             completions.append(completion)
             resourceCompletions[identifier] = completions
@@ -471,7 +464,7 @@ extension ResourceManager {
         }
     }
     
-    public func removeResourceCompletion(for identifier: String) {
-        resourceCompletions[identifier] = nil
+    public func removeResourceCompletion(for resource: ResourceFile) {
+        resourceCompletions[resource.id] = nil
     }
 }

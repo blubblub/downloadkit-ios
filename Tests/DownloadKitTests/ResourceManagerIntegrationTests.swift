@@ -204,13 +204,13 @@ class ResourceManagerIntegrationTests: XCTestCase {
         // Start normal priority downloads
         let normalRequests = await manager.request(
             resources: normalResources,
-            options: RequestOptions(downloadPriority: .normal, storagePriority: .cached)
+            options: RequestOptions(storagePriority: .cached)
         )
         
         // Start high priority downloads
         let highPriorityRequests = await manager.request(
             resources: highPriorityResources,
-            options: RequestOptions(downloadPriority: .high, storagePriority: .permanent)
+            options: RequestOptions(storagePriority: .permanent)
         )
         
         print("Started \(normalRequests.count) normal and \(highPriorityRequests.count) high priority downloads")
@@ -381,11 +381,8 @@ class ResourceManagerIntegrationTests: XCTestCase {
                     
                     do {
                         try await request.waitTillComplete()
-                        
-                        //completedResources.insert(resourceID)
                     }
                     catch {
-                        //failedResources.insert(resourceID)
                     }
                 }
             }
@@ -394,25 +391,6 @@ class ResourceManagerIntegrationTests: XCTestCase {
                 batchExpectation.fulfill()
             }
         }
-        
-        
-        // Track all completions
-        //for resource in resources {
-            // Await all requests until completed in parallel.
-            
-            
-//
-//            await manager.addResourceCompletion(for: resource) { @Sendable (success, resourceID) in
-//                resultsQueue.sync {
-//                    if success {
-//                        completedResources.insert(resourceID)
-//                    } else {
-//                        failedResources.insert(resourceID)
-//                    }
-//                }
-//                batchExpectation.fulfill()
-//            }
-        //}
         
         // Wait for all download attempts to complete
         print("Waiting for batch downloads to complete...")

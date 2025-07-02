@@ -23,6 +23,13 @@ public extension ResourceFile {
     var modifyDate: Date? {
         return nil
     }
+    
+    var mirrorIds: [String] {
+        var ids: [String] = []
+        ids.append(main.id)
+        ids.append(contentsOf: alternatives.map(\.id))
+        return ids
+    }
 }
 
 public protocol ResourceFileMirror : Sendable {

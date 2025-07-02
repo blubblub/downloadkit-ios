@@ -102,7 +102,7 @@ class ResourceManagerTests: XCTestCase {
         let expectation = XCTestExpectation(description: "Requesting downloads should call completion.")
         
         await manager.request(resources: [resource])
-        await manager.addResourceCompletion(for: "resource-id") { (success, resourceID) in
+        await manager.addResourceCompletion(for: resource) { (success, resourceID) in
             // Since resource has a fileURL, it should complete immediately
             expectation.fulfill()
         }
@@ -117,11 +117,11 @@ class ResourceManagerTests: XCTestCase {
         expectation.expectedFulfillmentCount = 2
         
         await manager.request(resources: [resource])
-        await manager.addResourceCompletion(for: "resource-id") { (success, resourceID) in
+        await manager.addResourceCompletion(for: resource) { (success, resourceID) in
             expectation.fulfill()
         }
         
-        await manager.addResourceCompletion(for: "resource-id") { (success, resourceID) in
+        await manager.addResourceCompletion(for: resource) { (success, resourceID) in
             expectation.fulfill()
         }
         
@@ -132,7 +132,7 @@ class ResourceManagerTests: XCTestCase {
     func testThatAddingResourceCompletionBeforeRequestingDownloadsFails() async throws {
         let expectation = self.expectation(description: "Resource completion should be called immediately.")
 
-        await manager.addResourceCompletion(for: "resource-id") { (success: Bool, resourceID: String) in
+        await manager.addResourceCompletion(for: resources.first!) { (success: Bool, resourceID: String) in
             XCTAssertFalse(success)
             expectation.fulfill()
         }
@@ -151,7 +151,7 @@ class ResourceManagerTests: XCTestCase {
                                 alternatives: [],
                                 fileURL: nil)
         await manager.request(resources: [resource])
-        await manager.addResourceCompletion(for: "invalid-resource") { (success: Bool, resourceID: String) in
+        await manager.addResourceCompletion(for: resource) { (success: Bool, resourceID: String) in
             // For unsupported URL schemes, this should fail quickly
             XCTAssertFalse(success)
             XCTAssertEqual("invalid-resource", resourceID)
@@ -163,9 +163,14 @@ class ResourceManagerTests: XCTestCase {
     
     func testCancelingAllDownloads() async {
         let expectation = self.expectation(description: "Canceling all downloads should call completion.")
+        let resource = Resource(id: "invalid-resource", main: FileMirror(id: "invalid-resource",
+                                                                        location: "invalid://scheme.url/jpg",
+                                                                        info: [:]),
+                                alternatives: [],
+                                fileURL: nil)
         
         await manager.request(resources: resources)
-        await manager.addResourceCompletion(for: "resource-id") { (success: Bool, resourceID: String) in
+        await manager.addResourceCompletion(for: resource) { (success: Bool, resourceID: String) in
             XCTAssertFalse(success)
             XCTAssertEqual("resource-id", resourceID)
             expectation.fulfill()
@@ -179,9 +184,15 @@ class ResourceManagerTests: XCTestCase {
         let expectation = self.expectation(description: "Completion should not be called.")
         expectation.isInverted = true // we don't want the expectation to be fulfilled
         
+        let resource = Resource(id: "invalid-resource", main: FileMirror(id: "invalid-resource",
+                                                                        location: "invalid://scheme.url/jpg",
+                                                                        info: [:]),
+                                alternatives: [],
+                                fileURL: nil)
+        
         await manager.cancelAll()
         let requests = await manager.request(resources: resources)
-        await manager.addResourceCompletion(for: "resource-id") { (success, resourceID) in
+        await manager.addResourceCompletion(for: resource) { (success, resourceID) in
             expectation.fulfill()
         }
         

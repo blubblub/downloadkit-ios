@@ -19,7 +19,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     
     public var mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()
     
-    private var downloadableMap = [String: DownloadRequest]()
+    private var requestMap = [String: DownloadRequest]()
     
     public init(configuration: Realm.Configuration,
                 mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()) {
@@ -61,21 +61,21 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         
         for request in downloadRequests {
             let downloadIdentifier = await request.downloadableIdentifier()
-            downloadableMap[downloadIdentifier] = request
+            requestMap[downloadIdentifier] = request
         }
         
         return downloadRequests
     }
     
     public func downloadRequest(for downloadable: Downloadable) async -> DownloadRequest? {
-        return await downloadableMap[downloadable.identifier]
+        return await requestMap[downloadable.identifier]
     }
     
     public func download(_ downloadable: Downloadable, didFinishTo location: URL) async throws -> DownloadRequest? {
 
         let identifier = await downloadable.identifier
         
-        guard let downloadRequest = self.downloadableMap[identifier] else {
+        guard let downloadRequest = self.requestMap[identifier] else {
             log.fault("NO-OP: Received a downloadable without resource information: \(identifier)")
             return nil
         }
@@ -85,10 +85,10 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
                                                   mirror: downloadRequest.mirror.mirror,
                                                   at: location,
                                                   options: downloadRequest.options)
-            downloadableMap[identifier] = nil
+            requestMap[identifier] = nil
         }
         catch {
-            downloadableMap[identifier] = nil
+            requestMap[identifier] = nil
             throw error
         }
         
@@ -102,13 +102,13 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
 
         let identifier = await downloadable.identifier
         
-        guard let downloadRequest = downloadableMap[identifier] else {
+        guard let downloadRequest = requestMap[identifier] else {
             log.fault("NO-OP: Received a downloadable without resource information: \(identifier)")
             return nil
         }
         
         // Clear download selection for the identifier.
-        downloadableMap[identifier] = nil
+        requestMap[identifier] = nil
         
         guard let mirrorSelection = mirrorPolicy.mirror(for: downloadRequest.resource,
                                                         lastMirrorSelection: downloadRequest.mirror,
@@ -126,7 +126,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         
         // Write it to downloadable map with new download selection
         let newDownloadIdentifier = await retryDownloadRequest.downloadableIdentifier()
-        downloadableMap[newDownloadIdentifier] = retryDownloadRequest
+        requestMap[newDownloadIdentifier] = retryDownloadRequest
 
         return RetryDownloadRequest(retryRequest: retryDownloadRequest, originalRequest: downloadRequest)
     }

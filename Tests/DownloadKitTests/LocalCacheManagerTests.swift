@@ -6,8 +6,8 @@ class LocalCacheManagerTests: XCTestCase {
     
     /// In memory realm configuration.
     let config = Realm.Configuration(inMemoryIdentifier: "memory-id")
-    let cachedOptions = RequestOptions(downloadPriority: .normal, storagePriority: .cached)
-    let permanentOptions = RequestOptions(downloadPriority: .normal, storagePriority: .permanent)
+    let cachedOptions = RequestOptions(storagePriority: .cached)
+    let permanentOptions = RequestOptions(storagePriority: .permanent)
     
     var manager: RealmLocalCacheManager<CachedLocalFile>!
     
