@@ -6,8 +6,54 @@
 
 import Foundation
 
+private actor DownloadRequestState {
+    private var continuation: CheckedContinuation<Void, Error>?
+    private var isComplete = false
+    private var error: Error?
+
+    fileprivate func wait() async throws {
+        if isComplete {
+            // Throw error on wait, if completed.
+            if let error = error {
+                throw error
+            }
+            
+            return
+        }
+        
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            self.continuation = continuation
+        }
+    }
+
+    fileprivate func markComplete(with error: Error? = nil) {
+        if isComplete {
+            fatalError("Should not call markComplete twice.")
+        }
+        
+        isComplete = true
+        self.error = error
+        
+        if let error = error {
+            continuation?.resume(throwing: error)
+        }
+        else {
+            continuation?.resume()
+        }
+        
+        continuation = nil
+    }
+}
+
 /// Hold references to downloads, so they can be properly handled.
 public struct DownloadRequest: Sendable, Equatable {
+    
+    private let state = DownloadRequestState()
+    
+    public let resource: ResourceFile
+    public let options: RequestOptions
+    public let mirror: ResourceMirrorSelection
+    
     
     public init(resource: ResourceFile, options: RequestOptions, mirror: ResourceMirrorSelection) {
         self.resource = resource
@@ -22,17 +68,17 @@ public struct DownloadRequest: Sendable, Equatable {
     public var id: String {
         return resource.id
     }
-    
-    public let resource: ResourceFile
-    public let options: RequestOptions
-    public let mirror: ResourceMirrorSelection
-    
+        
     public func downloadableIdentifier() async -> String {
         return await mirror.downloadable.identifier
     }
+    
+    public func complete(with error: Error? = nil) async {
+        await state.markComplete(with: error)
+    }
         
     public func waitTillComplete() async throws {
-        // TODO: Implement this.
+        try await state.wait()
     }
 }
 
