@@ -109,7 +109,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         }
         
         // Let mirror policy know that the download completed, so it can clean up after itself.
-        mirrorPolicy.downloadComplete(for: request.resource)
+        await mirrorPolicy.downloadComplete(for: request.resource)
                 
         return request
     }
@@ -126,7 +126,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         
         let identifier = request.resourceId
         
-        guard let mirrorSelection = mirrorPolicy.mirror(for: request.resource,
+        guard let mirrorSelection = await mirrorPolicy.mirror(for: request.resource,
                                                         lastMirrorSelection: request.mirror,
                                                         error: error) else {
             log.error("Download failed: \(identifier) Error: \(error.localizedDescription)")

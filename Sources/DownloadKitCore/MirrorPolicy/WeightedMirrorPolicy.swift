@@ -12,7 +12,7 @@ import os.log
 /// It will select the mirror with highest weight, selecting next mirror. If the download fails,
 /// it will continue to the mirror with the next highest weight. If it arrives to the last mirror,
 /// and download fails, it will retry `numberOfRetries` times.
-open class WeightedMirrorPolicy: MirrorPolicy {
+public actor WeightedMirrorPolicy: MirrorPolicy {
     public static let weightKey = "weight"
     
     private let log = Logger.logWeightedMirrorPolicy
@@ -30,7 +30,7 @@ open class WeightedMirrorPolicy: MirrorPolicy {
     /// for the file mirrors need to be added (for example a file is not supported by the system).
     /// - Parameter resource: resource to sort mirrors for
     /// - Returns: sorted mirrors
-    open func sortMirrors(for resource: ResourceFile) -> [ResourceFileMirror] {
+    private func sortMirrors(for resource: ResourceFile) -> [ResourceFileMirror] {
         return resource.sortedMirrors()
     }
     

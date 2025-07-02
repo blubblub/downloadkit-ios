@@ -46,7 +46,7 @@ extension ResourceMirrorSelection {
 
 /// Mirror policy is responsible for picking a mirror to download when required.
 /// - Certain Mirror Policies can have specific retry logic.
-public protocol MirrorPolicy {
+public protocol MirrorPolicy : Actor {
     
     var delegate: MirrorPolicyDelegate? { get set }
     
@@ -63,7 +63,7 @@ public protocol MirrorPolicy {
     func downloadComplete(for resource: ResourceFile)
 }
 
-public protocol MirrorPolicyDelegate: AnyObject {
+public protocol MirrorPolicyDelegate: AnyObject, Sendable {
     
     /// Will be called after all retry attempts to available mirrors are completed.
     /// - Parameters:
