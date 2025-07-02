@@ -8,6 +8,15 @@
 import Foundation
 import os.log
 
+extension URLSessionConfiguration {
+    var isEphemeral: Bool {
+        let config = self
+        return config.urlCache == nil &&
+               config.httpCookieStorage == nil &&
+               config.urlCredentialStorage == nil
+    }
+}
+
 public extension WebDownloadProcessor {
     enum ProcessorError: Error {
         case cannotProcess(String)
@@ -16,12 +25,13 @@ public extension WebDownloadProcessor {
 
 /// Wrapper for NSURLSession delegate, between DownloadQueue and Downloadable,
 /// so we can correctly track.
-public actor WebDownloadProcessor: NSObject, DownloadProcessor {
+public actor WebDownloadProcessor: NSObject, DownloadProcessor, URLSessionDelegate {
 
     // MARK: - Private Properties
     
-    /// URLSession that does the download.
-    private let session: URLSession
+    /// URLSession that does everything. Using force unwrap here, so we can initialize it in constructor
+    /// dynamically.
+    private var session: URLSession!
     
     /// Holds properties to current items for quick access.
     private var downloadables = Array<WebDownload>()
@@ -46,7 +56,17 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
     }
     
     public init(configuration: URLSessionConfiguration) {
-        self.session = URLSession(configuration: configuration)
+        super.init()
+        
+        // For background sessions, we need to set ourselves as the delegate
+        // This enables proper handling of background events and app lifecycle
+        if configuration.isEphemeral {
+            self.session = URLSession(configuration: configuration)
+        }
+        else {
+            self.session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+        }
+        
     }
     
     // MARK: - DownloadProcessor
@@ -70,7 +90,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
         // we're already processing item with the same identifier
         let webDownloadIdentifier = await webDownload.identifier
         
-        guard await item(for: webDownloadIdentifier) == nil else {
+        guard await self.downloadable(for: webDownloadIdentifier) == nil else {
             return
         }
         
@@ -103,7 +123,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
         for task in downloadTasks {
             let item: WebDownload?
             
-            if let downloadItem = await self.item(for: task) {
+            if let downloadItem = await self.downloadable(for: task) {
                 item = downloadItem
             } else {
                 item = WebDownload(task: task)
@@ -123,13 +143,15 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
     private func prepare(downloadable: WebDownload) async {
         await downloadable.addCompletion { result in
             Task {
-                
                 switch result {
                 case .failure(let error):
                     await self.observer?.downloadDidError(self, downloadable: downloadable, error: error)
                 case .success(let url):
                     await self.observer?.downloadDidFinishTransfer(self, downloadable: downloadable, to: url)
                 }
+                
+                // Clean up completed download from our tracking array
+                await self.remove(downloadable: downloadable)
             }
         }
         
@@ -149,7 +171,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
         self.downloadables.removeAll { $0 === downloadable }
     }
     
-    private func item(for identifier: String) async -> WebDownload? {
+    private func downloadable(for identifier: String) async -> WebDownload? {
         for item in downloadables {
             let itemIdentifier = await item.identifier
             if itemIdentifier == identifier {
@@ -160,7 +182,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
         return nil
     }
     
-    private func item(for task: URLSessionTask) async -> WebDownload? {
+    private func downloadable(for task: URLSessionTask) async -> WebDownload? {
         for item in downloadables {
             let itemIdentifier = await item.task?.taskIdentifier
             if itemIdentifier == task.taskIdentifier {
@@ -169,6 +191,64 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
         }
         
         return nil
+    }
+}
+
+// MARK: - URLSessionDelegate
+extension WebDownloadProcessor {
+    nonisolated public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        Task {
+            guard let downloadable = await self.downloadable(for: downloadTask) else {
+                log.error("DidFinishDownloadingTo: Could not find downloadable for download task \(downloadTask)")
+                return
+            }
+            
+            downloadable.urlSession(session, downloadTask: downloadTask, didFinishDownloadingTo: location)
+        }
+    }
+        
+    nonisolated public func urlSession(_ session: Foundation.URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        Task {
+            guard let downloadable = await self.downloadable(for: downloadTask) else {
+                log.error("DidFinishDownloadingTo: Could not find downloadable for download task \(downloadTask)")
+                return
+            }
+            
+            downloadable.urlSession(session, downloadTask: downloadTask, didWriteData: bytesWritten, totalBytesWritten: totalBytesWritten, totalBytesExpectedToWrite: totalBytesExpectedToWrite)
+        }
+    }
+    
+    nonisolated public func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
+        Task {
+            // Go through all downloadables
+            for downloadable in await self.downloadables {
+                downloadable.urlSession(session, didBecomeInvalidWithError: error)
+            }
+        }
+    }
+    
+    nonisolated public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        Task {
+            guard let error = error else {
+                return
+            }
+            
+            guard let downloadable = await self.downloadable(for: task) else {
+                log.error("didCompleteWithError: Could not find downloadable for download task \(task)")
+                return
+            }
+            
+            downloadable.urlSession(session, task: task, didCompleteWithError: error)
+        }
+    }
+    
+    
+    /// Called when all background tasks have been completed
+    /// This is crucial for background app refresh and proper session lifecycle management
+    nonisolated public func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
+        Task {
+            // TODO: Not sure what to do here?
+        }
     }
 }
 
