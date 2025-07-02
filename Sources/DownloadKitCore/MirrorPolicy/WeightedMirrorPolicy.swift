@@ -19,6 +19,10 @@ public actor WeightedMirrorPolicy: MirrorPolicy {
     
     public var delegate: MirrorPolicyDelegate?
     
+    public func setDelegate(_ delegate: MirrorPolicyDelegate?) {
+        self.delegate = delegate
+    }
+    
     /// How many times the policy will retry the last mirror.
     public let numberOfRetries: Int
     
