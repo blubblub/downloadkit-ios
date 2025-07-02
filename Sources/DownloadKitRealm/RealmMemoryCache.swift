@@ -10,10 +10,9 @@ import Foundation
 import DownloadKitCore
 import RealmSwift
 
-
 /// Will cache resource URL's and images in memory for quick access.
 /// URL's are stored in a local dictionary, images are stored in NSCache.
-/// Images are stored as `UIImage`
+/// Images are stored as `UIImage` or `NSImage`.
 /// Note:
 /// Cache Manager will load the image into memory after downloading it.
 public actor RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalResourceFile {

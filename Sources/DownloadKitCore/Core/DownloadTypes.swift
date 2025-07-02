@@ -52,7 +52,7 @@ public protocol ResourceFileCacheable {
 }
 
 public extension DownloadRequest {
-    func resourceId() async -> String {
+    var resourceId : String {
         return resource.id
     }
 }

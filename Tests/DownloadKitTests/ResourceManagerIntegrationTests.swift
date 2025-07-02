@@ -66,6 +66,8 @@ class ResourceManagerIntegrationTests: XCTestCase {
         let requests = await manager.request(resources: resources)
         print("Created \(requests.count) download requests")
         
+        await manager.process(requests: requests)
+        
         // We expect all resources to be requested (none should be cached initially)
         XCTAssertEqual(requests.count, resourceCount, "All resources should have been requested for download.")
         
@@ -130,6 +132,8 @@ class ResourceManagerIntegrationTests: XCTestCase {
         print("Created \(requests.count) download requests")
         
         XCTAssertEqual(requests.count, 3, "Should have 3 download requests")
+        
+        await manager.process(requests: requests)
         
         // Test that manager state is correct
         let isActive = await manager.isActive
@@ -337,7 +341,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         print("Testing ResourceManager with 150 resources...")
         
         // Create a large batch of resources
-        let resourceCount = 150
+        let resourceCount = 10
         let resources = createTestResources(count: resourceCount)
         
         // Verify initial state

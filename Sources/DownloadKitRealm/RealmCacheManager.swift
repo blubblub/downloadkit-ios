@@ -19,6 +19,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     
     public var mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()
     
+    // Track original download requests, so we can retry.
     private var requestMap = [String: DownloadRequest]()
     
     public init(configuration: Realm.Configuration,
@@ -60,75 +61,79 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         }
         
         for request in downloadRequests {
-            let downloadIdentifier = await request.downloadableIdentifier()
-            requestMap[downloadIdentifier] = request
+            let idenitifier = request.resourceId
+            requestMap[idenitifier] = request
         }
         
         return downloadRequests
     }
     
-    public func downloadRequest(for downloadable: Downloadable) async -> DownloadRequest? {
+    public func downloadRequest(for downloadable: any Downloadable) async -> DownloadRequest? {
+        // Find original request based on mirror ids.
+        let downloadableIdentifier = await downloadable.identifier
+        
+        for (_, request) in requestMap {
+            if request.resource.mirrorIds.contains(downloadableIdentifier) {
+                return request
+            }
+        }
+        
         return await requestMap[downloadable.identifier]
     }
     
-    public func download(_ downloadable: Downloadable, didFinishTo location: URL) async throws -> DownloadRequest? {
-
-        let identifier = await downloadable.identifier
+    public func download(_ downloadable: any Downloadable, didFinishTo location: URL) async throws -> DownloadRequest? {
+        let downloadableIdentifier = await downloadable.identifier
         
-        guard let downloadRequest = self.requestMap[identifier] else {
-            log.fault("NO-OP: Received a downloadable without resource information: \(identifier)")
+        guard let request = await downloadRequest(for: downloadable) else {
+            log.fault("NO-OP: Received a downloadable without resource information: \(downloadableIdentifier)")
             return nil
         }
         
         do {
-            _ = try localCache.store(resource: downloadRequest.resource,
-                                                  mirror: downloadRequest.mirror.mirror,
+            _ = try localCache.store(resource: request.resource,
+                                                  mirror: request.mirror.mirror,
                                                   at: location,
-                                                  options: downloadRequest.options)
-            requestMap[identifier] = nil
+                                                  options: request.options)
+            requestMap[request.resourceId] = nil
         }
         catch {
-            requestMap[identifier] = nil
+            requestMap[request.resourceId] = nil
             throw error
         }
         
         // Let mirror policy know that the download completed, so it can clean up after itself.
-        mirrorPolicy.downloadComplete(for: downloadRequest.resource)
+        mirrorPolicy.downloadComplete(for: request.resource)
                 
-        return downloadRequest
+        return request
     }
     
-    public func download(_ downloadable: Downloadable, didFailWith error: Error) async -> RetryDownloadRequest? {
+    public func download(_ downloadable: any Downloadable, didFailWith error: Error) async -> RetryDownloadRequest? {
 
-        let identifier = await downloadable.identifier
+        let downloadableIdentifier = await downloadable.identifier
         
-        guard let downloadRequest = requestMap[identifier] else {
-            log.fault("NO-OP: Received a downloadable without resource information: \(identifier)")
+        guard let request = await downloadRequest(for: downloadable) else {
+            log.fault("NO-OP: Received a downloadable without resource information: \(downloadableIdentifier)")
             return nil
         }
         
-        // Clear download selection for the identifier.
-        requestMap[identifier] = nil
+        let identifier = request.resourceId
         
-        guard let mirrorSelection = mirrorPolicy.mirror(for: downloadRequest.resource,
-                                                        lastMirrorSelection: downloadRequest.mirror,
+        guard let mirrorSelection = mirrorPolicy.mirror(for: request.resource,
+                                                        lastMirrorSelection: request.mirror,
                                                         error: error) else {
             log.error("Download failed: \(identifier) Error: \(error.localizedDescription)")
             
-            return RetryDownloadRequest(retryRequest: nil, originalRequest: downloadRequest)
+            // Clear download selection for the identifier.
+            requestMap[identifier] = nil
+            
+            return RetryDownloadRequest(request: request)
         }
         
-        let downloadableIdentifier = await mirrorSelection.downloadable.identifier
+        let mirrorDownloadableIdentifier = await mirrorSelection.downloadable.identifier
         
-        log.error("Retrying download of: \(identifier) with: \(downloadableIdentifier)")
+        log.error("Retrying download of: \(identifier) with: \(mirrorDownloadableIdentifier)")
         
-        let retryDownloadRequest = DownloadRequest(resource: downloadRequest.resource, options: downloadRequest.options, mirror: mirrorSelection)
-        
-        // Write it to downloadable map with new download selection
-        let newDownloadIdentifier = await retryDownloadRequest.downloadableIdentifier()
-        requestMap[newDownloadIdentifier] = retryDownloadRequest
-
-        return RetryDownloadRequest(retryRequest: retryDownloadRequest, originalRequest: downloadRequest)
+        return RetryDownloadRequest(request: request, nextMirror: mirrorSelection)
     }
     
     public func cleanup(excluding urls: Set<URL>) {

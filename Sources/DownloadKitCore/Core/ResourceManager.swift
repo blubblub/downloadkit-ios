@@ -10,7 +10,7 @@ import os
 
 public protocol ResourceManagerObserver: AnyObject, Sendable {
     func didStartDownloading(_ downloadRequest: DownloadRequest)
-    func willRetryFailedDownload(_ retryRequest: DownloadRequest, originalDownload: DownloadRequest, with error: Error)
+    func willRetryFailedDownload(_ downloadRequest: DownloadRequest, mirror: ResourceMirrorSelection, with error: Error)
     func didFinishDownload(_ downloadRequest: DownloadRequest, with error: Error?)
 }
 
@@ -180,8 +180,7 @@ public actor ResourceManager: DownloadQueuable {
     }
     
     public func process(request: DownloadRequest, priority: DownloadPriority = .normal) async {
-       
-        let resourceId = await request.resourceId()
+        let resourceId = request.resourceId
         let downloadable = request.mirror.downloadable
         
         if let priorityQueue = priorityQueue, priority.rawValue > 0 {
@@ -371,7 +370,7 @@ extension ResourceManager: DownloadQueueObserver {
         
         // Check if we should retry, cache will tell us based on it's internal mirror policy.
         // We cannot switch queues here, if it was put on lower priority, it should stay on lower priority.
-        if let retryRequest = retryRequest, let retry = retryRequest.retryRequest {
+        if let retryRequest = retryRequest, let retry = retryRequest.nextMirror {
             let retryDownloadable = await retryRequest.downloadable()
             if let retryDownloadable = retryDownloadable {
                 metrics.retried += 1
@@ -381,7 +380,7 @@ extension ResourceManager: DownloadQueueObserver {
                 
                 // Put it on the same queue.
                 Task {
-                    self.foreachObserver { $0.willRetryFailedDownload(retry, originalDownload: retryRequest.originalRequest, with: error) }
+                    self.foreachObserver { $0.willRetryFailedDownload(retryRequest.request, mirror: retry, with: error) }
                 }
                 
                 let identifier = await retryDownloadable.identifier
@@ -389,13 +388,16 @@ extension ResourceManager: DownloadQueueObserver {
                 
                 await queue.download([retryDownloadable])
             }
-        } else if let originalRequest = retryRequest?.originalRequest {
+        } else if let retryRequest = retryRequest {
             metrics.failed += 1
             
             let identifier = await downloadable.identifier
             log.error("Download failed, done: \(identifier) Error: \(error.localizedDescription)")
                 
-            await self.completeProgress(originalRequest, downloadable: downloadable, with: error)
+            await self.completeProgress(retryRequest.request, downloadable: downloadable, with: error)
+        }
+        else {
+            log.fault("Download received, but cache knows nothing about this resource, not OK.")
         }
         
         log.info("Metrics on download failed: \(self.metrics.description)")
@@ -410,7 +412,7 @@ extension ResourceManager {
             let downloadableIdentifier = await downloadable.identifier
             await self.progress.complete(identifier: downloadableIdentifier, with: error)
             
-            let identifier = await downloadRequest.resourceId()
+            let identifier = downloadRequest.resourceId
             
             guard let completions = self.resourceCompletions[identifier] else {
                 return

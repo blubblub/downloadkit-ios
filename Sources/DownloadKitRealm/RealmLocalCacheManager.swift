@@ -72,7 +72,7 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         try finalFileUrl.setResourceValues(resourceValues)
         
         // Store file into Realm
-        let localResource = self.createLocalResource(for: resource, url: finalFileUrl)
+        let localResource = self.createLocalResource(for: resource, mirror: mirror, url: finalFileUrl)
         let realm = try self.realm
         
         try realm.write {
@@ -312,9 +312,10 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
     ///   - resource: resource to create record for
     ///   - url: url where file is located
     /// - Returns: local resource
-    private func createLocalResource(for resource: ResourceFile, url: URL) -> L {
+    private func createLocalResource(for resource: ResourceFile, mirror: ResourceFileMirror, url: URL) -> L {
         var localResource = L()
         localResource.id = resource.id
+        localResource.mirrorId = mirror.id
         localResource.fileURL = url
         localResource.modifyDate = resource.modifyDate ?? Date()
         

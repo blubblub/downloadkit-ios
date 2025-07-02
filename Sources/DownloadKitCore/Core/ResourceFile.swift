@@ -49,6 +49,8 @@ public protocol ResourceFileMirror : Sendable {
 public protocol LocalResourceFile : Sendable {
     var id: String { get set }
     
+    var mirrorId: String { get set }
+    
     var fileURL: URL? { get set }
     
     var modifyDate: Date? { get set }

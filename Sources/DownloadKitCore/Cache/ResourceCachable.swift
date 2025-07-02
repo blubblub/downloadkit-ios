@@ -35,7 +35,7 @@ public protocol ResourceCachable: Actor, ResourceFileCacheable {
     ///   - downloadable: item that failed
     ///   - error: error describing why the download failed.
     /// - Returns:
-    ///   - RetryDownloadRequest: If cache has no info about this request, it will return in.
+    ///   - RetryDownloadRequest: If cache has no info about this request, it will return nil.
     ///                           Otherwise object will be present with it's original download req.
     func download(_ downloadable: Downloadable, didFailWith error: Error) async -> RetryDownloadRequest?
     

@@ -3,7 +3,9 @@ import RealmSwift
 import DownloadKitCore
 
 public final class CachedLocalFile: Object, LocalResourceFile, @unchecked Sendable {
-    @objc public dynamic var identifier: String?
+    @objc public dynamic var identifier: String
+    
+    @objc public dynamic var mirrorIdentifier: String
     
     @objc public dynamic var modifyDate: Date?
     
@@ -13,6 +15,14 @@ public final class CachedLocalFile: Object, LocalResourceFile, @unchecked Sendab
     
     public override static func primaryKey() -> String? {
         return "identifier"
+    }
+    
+    init(identifier: String, mirrorIdentifier: String, modifyDate: Date? = nil, url: String? = nil, storagePriority: String) {
+        self.identifier = identifier
+        self.mirrorIdentifier = mirrorIdentifier
+        self.modifyDate = modifyDate
+        self.url = url
+        self.storagePriority = storagePriority
     }
     
     public static func targetUrl(for resource: ResourceFile, mirror: ResourceFileMirror, at url: URL, storagePriority: StoragePriority, file: FileManager) -> URL {
@@ -28,8 +38,13 @@ public final class CachedLocalFile: Object, LocalResourceFile, @unchecked Sendab
     }
     
     public var id: String {
-        get { return identifier ?? "" }
+        get { return identifier }
         set { identifier = newValue }
+    }
+    
+    public var mirrorId: String {
+        get { return mirrorIdentifier }
+        set { mirrorIdentifier = newValue }
     }
     
     public var fileURL: URL? {

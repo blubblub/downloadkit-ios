@@ -83,20 +83,23 @@ public struct DownloadRequest: Sendable, Equatable {
 }
 
 /// Returns download selection to retry.
-public struct RetryDownloadRequest: Identifiable, Equatable, Sendable {
+public struct RetryDownloadRequest: Identifiable, Sendable {
+
+    public let nextMirror: ResourceMirrorSelection?
+    public let request: DownloadRequest
     
-    public init(retryRequest: DownloadRequest?, originalRequest: DownloadRequest) {
-        self.retryRequest = retryRequest
-        self.originalRequest = originalRequest
+    public init(request: DownloadRequest, nextMirror: ResourceMirrorSelection? = nil) {
+        self.nextMirror = nextMirror
+        self.request = request
     }
     
     public var id : String {
-        return originalRequest.id
+        return request.id
     }
     
     public func downloadable() async -> Downloadable? {
         
-        let nextDownloadable = retryRequest?.mirror.downloadable
+        let nextDownloadable = nextMirror?.downloadable
         
         // Increase priority after download fails, so the next attempt is prioritized higher and
         // not placed at the end of the download queue. We likely want this retry immediately.
@@ -106,7 +109,4 @@ public struct RetryDownloadRequest: Identifiable, Equatable, Sendable {
         
         return nextDownloadable
     }
-    
-    public let retryRequest: DownloadRequest?
-    public let originalRequest: DownloadRequest
 }
