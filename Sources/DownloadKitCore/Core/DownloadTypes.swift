@@ -35,12 +35,9 @@ public enum StoragePriority: String, Sendable {
 }
 
 public struct RequestOptions: Sendable {
-    public var downloadPriority: DownloadPriority = .normal
     public var storagePriority: StoragePriority = .cached
     
-    public init(downloadPriority: DownloadPriority = .normal,
-                storagePriority: StoragePriority = .cached) {
-        self.downloadPriority = downloadPriority
+    public init(storagePriority: StoragePriority = .cached) {
         self.storagePriority = storagePriority
     }
 }
