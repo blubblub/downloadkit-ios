@@ -261,7 +261,7 @@ public actor ResourceManager: DownloadQueuable {
                 
                 // Since all downloads were cancelled as urgent, reduce priority,
                 // since otherwise each file will cancel out previous download,
-                // so the priotity is kept high for all files in this "batch"
+                // so the priotity is kept high for all files in this "batch".
                 finalPriority = .high
             }
                         
@@ -270,7 +270,7 @@ public actor ResourceManager: DownloadQueuable {
             for download in requests {
                 identifiers.append(await download.downloadableIdentifier())
             }
-            log.info("Reprioritising resources: \(identifiers.joined(separator: ", "))")
+            log.info("Reprioritised resources: \(identifiers.joined(separator: ", "))")
         }
         
         // Process the requests.
@@ -342,39 +342,26 @@ extension ResourceManager: DownloadQueueObserver {
     }
             
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadable: Downloadable, to location: URL) async {
+ 
+        // Store the file to the cache
         do {
-            // Move the file to a temporary location, otherwise it gets removed by the system immediately after this function completes
-            let tempLocation = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + "-download.tmp")
-            try FileManager.default.moveItem(at: location, to: tempLocation)
-            
-            // Store the file to the cache
-
-            do {
-                if let downloadRequest = try await self.cache.download(downloadable, didFinishTo: tempLocation) {
-                    self.metrics.downloadCompleted += 1
-                    let identifier = await downloadable.identifier
-                    var tempMetrics = self.metrics
-                    await tempMetrics.updateDownloadSpeed(downloadable: downloadable)
-                    self.metrics = tempMetrics
-                    
-                    log.info("Download finished: \(identifier)")
-                    
-                    log.info("Metrics on download finished: \(self.metrics.description)")
-                    
-                    await self.completeProgress(downloadRequest, downloadable: downloadable, with: nil)
-                }
+            if let downloadRequest = try await self.cache.download(downloadable, didFinishTo: location) {
+                self.metrics.downloadCompleted += 1
+                let identifier = await downloadable.identifier
+                var tempMetrics = self.metrics
+                await tempMetrics.updateDownloadSpeed(downloadable: downloadable)
+                self.metrics = tempMetrics
+                
+                log.info("Download finished: \(identifier)")
+                
+                log.info("Metrics on download finished: \(self.metrics.description)")
+                
+                await self.completeProgress(downloadRequest, downloadable: downloadable, with: nil)
             }
-            catch let error {
-                log.error("Error caching file: \(error.localizedDescription)")
-                await self.downloadQueue(queue, downloadDidFail: downloadable, with: error)
-            }
-        } catch let error {
-            log.error("Error moving temporary file: \(error.localizedDescription)")
-
-            // Ensure error is handled, download actually did fail.
-            Task {
-                await self.downloadQueue(queue, downloadDidFail: downloadable, with: error)
-            }
+        }
+        catch let error {
+            log.error("Error caching file: \(error.localizedDescription)")
+            await self.downloadQueue(queue, downloadDidFail: downloadable, with: error)
         }
     }
     

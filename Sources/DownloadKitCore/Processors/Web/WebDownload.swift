@@ -206,11 +206,27 @@ public actor WebDownload : NSObject, Downloadable {
 
 extension WebDownload : URLSessionDownloadDelegate {
     nonisolated public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        Task {
-            // Note: File operations should be completed before this method exits to ensure the temporary
-            // file isn't deleted. Using async here is safe as the completion handlers will manage file moves.
-            for completion in await self.completions {
-                completion(.success(location))
+        // Move the file to a temporary location, otherwise it gets removed by the system immediately after this function completes
+        let tempLocation = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + "-download.tmp")
+        do {
+            try FileManager.default.moveItem(at: location, to: tempLocation)
+            
+            Task {
+                // Note: File operations should be completed before this method exits to ensure the temporary
+                // file isn't deleted. Using async here is safe as the completion handlers will manage file moves.
+                for completion in await self.completions {
+                    completion(.success(location))
+                }
+            }
+        } catch let error {
+            log.error("Error moving temporary file: \(error.localizedDescription)")
+            
+            Task {
+                // Note: File operations should be completed before this method exits to ensure the temporary
+                // file isn't deleted. Using async here is safe as the completion handlers will manage file moves.
+                for completion in await self.completions {
+                    completion(.failure(error))
+                }
             }
         }
     }
