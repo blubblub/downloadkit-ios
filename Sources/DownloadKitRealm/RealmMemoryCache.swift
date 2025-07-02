@@ -74,16 +74,4 @@ public actor RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalRe
             resourceURLs[localResource.id] = localUrl
         }
     }
-    
-    // MARK: - ResourceFileCacheable
-    
-    public func currentResources() async -> [ResourceFile] {
-        // This should return cached resources from Realm, for now returning empty
-        return []
-    }
-    
-    public func currentDownloadRequests() async -> [DownloadRequest] {
-        // Memory cache doesn't store download requests
-        return []
-    }
 }
