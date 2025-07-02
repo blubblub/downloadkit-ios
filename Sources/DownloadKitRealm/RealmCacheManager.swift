@@ -92,11 +92,13 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         }
         
         do {
-            _ = try localCache.store(resource: request.resource,
+            let localObject = try localCache.store(resource: request.resource,
                                                   mirror: request.mirror.mirror,
                                                   at: location,
                                                   options: request.options)
             
+            // Update Memory Cache with resource.
+            await memoryCache?.update(for: localObject)
             await request.complete()
             requestMap[request.resourceId] = nil
         }

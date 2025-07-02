@@ -307,6 +307,8 @@ class ResourceManagerIntegrationTests: XCTestCase {
         // Request downloads
         let requests = await manager.request(resources: resources)
         
+        await manager.process(requests: requests)
+        
         // Wait for downloads to complete
         let metricsExpectation = XCTestExpectation(description: "Downloads should complete and update metrics")
         metricsExpectation.expectedFulfillmentCount = requests.count
