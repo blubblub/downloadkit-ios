@@ -405,9 +405,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         
         print("Waiting for batch downloads to complete...")
         
-        await manager.process(requests: requests)
-        
-        // Set up completion handlers
+        // Set up completion handlers before processing
         for resource in resources {
             await manager.addResourceCompletion(for: resource) { (success, _) in
                 Task {
@@ -420,6 +418,9 @@ class ResourceManagerIntegrationTests: XCTestCase {
                 }
             }
         }
+        
+        // Process the downloads after setting up completion handlers
+        await manager.process(requests: requests)
         
         // Wait for all download attempts to complete
         await fulfillment(of: [batchExpectation], timeout: 30) // 30 seconds timeout

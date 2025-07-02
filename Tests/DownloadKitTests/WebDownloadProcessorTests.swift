@@ -41,11 +41,11 @@ class WebDownloadProcessorTests: XCTestCase {
 
     override func tearDownWithError() throws {
         processor = nil
-observer = nil
+        observer = nil
     }
     
     func testCanProcessWebDownloadItem() async {
-await processor.set(observer: observer)
+        await processor.set(observer: observer)
         let item = WebDownload(identifier: "google-item", url: URL(string: "http://google.com")!)
 
         let canProcess = await processor.canProcess(downloadable: item)
