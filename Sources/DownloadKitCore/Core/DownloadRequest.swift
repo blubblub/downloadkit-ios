@@ -30,9 +30,9 @@ public struct DownloadRequest: Sendable, Equatable {
     public func downloadableIdentifier() async -> String {
         return await mirror.downloadable.identifier
     }
-    
-    public func waitTillComplete() async throws {
         
+    public func waitTillComplete() async throws {
+        // TODO: Implement this.
     }
 }
 

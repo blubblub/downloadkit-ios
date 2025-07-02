@@ -433,7 +433,7 @@ extension ResourceManager {
 // MARK: - Resource Completion Callbacks
 
 extension ResourceManager {
-    public func addResourceCompletion(for resource: Resource, completion: @escaping (Bool, String) -> Void) async {
+    public func addResourceCompletion(for resource: Resource, completion: @Sendable @escaping (Bool, String) -> Void) async {
         // Check if any of the mirrors have downloadable.
         
         var mirrorIdentifiers = resource.alternatives.map( \.id )
@@ -456,7 +456,7 @@ extension ResourceManager {
     /// - Parameters:
     ///   - identifier: resource identifier to add the callback for.
     ///   - completion: callback to call once resource is finished.
-    private func addResourceCompletion(for identifier: String, completion: @escaping (Bool, String) -> Void) async {
+    private func addResourceCompletion(for identifier: String, completion: @Sendable @escaping (Bool, String) -> Void) async {
         
         guard await hasDownloadable(with: identifier) else {
             completion(false, identifier)
