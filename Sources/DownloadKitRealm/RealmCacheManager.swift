@@ -52,12 +52,14 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         
         log.info("Downloading from cache resource count: \(downloadableResources.count)")
         
-        let downloadRequests: [DownloadRequest] = downloadableResources.compactMap { resource in
-            guard let mirrorSelection = mirrorPolicy.mirror(for: resource, lastMirrorSelection: nil, error: nil) else {
-                return nil
+        var downloadRequests: [DownloadRequest] = []
+        
+        for resource in downloadableResources {
+            guard let mirrorSelection = await mirrorPolicy.mirror(for: resource, lastMirrorSelection: nil, error: nil) else {
+                continue
             }
             
-            return DownloadRequest(resource: resource, options: options, mirror: mirrorSelection)
+            downloadRequests.append(DownloadRequest(resource: resource, options: options, mirror: mirrorSelection))
         }
         
         for request in downloadRequests {
