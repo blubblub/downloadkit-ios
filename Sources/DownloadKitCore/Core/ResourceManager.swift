@@ -159,8 +159,7 @@ public actor ResourceManager: DownloadQueuable {
     @discardableResult
     public func request(resources: [Resource], options: RequestOptions = RequestOptions()) async -> [DownloadRequest] {
         
-        await downloadQueue.set(observer: self)
-        await priorityQueue?.set(observer: self)
+        await ensureObserverSetup()
         
         let uniqueResources = resources.unique(\.id)
         
@@ -180,6 +179,8 @@ public actor ResourceManager: DownloadQueuable {
     }
     
     public func process(request: DownloadRequest, priority: DownloadPriority = .normal) async {
+        await ensureObserverSetup()
+        
         let resourceId = request.resourceId
         let downloadable = request.mirror.downloadable
         
@@ -279,12 +280,10 @@ public actor ResourceManager: DownloadQueuable {
     }
     
     public func resume() async {
+        await ensureObserverSetup()
+        
         await setActive(true)
         
-        // Ensure delegates are set.
-        await downloadQueue.set(observer: self)
-        await priorityQueue?.set(observer: self)
-                
         await downloadQueue.enqueuePending()
         await priorityQueue?.enqueuePending()
     }
@@ -318,6 +317,11 @@ public actor ResourceManager: DownloadQueuable {
         for key in observers.compactMap({ $1.instance == nil ? $0 : nil }) {
             observers[key] = nil
         }
+    }
+    
+    private func ensureObserverSetup() async {
+        await downloadQueue.set(observer: self)
+        await priorityQueue?.set(observer: self)
     }
 }
 

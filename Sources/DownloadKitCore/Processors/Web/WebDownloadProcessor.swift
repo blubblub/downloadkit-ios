@@ -126,8 +126,6 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
                 
                 switch result {
                 case .failure(let error):
-                    // Remove
-                    
                     await self.observer?.downloadDidError(self, downloadable: downloadable, error: error)
                 case .success(let url):
                     await self.observer?.downloadDidFinishTransfer(self, downloadable: downloadable, to: url)

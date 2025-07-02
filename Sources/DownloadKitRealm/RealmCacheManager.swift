@@ -96,10 +96,13 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
                                                   mirror: request.mirror.mirror,
                                                   at: location,
                                                   options: request.options)
+            
+            await request.complete()
             requestMap[request.resourceId] = nil
         }
         catch {
             requestMap[request.resourceId] = nil
+            await request.complete(with: error)
             throw error
         }
         
@@ -127,6 +130,8 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
             log.error("Download failed: \(identifier) Error: \(error.localizedDescription)")
             
             // Clear download selection for the identifier.
+            await request.complete(with: error)
+            
             requestMap[identifier] = nil
             
             return RetryDownloadRequest(request: request)

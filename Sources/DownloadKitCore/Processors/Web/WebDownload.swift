@@ -257,7 +257,9 @@ extension WebDownload : URLSessionDownloadDelegate {
     
     nonisolated public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         Task {
-            let error = error ?? URLError(.unknown)
+            guard let error = error else {
+                return
+            }
             
             for completion in await self.completions {
                 completion(.failure(error))
