@@ -215,7 +215,7 @@ extension WebDownload : URLSessionDownloadDelegate {
                 // Note: File operations should be completed before this method exits to ensure the temporary
                 // file isn't deleted. Using async here is safe as the completion handlers will manage file moves.
                 for completion in await self.completions {
-                    completion(.success(location))
+                    completion(.success(tempLocation))
                 }
             }
         } catch let error {
