@@ -32,29 +32,53 @@ public struct ResourceManagerMetrics: Sendable {
     public var bytesTransferred: Int64 = 0
     public private(set) var downloadSpeedBytes: Int64 = 0
     
-    /// Updates Download Speed calculation
+    /// Updates Download Speed calculation and bytes transferred tracking
     /// - Parameters:
-    ///   - item: downloadable
-    ///   - isFinished: if item finished downloading
-    public mutating func updateDownloadSpeed(downloadable: Downloadable? = nil) async {
+    ///   - downloadable: downloadable to update metrics for
+    ///   - isCompleted: whether the download is completed (for final byte tracking)
+    public mutating func updateDownloadSpeed(downloadable: Downloadable? = nil, isCompleted: Bool = false) async {
         guard let identifier = await downloadable?.identifier else {
             return
         }
         
         if let downloadable = downloadable {
+            let currentTransferredBytes = await downloadable.transferredBytes
+            
             if self.startBytesMap[identifier] == nil {
-                self.startBytesMap[identifier] = await downloadable.transferredBytes
+                self.startBytesMap[identifier] = currentTransferredBytes
             }
             
-            self.currentBytesMap[identifier] = await downloadable.transferredBytes
+            self.currentBytesMap[identifier] = currentTransferredBytes
+            
+            // Update total bytes transferred when download completes
+            if isCompleted && currentTransferredBytes > 0 {
+                // Add the completed download's bytes to total transferred
+                if let startBytes = self.startBytesMap[identifier] {
+                    let transferredInThisDownload = currentTransferredBytes - startBytes
+                    self.bytesTransferred += max(0, transferredInThisDownload)
+                } else {
+                    // If we don't have start bytes, count all transferred bytes
+                    self.bytesTransferred += currentTransferredBytes
+                }
+            }
         }
         
         if let downloadSpeed = self.calculateDownloadSpeed(lastUpdateDate: self.updateDate) {
             self.downloadSpeedBytes = downloadSpeed
             self.updateDate = Date()
             
-            self.startBytesMap.removeAll()
-            self.currentBytesMap.removeAll()
+            // Only clear the maps if calculating download speed
+            // Keep them for completed download tracking
+            if !isCompleted {
+                self.startBytesMap.removeAll()
+                self.currentBytesMap.removeAll()
+            }
+        }
+        
+        // Clean up completed downloads from tracking maps
+        if isCompleted {
+            self.startBytesMap.removeValue(forKey: identifier)
+            self.currentBytesMap.removeValue(forKey: identifier)
         }
     }
     

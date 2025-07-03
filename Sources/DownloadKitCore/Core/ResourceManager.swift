@@ -356,7 +356,7 @@ extension ResourceManager: DownloadQueueObserver {
                 self.metrics.downloadCompleted += 1
                 let identifier = await downloadable.identifier
                 var tempMetrics = self.metrics
-                await tempMetrics.updateDownloadSpeed(downloadable: downloadable)
+                await tempMetrics.updateDownloadSpeed(downloadable: downloadable, isCompleted: true)
                 self.metrics = tempMetrics
                 
                 log.info("Download finished: \(identifier)")
