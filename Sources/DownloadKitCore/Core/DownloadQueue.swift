@@ -328,7 +328,7 @@ public actor DownloadQueue: DownloadQueuable {
             // We cannot EVER process this item! We will add it to incomplete, since it just
             // cannot be done.
             
-            let error = NSError(domain: "org.blubblub.downloadkit", code: -1, userInfo: [ NSLocalizedDescriptionKey: "Cannot process download item, no processor available." ])
+            let error = DownloadKitError.downloadQueue(.noProcessorAvailable(identifier))
             
             Task {
                 await self.observer?.downloadQueue(self, downloadDidFail: downloadable, with: error)

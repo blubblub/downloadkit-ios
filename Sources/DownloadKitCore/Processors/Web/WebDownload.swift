@@ -219,7 +219,8 @@ extension WebDownload : URLSessionDownloadDelegate {
                 }
             } catch let error {
                 Task {
-                    await completeDownload(url: nil, error: error)
+                    let downloadKitError = DownloadKitError.from(error as NSError)
+                    await completeDownload(url: nil, error: downloadKitError)
                 }
             }
         }
@@ -241,7 +242,9 @@ extension WebDownload : URLSessionDownloadDelegate {
                 completion(.success(url))
             }
             else {
-                completion(.failure(error ?? URLError(.unknown)))
+                let finalError = error ?? URLError(.unknown)
+                let downloadKitError = DownloadKitError.from(finalError as NSError)
+                completion(.failure(downloadKitError))
             }
         }
     }
@@ -262,10 +265,11 @@ extension WebDownload : URLSessionDownloadDelegate {
     
     nonisolated public func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
         Task {
-            let error = error ?? URLError(.unknown)
+            let finalError = error ?? URLError(.unknown)
+            let downloadKitError = DownloadKitError.from(finalError as NSError)
             
             for completion in await self.completions {
-                completion(.failure(error))
+                completion(.failure(downloadKitError))
             }
         }
     }
@@ -276,8 +280,10 @@ extension WebDownload : URLSessionDownloadDelegate {
                 return
             }
             
+            let downloadKitError = DownloadKitError.from(error as NSError)
+            
             for completion in await self.completions {
-                completion(.failure(error))
+                completion(.failure(downloadKitError))
             }
         }
     }

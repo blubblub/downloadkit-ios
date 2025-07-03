@@ -41,7 +41,14 @@ public actor WeightedMirrorPolicy: MirrorPolicy {
     public func mirror(for resource: ResourceFile, lastMirrorSelection: ResourceMirrorSelection?, error: Error?) -> ResourceMirrorSelection? {
         
         // if download was cancelled, no need to retry or return new mirror
-        if (error as NSError?)?.code == NSURLErrorCancelled {
+        if let downloadKitError = error as? DownloadKitError,
+           case .networkError(.cancelled) = downloadKitError {
+            return nil
+        }
+        
+        // Also handle NSError for backwards compatibility
+        if let nsError = error as NSError?,
+           nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
             return nil
         }
         

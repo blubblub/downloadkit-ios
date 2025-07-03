@@ -9,10 +9,7 @@ import CloudKit
 import Foundation
 import os
 
-public enum CloudKitError: Error {
-    case noAssetData
-    case noRecord
-}
+// CloudKitError is now defined in DownloadKitError.swift
 
 
 public actor CloudKitDownloadProcessor: DownloadProcessor {

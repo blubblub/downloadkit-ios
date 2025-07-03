@@ -60,7 +60,7 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         
         guard var finalFileUrl = file.generateLocalUrl(in: directoryUrl, for: filename) else {
             // Emit unable to generate valid local url, because of too many duplicates.
-            throw NSError(domain: "org.blubblub.downloadkit", code: 1001, userInfo: [NSLocalizedDescriptionKey: "Unable to generate local path, file already exists."])
+            throw DownloadKitError.cache(.cannotGenerateLocalPath("file already exists at target location"))
         }
                 
         // Update local path from finalFileUrl back to task, so it can be correctly saved.

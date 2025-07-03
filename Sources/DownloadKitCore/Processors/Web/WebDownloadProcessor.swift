@@ -17,11 +17,7 @@ extension URLSessionConfiguration {
     }
 }
 
-public extension WebDownloadProcessor {
-    enum ProcessorError: Error {
-        case cannotProcess(String)
-    }
-}
+// WebDownloadProcessor now uses the centralized DownloadKitError system
 
 /// Wrapper for NSURLSession delegate, between DownloadQueue and Downloadable,
 /// so we can correctly track.
@@ -78,7 +74,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
             let error = "Cannot process the unsupported download type. Item: \(downloadable)"
             await observer?.downloadDidError(self,
                                        downloadable: downloadable,
-                                       error: ProcessorError.cannotProcess(error))
+                                       error: DownloadKitError.processor(.cannotProcess(error)))
             return
         }
         

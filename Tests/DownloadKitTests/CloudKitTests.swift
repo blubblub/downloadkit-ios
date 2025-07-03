@@ -160,7 +160,8 @@ class CloudKitTests: XCTestCase, @unchecked Sendable {
         
         Task { [delegate = delegate!] in
             await delegate.setErrorCallback { (error: Error) in
-                if case CloudKitError.noRecord = error {
+                if let cloudKitError = error as? CloudKitError,
+                   case .noRecord = cloudKitError {
                     expectation.fulfill()
                 }
             }
