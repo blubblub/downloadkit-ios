@@ -51,7 +51,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
     /// Helper method to setup ResourceManager for integration tests
     private func setupManager() async {
         let downloadQueue = DownloadQueue()
-        await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
+        await downloadQueue.add(processor: WebDownloadProcessor())
         
         // Use in-memory Realm for testing to avoid conflicts
         let config = Realm.Configuration(inMemoryIdentifier: "integration-test-\(UUID().uuidString)")
@@ -96,7 +96,6 @@ class ResourceManagerIntegrationTests: XCTestCase {
         let requests = await manager.request(resources: resources)
         print("Created \(requests.count) download requests")
         
-        await manager.process(requests: requests)
         
         // We expect all resources to be requested (none should be cached initially)
         XCTAssertEqual(requests.count, resourceCount, "All resources should have been requested for download.")
@@ -120,7 +119,9 @@ class ResourceManagerIntegrationTests: XCTestCase {
                     batchExpectation.fulfill()
                 }
             }
-        }
+        }       
+        
+        await manager.process(requests: requests)
         
         // Wait for all downloads to complete (allow some failures due to network)
         await fulfillment(of: [batchExpectation], timeout: 120) // 2 minutes timeout
@@ -307,8 +308,6 @@ class ResourceManagerIntegrationTests: XCTestCase {
         // Request downloads
         let requests = await manager.request(resources: resources)
         
-        await manager.process(requests: requests)
-        
         // Wait for downloads to complete
         let metricsExpectation = XCTestExpectation(description: "Downloads should complete and update metrics")
         metricsExpectation.expectedFulfillmentCount = requests.count
@@ -318,6 +317,8 @@ class ResourceManagerIntegrationTests: XCTestCase {
                 metricsExpectation.fulfill()
             }
         }
+        
+        await manager.process(requests: requests)
         
         await fulfillment(of: [metricsExpectation], timeout: 45)
         

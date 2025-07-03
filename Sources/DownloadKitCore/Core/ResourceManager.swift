@@ -442,26 +442,8 @@ extension ResourceManager {
     public func addResourceCompletion(for resource: ResourceFile, completion: @Sendable @escaping (Bool, String) -> Void) async {
         // Check if any of the mirrors have downloadable.
         
-        let mirrorIdentifiers = resource.mirrorIds
         let identifier = resource.id
-        
-        // Need to complete on resource, not on one specific mirror. Should complete after retries are exhausted.
-        // to do this, we need to track a map of resource to Downloadables.
-        var found = false
-        
-        for identifier in mirrorIdentifiers {
-            if await hasDownloadable(with: identifier) {
-                found = true
-                break
-            }
-        }
-        
-        // If we did not find the resource being downloaded at all, just call completion.
-        if !found {
-            completion(false, resource.id)
-            return
-        }
-        
+             
         if var completions = resourceCompletions[identifier] {
             completions.append(completion)
             resourceCompletions[identifier] = completions

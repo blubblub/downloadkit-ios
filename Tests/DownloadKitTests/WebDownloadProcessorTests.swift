@@ -103,7 +103,7 @@ class WebDownloadProcessorTests: XCTestCase {
         
         let expectation = XCTestExpectation(description: "Download should fail with error.")
         
-await observer.setErrorCallback { error in
+        await observer.setErrorCallback { error in
             XCTAssertNotNil(error)
             expectation.fulfill()
         }
@@ -125,12 +125,11 @@ await observer.setErrorCallback { error in
         let expectation = XCTestExpectation(description: "Enqueue function should execute delegate's beginCallback.")
         
         var executed = 0
-await observer.setBeginCallback {
+        await observer.setBeginCallback {
             // test is successful if we're getting called
             executed += 1
         }
         
-        await processor.enqueuePending()
         XCTAssertEqual(executed, 3, "Begin callback should be called on processor because we had pending items.")
         expectation.fulfill()
         
