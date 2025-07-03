@@ -151,6 +151,10 @@ public actor ResourceManager: DownloadQueuable {
         return false
     }
     
+    public func request(resource: Resource, options: RequestOptions = RequestOptions()) async -> DownloadRequest? {
+        return await request(resources: [resource], options: options).first
+    }
+    
     /// Request downloads for the specified resources.
     /// - Parameters:
     ///   - resources: resources to download

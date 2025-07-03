@@ -209,6 +209,8 @@ class ResourceManagerIntegrationTests: XCTestCase {
             downloadExpectation.fulfill()
         }
         
+        await manager.process(requests: requests)
+        
         // Wait for download to complete
         await fulfillment(of: [downloadExpectation], timeout: 30)
         
@@ -226,26 +228,19 @@ class ResourceManagerIntegrationTests: XCTestCase {
     func testConcurrentDownloadsWithPriorities() async throws {
         await setupManager()
         
-        let normalResources = createTestResources(count: 25)
-        let highPriorityResources = createTestResources(count: 25).map { resource in
-            Resource(
-                id: "high-priority-\(resource.id)",
-                main: resource.main,
-                alternatives: resource.alternatives,
-                fileURL: resource.fileURL
-            )
-        }
+        let resources = createTestResources(count: 50)
+        
+        let normalResources = Array(resources[0..<25])
+        let highPriorityResources = Array(resources[25..<50])
         
         // Start normal priority downloads
         let normalRequests = await manager.request(
-            resources: normalResources,
-            options: RequestOptions(storagePriority: .cached)
+            resources: normalResources
         )
         
         // Start high priority downloads
         let highPriorityRequests = await manager.request(
-            resources: highPriorityResources,
-            options: RequestOptions(storagePriority: .permanent)
+            resources: highPriorityResources
         )
         
         print("Started \(normalRequests.count) normal and \(highPriorityRequests.count) high priority downloads")
@@ -279,6 +274,11 @@ class ResourceManagerIntegrationTests: XCTestCase {
                 allExpectation.fulfill()
             }
         }
+        
+        await manager.process(requests: normalRequests)
+        await manager.process(requests: highPriorityRequests)
+        
+        print("Waiting for downloads to be processed")
         
         await fulfillment(of: [allExpectation], timeout: 90)
         

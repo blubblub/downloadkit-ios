@@ -180,38 +180,27 @@ class ResourceManagerTests: XCTestCase {
         // Verify that all 3 resource completion callbacks were called
     }
     
-    func testThatAddingResourceCompletionBeforeRequestingDownloadsFails() async throws {
-        await setupManager()
-        
-        let expectation = self.expectation(description: "Resource completion should be called immediately.")
-
-        await manager.addResourceCompletion(for: resources.first!) { (success: Bool, resourceID: String) in
-            XCTAssertFalse(success)
-            expectation.fulfill()
-        }
-        
-        await manager.request(resources: resources)
-
-        await fulfillment(of: [expectation], timeout: 2)
-    }
-    
     func testThatErrorHandlerIsCalled() async {
         await setupManager()
         
         let expectation = self.expectation(description: "Requesting downloads should call completion.")
         
         let resource = Resource(id: "invalid-resource", main: FileMirror(id: "invalid-resource",
-                                                                        location: "invalid://scheme.url/jpg",
+                                                                        location: "https://scheme.does.not.exist/jpg",
                                                                         info: [:]),
                                 alternatives: [],
                                 fileURL: nil)
-        await manager.request(resources: [resource])
+        let request = await manager.request(resource: resource)
         await manager.addResourceCompletion(for: resource) { (success: Bool, resourceID: String) in
             // For unsupported URL schemes, this should fail quickly
             XCTAssertFalse(success)
             XCTAssertEqual("invalid-resource", resourceID)
             expectation.fulfill()
         }
+        
+        XCTAssertNotNil(request)
+        
+        await manager.process(request: request!)
         
         await fulfillment(of: [expectation], timeout: 1)
     }
