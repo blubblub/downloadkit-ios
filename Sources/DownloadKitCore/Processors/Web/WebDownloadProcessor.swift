@@ -25,7 +25,7 @@ public extension WebDownloadProcessor {
 
 /// Wrapper for NSURLSession delegate, between DownloadQueue and Downloadable,
 /// so we can correctly track.
-public actor WebDownloadProcessor: NSObject, DownloadProcessor, URLSessionDelegate {
+public actor WebDownloadProcessor: NSObject, DownloadProcessor {
 
     // MARK: - Private Properties
     
@@ -58,14 +58,9 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor, URLSessionDelega
     public init(configuration: URLSessionConfiguration) {
         super.init()
         
-        // For background sessions, we need to set ourselves as the delegate
-        // This enables proper handling of background events and app lifecycle
-        if configuration.isEphemeral {
-            self.session = URLSession(configuration: configuration)
-        }
-        else {
-            self.session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
-        }
+        // For all sessions, we need to set ourselves as the delegate
+        // This enables proper handling of delegate callbacks and routing to WebDownload instances
+        self.session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
         
     }
     
@@ -195,15 +190,38 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor, URLSessionDelega
 }
 
 // MARK: - URLSessionDelegate
-extension WebDownloadProcessor {
+extension WebDownloadProcessor : URLSessionDownloadDelegate {
     nonisolated public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        Task {
-            guard let downloadable = await self.downloadable(for: downloadTask) else {
-                log.error("DidFinishDownloadingTo: Could not find downloadable for download task \(downloadTask)")
-                return
-            }
+        log.info("URLSession delegate: didFinishDownloadingTo called for task \(downloadTask.taskIdentifier)")
+        
+        // We have to move file here, otherwise file is gone before Task is executed.
+        let tempLocation = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + "-download.tmp")
+        
+        do {
+            try FileManager.default.moveItem(at: location, to: tempLocation)
+            log.info("Successfully moved file to \(tempLocation)")
             
-            downloadable.urlSession(session, downloadTask: downloadTask, didFinishDownloadingTo: location)
+            Task {
+                guard let downloadable = await self.downloadable(for: downloadTask) else {
+                    log.error("DidFinishDownloadingTo: Could not find downloadable for download task \(downloadTask.taskIdentifier)")
+                    return
+                }
+                
+                let downloadableId = await downloadable.identifier
+                log.info("Forwarding didFinishDownloadingTo to downloadable \(downloadableId)")
+                // Forward the call to the downloadable item
+                downloadable.urlSession(session, downloadTask: downloadTask, didFinishDownloadingTo: tempLocation)
+            }
+        }
+        catch let error {
+            Task {
+                guard let downloadable = await self.downloadable(for: downloadTask) else {
+                    log.error("Move file error. DidFinishDownloadingTo: Could not find downloadable for download task \(downloadTask.taskIdentifier) \(error)")
+                    return
+                }
+                
+                await downloadable.completeDownload(url: nil, error: error)
+            }
         }
     }
         

@@ -51,8 +51,11 @@ class ResourceManagerIntegrationTests: XCTestCase {
     /// Helper method to setup ResourceManager for integration tests
     private func setupManager() async {
         let downloadQueue = DownloadQueue()
-        // Use ephemeral configuration for tests to avoid background session issues in iOS Simulator
-        await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
+        // Use default configuration for tests - ephemeral has delegate callback issues in iOS Simulator
+        let testConfig = URLSessionConfiguration.default
+        testConfig.waitsForConnectivity = true
+        testConfig.allowsConstrainedNetworkAccess = true
+        await downloadQueue.add(processor: WebDownloadProcessor(configuration: testConfig))
         
         // Use in-memory Realm for testing to avoid conflicts
         let config = Realm.Configuration(inMemoryIdentifier: "integration-test-\(UUID().uuidString)")
@@ -125,7 +128,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         await manager.process(requests: requests)
         
         // Wait for all downloads to complete (allow some failures due to network)
-        await fulfillment(of: [batchExpectation], timeout: 120) // 2 minutes timeout
+        await fulfillment(of: [batchExpectation], timeout: 10) // 2 minutes timeout
         
         let finalSuccessCount = await successCount.value
         let finalFailureCount = await failureCount.value
