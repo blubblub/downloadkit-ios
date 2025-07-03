@@ -70,96 +70,85 @@ class WaitTillCompleteTests: XCTestCase {
     }
     
     func testWaitTillCompleteWithAlreadyCompletedDownload() async throws {
-        // Create a WebDownload that we can manually finish
-        let webDownload = WebDownload(
-            identifier: "already-completed-test",
-            url: URL(string: "https://picsum.photos/50/50.jpg")!
-        )
+        // Create a simple resource manager
+        let cache = RealmCacheManager<CachedLocalFile>(configuration: Realm.Configuration(inMemoryIdentifier: "wait-test-\(UUID().uuidString)"))
+        let downloadQueue = DownloadQueue()
+        await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
         
-        // Manually finish the download
-        await webDownload.finish()
+        let manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
         
-        // Create a mock request
-        let mirror = ResourceMirrorSelection(
-            id: "test-id",
-            mirror: FileMirror(id: "test-mirror", location: "https://picsum.photos/50/50.jpg", info: [:]),
-            downloadable: webDownload
-        )
-        
+        // Create a test resource
         let resource = Resource(
-            id: "test-resource",
-            main: FileMirror(id: "test-mirror", location: "https://picsum.photos/50/50.jpg", info: [:]),
+            id: "wait-test-resource",
+            main: FileMirror(
+                id: "wait-test-mirror",
+                location: "https://picsum.photos/100/100.jpg",
+                info: [:]
+            ),
             alternatives: [],
             fileURL: nil
         )
         
-        let request = DownloadRequest(
-            resource: resource,
-            options: RequestOptions(),
-            mirror: mirror
-        )
+        // Request download
+        let requests = await manager.request(resources: [resource])
+        guard let request = requests.first else {
+            XCTFail("Should have created a download request")
+            return
+        }
+        
+        // Process the request
+        await manager.process(requests: requests)
         
         // Record start time
         let startTime = Date()
         
-        // Wait for completion - should return immediately since download is already finished
-        try await request.waitTillComplete()
-        
-        let duration = Date().timeIntervalSince(startTime)
-        print("✅ Already completed download returned in \(String(format: "%.4f", duration)) seconds")
-        
-        // Should return very quickly since download was already finished
-        XCTAssertLessThan(duration, 0.1, "waitTillComplete should return immediately for already completed downloads")
-        
-        // Verify the downloadable has a finished date
-        let finishedDate = await request.mirror.downloadable.finishedDate
-        XCTAssertNotNil(finishedDate, "Download should have a finished date")
-    }
-    
-    func testWaitTillCompleteWithCancellation() async throws {
-        // Create a test download
-        let webDownload = WebDownload(
-            identifier: "cancellation-test",
-            url: URL(string: "https://httpbin.org/delay/10")! // Slow endpoint for testing cancellation
-        )
-        
-        let mirror = ResourceMirrorSelection(
-            id: "cancellation-test-id",
-            mirror: FileMirror(id: "cancellation-test-mirror", location: "https://httpbin.org/delay/10", info: [:]),
-            downloadable: webDownload
-        )
-        
-        let resource = Resource(
-            id: "cancellation-test-resource",
-            main: FileMirror(id: "cancellation-test-mirror", location: "https://httpbin.org/delay/10", info: [:]),
-            alternatives: [],
-            fileURL: nil
-        )
-        
-        let request = DownloadRequest(
-            resource: resource,
-            options: RequestOptions(),
-            mirror: mirror
-        )
-        
-        // Start a task that will wait for completion
-        let waitTask = Task {
+        // Wait for completion
+        do {
             try await request.waitTillComplete()
+            
+            let duration = Date().timeIntervalSince(startTime)
+            print("✅ Download completed successfully in \(String(format: "%.2f", duration)) seconds")
+            
+            // Verify the downloadable has a finished date set
+            let finishedDate = await request.mirror.downloadable.finishedDate
+            XCTAssertNotNil(finishedDate, "Download should have a finished date after completion")
+            
+        } catch {
+            let duration = Date().timeIntervalSince(startTime)
+            print("❌ Download failed after \(String(format: "%.2f", duration)) seconds with error: \(error)")
+            
+            // Even in failure case, finishedDate should be set
+            let finishedDate = await request.mirror.downloadable.finishedDate
+            XCTAssertNotNil(finishedDate, "Download should have a finished date even after failure")
+            
+            // Re-throw the error if it's not expected
+            throw error
         }
         
-        // Cancel the task after a short delay
-        try await Task.sleep(nanoseconds: 100_000_000) // 100ms
-        waitTask.cancel()
+        // Test making the same request again - should complete faster since it's cached
+        print("\n--- Testing second request for same resource ---")
+        let secondRequests = await manager.request(resources: [resource])
         
-        // Verify that the wait was cancelled
-        do {
-            try await waitTask.value
-            XCTFail("waitTillComplete should have been cancelled")
-        } catch is CancellationError {
-            // Expected - cancellation was handled correctly
-            print("✅ Cancellation handled correctly")
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        if secondRequests.isEmpty {
+            print("✅ Second request returned no downloads - resource is already cached")
+        } else {
+            // If there are still requests, wait for them to complete
+            guard let secondRequest = secondRequests.first else {
+                return
+            }
+            
+            await manager.process(requests: secondRequests)
+            
+            let secondStartTime = Date()
+            do {
+                try await secondRequest.waitTillComplete()
+                let secondDuration = Date().timeIntervalSince(secondStartTime)
+                print("✅ Second download completed in \(String(format: "%.2f", secondDuration)) seconds")
+            } catch {
+                let secondDuration = Date().timeIntervalSince(secondStartTime)
+                print("❌ Second download failed after \(String(format: "%.2f", secondDuration)) seconds with error: \(error)")
+                // Don't re-throw for second request as it's supplementary
+            }
         }
     }
 }

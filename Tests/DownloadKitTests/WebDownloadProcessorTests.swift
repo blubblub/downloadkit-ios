@@ -117,23 +117,24 @@ class WebDownloadProcessorTests: XCTestCase {
         processor = WebDownloadProcessor(configuration: .default)
         await processor.set(observer: observer)
         
-        await processor.process(WebDownload.createSample())
-        await processor.process(WebDownload.createSample())
-        await processor.process(WebDownload.createSample())
-        await processor.pause()
-        
         let expectation = XCTestExpectation(description: "Enqueue function should execute delegate's beginCallback.")
         
         var executed = 0
         await observer.setBeginCallback {
             // test is successful if we're getting called
             executed += 1
+            
+            expectation.fulfill()
         }
         
-        XCTAssertEqual(executed, 3, "Begin callback should be called on processor because we had pending items.")
-        expectation.fulfill()
+        await processor.process(WebDownload.createSample())
+        await processor.process(WebDownload.createSample())
+        await processor.process(WebDownload.createSample())
+        await processor.pause()
         
         await fulfillment(of: [expectation], timeout: 5)
+        
+        XCTAssertEqual(executed, 3, "Begin callback should be called on processor because we had pending items.")
     }
 }
 

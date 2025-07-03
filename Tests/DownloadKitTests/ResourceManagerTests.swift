@@ -107,15 +107,16 @@ class ResourceManagerTests: XCTestCase {
         await setupManager()
         
         // For testing purposes, just verify the completion is called when resource is already cached
-        let resource = Resource(id: "resource-id", main: FileMirror(id: "resource-id", location: "test://local.file", info: [:]), alternatives: [], fileURL: Bundle.main.url(forResource: "sample", withExtension: "png"))
-        
+        let resource = resources.first!
         let expectation = XCTestExpectation(description: "Requesting downloads should call completion.")
         
-        await manager.request(resources: [resource])
+        let request = await manager.request(resources: [resource])
         await manager.addResourceCompletion(for: resource) { (success, resourceID) in
             // Since resource has a fileURL, it should complete immediately
             expectation.fulfill()
         }
+        
+        await manager.process(request: request.first!)
 
         await fulfillment(of: [expectation], timeout: 1)
     }
@@ -123,21 +124,42 @@ class ResourceManagerTests: XCTestCase {
     func testThatMultipleResourceCompletionAreCalled() async throws {
         await setupManager()
         
-        let resource = Resource(id: "resource-id", main: FileMirror(id: "resource-id", location: "test://local.file", info: [:]), alternatives: [], fileURL: Bundle.main.url(forResource: "sample", withExtension: "png"))
+        // Use a real downloadable resource like in integration tests
+        let resource = Resource(
+            id: "multiple-completion-test-resource",
+            main: FileMirror(
+                id: "multiple-completion-mirror",
+                location: "https://picsum.photos/75/75.jpg",
+                info: [:]
+            ),
+            alternatives: [],
+            fileURL: nil
+        )
         
         let expectation = self.expectation(description: "Requesting downloads should call completion.")
         expectation.expectedFulfillmentCount = 2
         
-        await manager.request(resources: [resource])
+        // Request the resource download
+        let requests = await manager.request(resources: [resource])
+        XCTAssertEqual(requests.count, 1, "Should have one download request for the resource")
+        
+        // Add multiple completion handlers for the same resource
         await manager.addResourceCompletion(for: resource) { (success, resourceID) in
+            // Both completion handlers should be called when download completes
             expectation.fulfill()
         }
         
         await manager.addResourceCompletion(for: resource) { (success, resourceID) in
+            // Both completion handlers should be called when download completes
             expectation.fulfill()
         }
         
-        await fulfillment(of: [expectation], timeout: 1)
+        // Process the download request
+        if let request = requests.first {
+            await manager.process(request: request)
+        }
+        
+        await fulfillment(of: [expectation], timeout: 30)
         // Just verify that both callbacks were called by checking fulfillment count
     }
     
