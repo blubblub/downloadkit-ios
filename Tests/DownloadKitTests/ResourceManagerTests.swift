@@ -124,43 +124,60 @@ class ResourceManagerTests: XCTestCase {
     func testThatMultipleResourceCompletionAreCalled() async throws {
         await setupManager()
         
-        // Use a real downloadable resource like in integration tests
-        let resource = Resource(
-            id: "multiple-completion-test-resource",
-            main: FileMirror(
-                id: "multiple-completion-mirror",
-                location: "https://picsum.photos/75/75.jpg",
-                info: [:]
+        // Use 3 different real downloadable resources like in integration tests
+        let resources = [
+            Resource(
+                id: "multiple-completion-test-resource-1",
+                main: FileMirror(
+                    id: "multiple-completion-mirror-1",
+                    location: "https://picsum.photos/75/75.jpg",
+                    info: [:]
+                ),
+                alternatives: [],
+                fileURL: nil
             ),
-            alternatives: [],
-            fileURL: nil
-        )
+            Resource(
+                id: "multiple-completion-test-resource-2",
+                main: FileMirror(
+                    id: "multiple-completion-mirror-2",
+                    location: "https://picsum.photos/80/80.jpg",
+                    info: [:]
+                ),
+                alternatives: [],
+                fileURL: nil
+            ),
+            Resource(
+                id: "multiple-completion-test-resource-3",
+                main: FileMirror(
+                    id: "multiple-completion-mirror-3",
+                    location: "https://picsum.photos/85/85.jpg",
+                    info: [:]
+                ),
+                alternatives: [],
+                fileURL: nil
+            )
+        ]
         
-        let expectation = self.expectation(description: "Requesting downloads should call completion.")
-        expectation.expectedFulfillmentCount = 2
+        let expectation = self.expectation(description: "All resource downloads should call completion.")
+        expectation.expectedFulfillmentCount = 3
         
-        // Request the resource download
-        let requests = await manager.request(resources: [resource])
-        XCTAssertEqual(requests.count, 1, "Should have one download request for the resource")
+        // Request all resource downloads
+        let requests = await manager.request(resources: resources)
+        XCTAssertEqual(requests.count, 3, "Should have three download requests for the resources")
         
-        // Add multiple completion handlers for the same resource
-        await manager.addResourceCompletion(for: resource) { (success, resourceID) in
-            // Both completion handlers should be called when download completes
-            expectation.fulfill()
+        // Add completion handlers for each resource
+        for resource in resources {
+            await manager.addResourceCompletion(for: resource) { (success, resourceID) in
+                // Each completion handler should be called when its download completes
+                expectation.fulfill()
+            }
         }
         
-        await manager.addResourceCompletion(for: resource) { (success, resourceID) in
-            // Both completion handlers should be called when download completes
-            expectation.fulfill()
-        }
-        
-        // Process the download request
-        if let request = requests.first {
-            await manager.process(request: request)
-        }
+        // Process all download requests
+        await manager.process(requests: requests)
         
         await fulfillment(of: [expectation], timeout: 30)
-        // Just verify that both callbacks were called by checking fulfillment count
+        // Verify that all 3 resource completion callbacks were called
     }
     
     func testThatAddingResourceCompletionBeforeRequestingDownloadsFails() async throws {
