@@ -51,7 +51,8 @@ class ResourceManagerIntegrationTests: XCTestCase {
     /// Helper method to setup ResourceManager for integration tests
     private func setupManager() async {
         let downloadQueue = DownloadQueue()
-        await downloadQueue.add(processor: WebDownloadProcessor())
+        // Use ephemeral configuration for tests to avoid background session issues in iOS Simulator
+        await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
         
         // Use in-memory Realm for testing to avoid conflicts
         let config = Realm.Configuration(inMemoryIdentifier: "integration-test-\(UUID().uuidString)")
@@ -119,7 +120,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
                     batchExpectation.fulfill()
                 }
             }
-        }       
+        }
         
         await manager.process(requests: requests)
         
