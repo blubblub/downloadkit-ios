@@ -4,7 +4,7 @@ import RealmSwift
 
 class MemoryCacheTests: XCTestCase {
     
-    let config = Realm.Configuration(inMemoryIdentifier: "memory-id")
+    let config = Realm.Configuration(inMemoryIdentifier: "memory-cache-test-\(UUID().uuidString)")
     var cache: RealmMemoryCache<CachedLocalFile>!
     
     override func setUpWithError() throws {

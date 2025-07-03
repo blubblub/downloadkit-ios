@@ -5,7 +5,7 @@ import RealmSwift
 class LocalCacheManagerTests: XCTestCase {
     
     /// In memory realm configuration.
-    let config = Realm.Configuration(inMemoryIdentifier: "memory-id")
+    let config = Realm.Configuration(inMemoryIdentifier: "local-cache-test-\(UUID().uuidString)")
     let cachedOptions = RequestOptions(storagePriority: .cached)
     let permanentOptions = RequestOptions(storagePriority: .permanent)
     

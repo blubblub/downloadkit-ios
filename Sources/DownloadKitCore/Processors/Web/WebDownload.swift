@@ -232,6 +232,10 @@ extension WebDownload : URLSessionDownloadDelegate {
         let downloadId = self.data.identifier
         log.info("Calling \(completions.count) completion handlers for \(downloadId)")
         
+        if url != nil {
+            data.finishedDate = Date()
+        }
+        
         for completion in completions {
             if let url = url {
                 completion(.success(url))

@@ -6,6 +6,7 @@
 //
 
 import XCTest
+import RealmSwift
 @testable import DownloadKit
 @testable import DownloadKitRealm
 
@@ -13,7 +14,7 @@ class WaitTillCompleteTests: XCTestCase {
     
     func testWaitTillCompleteWithSingleDownload() async throws {
         // Create a simple resource manager
-        let cache = RealmCacheManager<CachedLocalFile>(configuration: .defaultConfiguration)
+        let cache = RealmCacheManager<CachedLocalFile>(configuration: Realm.Configuration(inMemoryIdentifier: "wait-test-\(UUID().uuidString)"))
         let downloadQueue = DownloadQueue()
         await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
         
