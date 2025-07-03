@@ -382,10 +382,7 @@ extension ResourceManager: DownloadQueueObserver {
                 await tempMetrics.updateDownloadSpeed(downloadable: retryDownloadable)
                 metrics = tempMetrics
                 
-                // Put it on the same queue.
-                Task {
-                    self.foreachObserver { $0.willRetryFailedDownload(retryRequest.request, mirror: retry, with: error) }
-                }
+                self.foreachObserver { $0.willRetryFailedDownload(retryRequest.request, mirror: retry, with: error) }
                 
                 let identifier = await retryDownloadable.identifier
                 log.error("Download failed, retrying: \(identifier) Error: \(error.localizedDescription)")
