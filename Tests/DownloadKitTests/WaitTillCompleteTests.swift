@@ -70,25 +70,25 @@ class WaitTillCompleteTests: XCTestCase {
     }
     
     func testWaitTillCompleteWithAlreadyCompletedDownload() async throws {
-        // Create a CloudKit download that we can manually finish
-        let cloudKitDownload = CloudKitDownload(
+        // Create a WebDownload that we can manually finish
+        let webDownload = WebDownload(
             identifier: "already-completed-test",
-            url: URL(string: "cloudkit://container/record_type/record_id")!
+            url: URL(string: "https://picsum.photos/50/50.jpg")!
         )
         
         // Manually finish the download
-        await cloudKitDownload.finish()
+        await webDownload.finish()
         
         // Create a mock request
         let mirror = ResourceMirrorSelection(
             id: "test-id",
-            mirror: FileMirror(id: "test-mirror", location: "cloudkit://test", info: [:]),
-            downloadable: cloudKitDownload
+            mirror: FileMirror(id: "test-mirror", location: "https://picsum.photos/50/50.jpg", info: [:]),
+            downloadable: webDownload
         )
         
         let resource = Resource(
             id: "test-resource",
-            main: FileMirror(id: "test-mirror", location: "cloudkit://test", info: [:]),
+            main: FileMirror(id: "test-mirror", location: "https://picsum.photos/50/50.jpg", info: [:]),
             alternatives: [],
             fileURL: nil
         )
