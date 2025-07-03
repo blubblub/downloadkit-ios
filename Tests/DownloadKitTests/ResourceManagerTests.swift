@@ -28,7 +28,7 @@ class ResourceManagerTests: XCTestCase {
     
     func setupManager() async {
         let downloadQueue = DownloadQueue()
-        await downloadQueue.add(processor: WebDownloadProcessor())
+        await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
         
         // Use in-memory configuration to avoid cache conflicts
         let config = Realm.Configuration(inMemoryIdentifier: UUID().uuidString)
@@ -38,7 +38,7 @@ class ResourceManagerTests: XCTestCase {
     
     func setupWithPriorityQueue() async {
         let downloadQueue = DownloadQueue()
-        await downloadQueue.add(processor: WebDownloadProcessor())
+        await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
         
         let priorityQueue = DownloadQueue()
         await priorityQueue.add(processor: WebDownloadProcessor.priorityProcessor())

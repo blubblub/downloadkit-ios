@@ -15,7 +15,7 @@ class WaitTillCompleteTests: XCTestCase {
         // Create a simple resource manager
         let cache = RealmCacheManager<CachedLocalFile>(configuration: .defaultConfiguration)
         let downloadQueue = DownloadQueue()
-        await downloadQueue.add(processor: WebDownloadProcessor())
+        await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
         
         let manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
         

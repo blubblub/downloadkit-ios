@@ -52,10 +52,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
     private func setupManager() async {
         let downloadQueue = DownloadQueue()
         // Use default configuration for tests - ephemeral has delegate callback issues in iOS Simulator
-        let testConfig = URLSessionConfiguration.default
-        testConfig.waitsForConnectivity = true
-        testConfig.allowsConstrainedNetworkAccess = true
-        await downloadQueue.add(processor: WebDownloadProcessor(configuration: testConfig))
+        await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
         
         // Use in-memory Realm for testing to avoid conflicts
         let config = Realm.Configuration(inMemoryIdentifier: "integration-test-\(UUID().uuidString)")
