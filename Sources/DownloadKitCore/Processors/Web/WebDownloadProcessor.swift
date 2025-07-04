@@ -269,8 +269,7 @@ extension WebDownloadProcessor : URLSessionDownloadDelegate {
 // MARK: - Convenience Extensions
 
 public extension WebDownloadProcessor {
-    static func priorityProcessor() -> WebDownloadProcessor {
-        let priorityConfiguration = URLSessionConfiguration.background(withIdentifier: "org.blubblub.downloadkit.session.priority")
+    static func priorityProcessor(with priorityConfiguration: URLSessionConfiguration = URLSessionConfiguration.background(withIdentifier: "org.blubblub.downloadkit.session.priority")) -> WebDownloadProcessor {
         priorityConfiguration.allowsCellularAccess = true
 
         priorityConfiguration.allowsExpensiveNetworkAccess = true
