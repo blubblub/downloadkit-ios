@@ -17,7 +17,6 @@ class StorageDownloadTests: XCTestCase {
     var manager: ResourceManager!
     var cache: RealmCacheManager<CachedLocalFile>!
     var realm: Realm!
-    var realmFileURL: URL?
     
     override func setUpWithError() throws {
         // Setup will be done in async test methods to avoid concurrency issues
@@ -28,7 +27,6 @@ class StorageDownloadTests: XCTestCase {
         cache = nil
         manager = nil
         realm = nil
-        realmFileURL = nil
     }
     
     /// Helper method to setup ResourceManager for storage tests
@@ -38,11 +36,11 @@ class StorageDownloadTests: XCTestCase {
         
         // Use in-memory Realm configuration
         let config = Realm.Configuration(
-            inMemoryIdentifier: "test_realm_\(UUID().uuidString)",
-            deleteRealmIfMigrationNeeded: true
+            inMemoryIdentifier: "test_realm_\(UUID().uuidString)"
         )
         
-        // Create Realm instance and keep it alive during the test
+        // Create Realm instance and keep it alive during the test, so it does not delete data
+        // during instances being opened.
         realm = try! await Realm(configuration: config, actor: MainActor.shared)
         
         cache = RealmCacheManager<CachedLocalFile>(configuration: config)
