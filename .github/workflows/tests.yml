@@ -1,0 +1,317 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-macos:
+    name: Test on macOS
+    runs-on: macos-latest
+    
+    strategy:
+      matrix:
+        swift-version: ['5.9', '5.10', '6.0']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: 'latest-stable'
+    
+    - name: Setup Swift
+      uses: swift-actions/setup-swift@v2
+      with:
+        swift-version: ${{ matrix.swift-version }}
+    
+    - name: Cache Swift Package Manager
+      uses: actions/cache@v4
+      with:
+        path: .build
+        key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-spm-
+    
+    - name: Build package
+      run: swift build
+    
+    - name: Run tests
+      run: swift test --enable-code-coverage
+    
+    - name: Generate code coverage report
+      if: matrix.swift-version == '6.0'
+      run: |
+        xcrun llvm-cov export .build/debug/DownloadKitPackageTests.xctest/Contents/MacOS/DownloadKitPackageTests \
+          -instr-profile .build/debug/codecov/default.profdata \
+          -format="lcov" > coverage.lcov
+    
+    - name: Upload coverage reports to Codecov
+      if: matrix.swift-version == '6.0'
+      uses: codecov/codecov-action@v4
+      with:
+        file: coverage.lcov
+        fail_ci_if_error: false
+        verbose: true
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  test-ios-simulator:
+    name: Test on iOS Simulator
+    runs-on: macos-latest
+    
+    strategy:
+      matrix:
+        simulator:
+          - name: "iPhone 15"
+            os: "17.0"
+          - name: "iPhone 14"
+            os: "16.0"
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: 'latest-stable'
+    
+    - name: Cache Swift Package Manager
+      uses: actions/cache@v4
+      with:
+        path: .build
+        key: ${{ runner.os }}-spm-ios-${{ hashFiles('**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-spm-ios-
+    
+    - name: List available simulators
+      run: xcrun simctl list devices available
+    
+    - name: Build for iOS
+      run: |
+        xcodebuild build-for-testing \
+          -scheme DownloadKit \
+          -destination "platform=iOS Simulator,name=${{ matrix.simulator.name }},OS=${{ matrix.simulator.os }}" \
+          -derivedDataPath .build/ios \
+          -skipPackagePluginValidation
+    
+    - name: Test on iOS Simulator
+      run: |
+        xcodebuild test-without-building \
+          -scheme DownloadKit \
+          -destination "platform=iOS Simulator,name=${{ matrix.simulator.name }},OS=${{ matrix.simulator.os }}" \
+          -derivedDataPath .build/ios \
+          -skipPackagePluginValidation
+
+  test-swift-versions:
+    name: Test Swift Package Manager compatibility
+    runs-on: macos-latest
+    
+    strategy:
+      matrix:
+        swift-version: ['5.9', '5.10', '6.0']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Swift
+      uses: swift-actions/setup-swift@v2
+      with:
+        swift-version: ${{ matrix.swift-version }}
+    
+    - name: Cache Swift Package Manager
+      uses: actions/cache@v4
+      with:
+        path: .build
+        key: ${{ runner.os }}-spm-${{ matrix.swift-version }}-${{ hashFiles('**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-spm-${{ matrix.swift-version }}-
+    
+    - name: Resolve package dependencies
+      run: swift package resolve
+    
+    - name: Build all targets
+      run: swift build --build-tests
+    
+    - name: Run all tests
+      run: swift test
+
+  lint-and-format:
+    name: Code Quality Checks
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Swift
+      uses: swift-actions/setup-swift@v2
+      with:
+        swift-version: '6.0'
+    
+    - name: Check package format
+      run: swift package diagnose
+    
+    - name: Validate package
+      run: swift package validate
+    
+    - name: Check for build warnings
+      run: |
+        swift build 2>&1 | tee build.log
+        if grep -i "warning:" build.log; then
+          echo "⚠️ Build warnings found!"
+          grep -i "warning:" build.log
+          exit 1
+        else
+          echo "✅ No build warnings found"
+        fi
+
+  priority-tests:
+    name: Priority System Tests
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Swift
+      uses: swift-actions/setup-swift@v2
+      with:
+        swift-version: '6.0'
+    
+    - name: Cache Swift Package Manager
+      uses: actions/cache@v4
+      with:
+        path: .build
+        key: ${{ runner.os }}-spm-priority-${{ hashFiles('**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-spm-priority-
+    
+    - name: Build package
+      run: swift build
+    
+    - name: Run priority system tests
+      run: |
+        echo "🎯 Running Priority System Tests..."
+        swift test --filter DownloadPriorityTests
+        echo "✅ All priority tests completed successfully"
+    
+    - name: Run storage tests
+      run: |
+        echo "💾 Running Storage Tests..."
+        swift test --filter StorageDownloadTests
+        echo "✅ All storage tests completed successfully"
+    
+    - name: Run integration tests
+      run: |
+        echo "🔗 Running Integration Tests..."
+        swift test --filter ResourceManagerIntegrationTests
+        echo "✅ All integration tests completed successfully"
+
+  realm-compatibility:
+    name: Realm Compatibility Tests
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Swift
+      uses: swift-actions/setup-swift@v2
+      with:
+        swift-version: '6.0'
+    
+    - name: Cache Swift Package Manager
+      uses: actions/cache@v4
+      with:
+        path: .build
+        key: ${{ runner.os }}-spm-realm-${{ hashFiles('**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-spm-realm-
+    
+    - name: Build with Realm
+      run: swift build
+    
+    - name: Run Realm-specific tests
+      run: |
+        echo "🗄️ Running Realm Memory Cache Tests..."
+        swift test --filter MemoryCacheTests
+        echo "🗄️ Running Local Cache Manager Tests..."
+        swift test --filter LocalCacheManagerTests
+        echo "✅ All Realm compatibility tests completed successfully"
+
+  performance-tests:
+    name: Performance Tests
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Swift
+      uses: swift-actions/setup-swift@v2
+      with:
+        swift-version: '6.0'
+    
+    - name: Cache Swift Package Manager
+      uses: actions/cache@v4
+      with:
+        path: .build
+        key: ${{ runner.os }}-spm-perf-${{ hashFiles('**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-spm-perf-
+    
+    - name: Build in release mode
+      run: swift build -c release
+    
+    - name: Run performance-critical tests
+      run: |
+        echo "⚡ Running Performance Tests..."
+        # Run tests that validate performance aspects
+        swift test --filter AsyncPriorityQueueTests
+        swift test --filter ResourceManagerTests
+        echo "✅ Performance tests completed successfully"
+
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [test-macos, test-ios-simulator, test-swift-versions, lint-and-format, priority-tests, realm-compatibility, performance-tests]
+    if: always()
+    
+    steps:
+    - name: Test Results Summary
+      run: |
+        echo "## 📊 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Test Job | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| macOS Tests | ${{ needs.test-macos.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| iOS Simulator Tests | ${{ needs.test-ios-simulator.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Swift Compatibility | ${{ needs.test-swift-versions.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Code Quality | ${{ needs.lint-and-format.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Priority System Tests | ${{ needs.priority-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Realm Compatibility | ${{ needs.realm-compatibility.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Performance Tests | ${{ needs.performance-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [[ "${{ needs.test-macos.result }}" == "success" && \
+              "${{ needs.test-ios-simulator.result }}" == "success" && \
+              "${{ needs.test-swift-versions.result }}" == "success" && \
+              "${{ needs.lint-and-format.result }}" == "success" && \
+              "${{ needs.priority-tests.result }}" == "success" && \
+              "${{ needs.realm-compatibility.result }}" == "success" && \
+              "${{ needs.performance-tests.result }}" == "success" ]]; then
+          echo "🎉 **All tests passed successfully!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The DownloadKit library is ready for deployment." >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Some tests failed.**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Please review the failed test jobs and fix any issues before merging." >> $GITHUB_STEP_SUMMARY
+        fi
