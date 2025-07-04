@@ -7,16 +7,17 @@ import RealmSwift
 class ResourceManagerIntegrationTests: XCTestCase {
     var manager: ResourceManager!
     var cache: RealmCacheManager<CachedLocalFile>!
+    var realm: Realm!
     
     override func setUpWithError() throws {
-        // Create async setup in the test methods to avoid issues
+        // Synchronous setup - realm will be configured in async test methods
     }
 
     override func tearDownWithError() throws {
-        // Note: Avoiding async cleanup in tearDown to prevent concurrency issues
-        // Using in-memory database makes cleanup unnecessary
+        // Clear references - in-memory realm will be automatically cleaned up
         cache = nil
         manager = nil
+        realm = nil
     }
     
     /// Helper method to setup ResourceManager for integration tests
@@ -27,6 +28,10 @@ class ResourceManagerIntegrationTests: XCTestCase {
         
         // Use in-memory Realm for testing to avoid conflicts
         let config = Realm.Configuration(inMemoryIdentifier: "integration-test-\(UUID().uuidString)")
+        
+        // Create Realm instance and keep it alive during the test
+        realm = try! await Realm(configuration: config, actor: MainActor.shared)
+        
         cache = RealmCacheManager<CachedLocalFile>(configuration: config)
         manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
     }

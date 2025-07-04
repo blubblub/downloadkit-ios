@@ -12,13 +12,34 @@ import RealmSwift
 
 class WaitTillCompleteTests: XCTestCase {
     
-    func testWaitTillCompleteWithSingleDownload() async throws {
-        // Create a simple resource manager
-        let cache = RealmCacheManager<CachedLocalFile>(configuration: Realm.Configuration(inMemoryIdentifier: "wait-test-\(UUID().uuidString)"))
+    var realm: Realm!
+    
+    override func setUpWithError() throws {
+        // Synchronous setup - realm will be configured in async test methods
+    }
+    
+    override func tearDownWithError() throws {
+        // Clear references - in-memory realm will be automatically cleaned up
+        realm = nil
+    }
+    
+    private func createManagerWithRealm() async -> (ResourceManager, RealmCacheManager<CachedLocalFile>) {
+        let config = Realm.Configuration(inMemoryIdentifier: "wait-test-\(UUID().uuidString)")
+        
+        // Create Realm instance and keep it alive during the test
+        realm = try! await Realm(configuration: config, actor: MainActor.shared)
+        
+        let cache = RealmCacheManager<CachedLocalFile>(configuration: config)
         let downloadQueue = DownloadQueue()
         await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
         
         let manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
+        return (manager, cache)
+    }
+    
+    func testWaitTillCompleteWithSingleDownload() async throws {
+        // Create a simple resource manager
+        let (manager, _) = await createManagerWithRealm()
         
         // Create a test resource
         let resource = Resource(
@@ -71,11 +92,7 @@ class WaitTillCompleteTests: XCTestCase {
     
     func testWaitTillCompleteWithAlreadyCompletedDownload() async throws {
         // Create a simple resource manager
-        let cache = RealmCacheManager<CachedLocalFile>(configuration: Realm.Configuration(inMemoryIdentifier: "wait-test-\(UUID().uuidString)"))
-        let downloadQueue = DownloadQueue()
-        await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
-        
-        let manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
+        let (manager, _) = await createManagerWithRealm()
         
         // Create a test resource
         let resource = Resource(

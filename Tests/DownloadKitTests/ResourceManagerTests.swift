@@ -7,6 +7,7 @@ class ResourceManagerTests: XCTestCase {
     
     var manager: ResourceManager!
     var cache: RealmCacheManager<CachedLocalFile>!
+    var realm: Realm!
     
     var resources: [Resource] {
         let resources = [
@@ -32,6 +33,10 @@ class ResourceManagerTests: XCTestCase {
         
         // Use in-memory configuration to avoid cache conflicts
         let config = Realm.Configuration(inMemoryIdentifier: UUID().uuidString)
+        
+        // Create Realm instance and keep it alive during the test
+        realm = try! await Realm(configuration: config, actor: MainActor.shared)
+        
         cache = RealmCacheManager<CachedLocalFile>(configuration: config)
         manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
     }
@@ -45,15 +50,19 @@ class ResourceManagerTests: XCTestCase {
         
         // Use in-memory configuration to avoid cache conflicts
         let config = Realm.Configuration(inMemoryIdentifier: UUID().uuidString)
+        
+        // Create Realm instance and keep it alive during the test
+        realm = try! await Realm(configuration: config, actor: MainActor.shared)
+        
         cache = RealmCacheManager<CachedLocalFile>(configuration: config)
         manager = ResourceManager(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue)
     }
 
     override func tearDownWithError() throws {
-        // Note: skipping async cleanup in tearDown to avoid Task closure issues
-        // This is acceptable for tests using in-memory database
+        // Clear references - in-memory realm will be automatically cleaned up
         cache = nil
         manager = nil
+        realm = nil
     }
     
     func testRequestingEmptyArray() async throws {

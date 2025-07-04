@@ -10,22 +10,34 @@ class LocalCacheManagerTests: XCTestCase {
     let permanentOptions = RequestOptions(storagePriority: .permanent)
     
     var manager: RealmLocalCacheManager<CachedLocalFile>!
+    var realm: Realm!
     
     var url: URL {
         return try! FileManager.createFileOnDisk()
     }
     
     override func setUpWithError() throws {
+        // Synchronous setup - realm will be configured in async test methods
+    }
+    
+    private func setupManager() async {
+        // Create Realm instance and keep it alive during the test
+        realm = try! await Realm(configuration: config, actor: MainActor.shared)
         manager = RealmLocalCacheManager<CachedLocalFile>(configuration: config)
     }
 
     override func tearDownWithError() throws {
-        try manager.cleanup(excluding: [])
+        // Clear references - in-memory realm will be automatically cleaned up
+        if let manager = manager {
+            try manager.cleanup(excluding: [])
+        }
         manager = nil
+        realm = nil
     }
     
-    func testStoringResourceFile() throws {
-let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
+    func testStoringResourceFile() async throws {
+        await setupManager()
+        let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
         let resource = Resource(id: UUID().uuidString, main: sampleMain)
         
         let stored = try manager.store(resource: resource, mirror: resource.main, at: url, options: cachedOptions)
@@ -34,8 +46,9 @@ let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.co
         XCTAssertTrue(FileManager.default.fileExists(atPath: stored.fileURL!.path))
     }
     
-    func testRequestingDownloadsOnEmptyCacheReturnsAllResources() {
-let resources: [Resource] = (0..<5).map({ _ in
+    func testRequestingDownloadsOnEmptyCacheReturnsAllResources() async {
+        await setupManager()
+        let resources: [Resource] = (0..<5).map({ _ in
             let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
             return Resource(id: UUID().uuidString, main: sampleMain)
         })
@@ -44,8 +57,9 @@ let resources: [Resource] = (0..<5).map({ _ in
         XCTAssertEqual(5, requests.count, "Manager should return 5 resources that need to be downloaded.")
     }
     
-    func testRequestingDownloadsReturnsCorrectResources() throws {
-let resources: [Resource] = (0..<5).map({ _ in
+    func testRequestingDownloadsReturnsCorrectResources() async throws {
+        await setupManager()
+        let resources: [Resource] = (0..<5).map({ _ in
             let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
             return Resource(id: UUID().uuidString, main: sampleMain)
         })
@@ -60,8 +74,9 @@ let resources: [Resource] = (0..<5).map({ _ in
         XCTAssertEqual(4, requests.count, "Manager should return only 4 resources that need to be downloaded.")
     }
     
-    func testUpdatingStorage() throws {
-let resources: [Resource] = (0..<5).map({ _ in
+    func testUpdatingStorage() async throws {
+        await setupManager()
+        let resources: [Resource] = (0..<5).map({ _ in
             let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
             return Resource(id: UUID().uuidString, main: sampleMain)
         })
@@ -72,14 +87,15 @@ let resources: [Resource] = (0..<5).map({ _ in
         }
         
         // update stored resources and move them to permanent storage
-        manager.updateStorage(resources: resources, to: .permanent)
+        let _ = manager.updateStorage(resources: resources, to: .permanent)
         
         let requests = manager.downloads(from: resources, options: permanentOptions)
         XCTAssertEqual(requests.count, 0, "All resources should be stored locally in permanent storage")
     }
     
-    func testResetingLocalCache() throws {
-let resources: [Resource] = (0..<5).map({ _ in
+    func testResetingLocalCache() async throws {
+        await setupManager()
+        let resources: [Resource] = (0..<5).map({ _ in
             let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
             return Resource(id: UUID().uuidString, main: sampleMain)
         })
@@ -96,8 +112,9 @@ let resources: [Resource] = (0..<5).map({ _ in
         XCTAssertEqual(requests.count, 5, "Manager should return 5 requests, since everything was removed.")
     }
     
-    func testCleanup() throws {
-let resources: [Resource] = (0..<5).map({ _ in
+    func testCleanup() async throws {
+        await setupManager()
+        let resources: [Resource] = (0..<5).map({ _ in
             let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
             return Resource(id: UUID().uuidString, main: sampleMain)
         })
