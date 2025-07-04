@@ -157,7 +157,7 @@ jobs:
         echo "📱 Building for iOS Simulator..."
         xcodebuild build-for-testing \
           -scheme DownloadKit \
-          -destination "platform=iOS Simulator,name=iPhone 15,OS=17.0" \
+          -destination "platform=iOS Simulator,name=iPhone 16,OS=18.0" \
           -derivedDataPath .build/ios \
           -skipPackagePluginValidation
         echo "✅ iOS build completed"
@@ -167,7 +167,7 @@ jobs:
         echo "📱 Running basic iOS tests..."
         xcodebuild test-without-building \
           -scheme DownloadKit \
-          -destination "platform=iOS Simulator,name=iPhone 15,OS=17.0" \
+          -destination "platform=iOS Simulator,name=iPhone 16,OS=18.0" \
           -derivedDataPath .build/ios \
           -skipPackagePluginValidation \
           -only-testing:DownloadKitTests/AsyncPriorityQueueTests \
