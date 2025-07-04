@@ -108,7 +108,8 @@ class StorageDownloadTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: cachedURL.path), "Cached file should exist")
         
         // Verify it's in the cache directory (contains "Caches")
-        XCTAssertTrue(cachedURL.path.contains("Caches") || cachedURL.path.contains("cache"), 
+        let cacheDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        XCTAssertTrue(cachedURL.path.hasPrefix(cacheDirectory.path),
                      "File should be in cache directory, path: \(cachedURL.path)")
         
         // Note: File is successfully stored in cache directory
