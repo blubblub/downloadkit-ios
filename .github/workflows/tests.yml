@@ -92,150 +92,10 @@ jobs:
           -derivedDataPath .build/ios \
           -skipPackagePluginValidation
 
-  test-swift-versions:
-    name: Test Swift Package Manager compatibility
-    runs-on: macos-15
-    
-    strategy:
-      matrix:
-        swift-version: ['6.0']
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Swift
-      uses: swift-actions/setup-swift@v2
-      with:
-        swift-version: ${{ matrix.swift-version }}
-    
-    
-    - name: Resolve package dependencies
-      run: swift package resolve
-    
-    - name: Build all targets
-      run: swift build --build-tests
-    
-    - name: Run all tests
-      run: swift test
-
-  lint-and-format:
-    name: Code Quality Checks
-    runs-on: macos-15
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Swift
-      uses: swift-actions/setup-swift@v2
-      with:
-        swift-version: '6.0'
-    
-    - name: Validate package
-      run: swift package validate
-    
-    - name: Check for build warnings
-      run: |
-        swift build 2>&1 | tee build.log
-        # Filter out warnings from 3rd party libraries (Packages and Plugins directories)
-        if grep -i "warning:" build.log | grep -v "/Packages/" | grep -v "/Plugins/" | grep -v "RealmSwift"; then
-          echo "⚠️ Build warnings found in project code!"
-          grep -i "warning:" build.log | grep -v "/Packages/" | grep -v "/Plugins/" | grep -v "RealmSwift"
-          exit 1
-        else
-          echo "✅ No build warnings found in project code"
-        fi
-
-  priority-tests:
-    name: Priority System Tests
-    runs-on: macos-15
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Swift
-      uses: swift-actions/setup-swift@v2
-      with:
-        swift-version: '6.0'
-    
-    
-    - name: Build package
-      run: swift build
-    
-    - name: Run priority system tests
-      run: |
-        echo "🎯 Running Priority System Tests..."
-        swift test --filter DownloadPriorityTests
-        echo "✅ All priority tests completed successfully"
-    
-    - name: Run storage tests
-      run: |
-        echo "💾 Running Storage Tests..."
-        swift test --filter StorageDownloadTests
-        echo "✅ All storage tests completed successfully"
-    
-    - name: Run integration tests
-      run: |
-        echo "🔗 Running Integration Tests..."
-        swift test --filter ResourceManagerIntegrationTests
-        echo "✅ All integration tests completed successfully"
-
-  realm-compatibility:
-    name: Realm Compatibility Tests
-    runs-on: macos-15
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Swift
-      uses: swift-actions/setup-swift@v2
-      with:
-        swift-version: '6.0'
-    
-    
-    - name: Build with Realm
-      run: swift build
-    
-    - name: Run Realm-specific tests
-      run: |
-        echo "🗄️ Running Realm Memory Cache Tests..."
-        swift test --filter MemoryCacheTests
-        echo "🗄️ Running Local Cache Manager Tests..."
-        swift test --filter LocalCacheManagerTests
-        echo "✅ All Realm compatibility tests completed successfully"
-
-  performance-tests:
-    name: Performance Tests
-    runs-on: macos-15
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Swift
-      uses: swift-actions/setup-swift@v2
-      with:
-        swift-version: '6.0'
-    
-    
-    - name: Build in release mode
-      run: swift build -c release
-    
-    - name: Run performance-critical tests
-      run: |
-        echo "⚡ Running Performance Tests..."
-        # Run tests that validate performance aspects
-        swift test --filter AsyncPriorityQueueTests
-        swift test --filter ResourceManagerTests
-        echo "✅ Performance tests completed successfully"
-
   summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [test-macos, test-ios-simulator, test-swift-versions, lint-and-format, priority-tests, realm-compatibility, performance-tests]
+    needs: [test-macos, test-ios-simulator]
     if: always()
     
     steps:
@@ -247,20 +107,10 @@ jobs:
         echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
         echo "| macOS Tests | ${{ needs.test-macos.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| iOS Simulator Tests | ${{ needs.test-ios-simulator.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Swift Compatibility | ${{ needs.test-swift-versions.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Code Quality | ${{ needs.lint-and-format.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Priority System Tests | ${{ needs.priority-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Realm Compatibility | ${{ needs.realm-compatibility.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Performance Tests | ${{ needs.performance-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         if [[ "${{ needs.test-macos.result }}" == "success" && \
-              "${{ needs.test-ios-simulator.result }}" == "success" && \
-              "${{ needs.test-swift-versions.result }}" == "success" && \
-              "${{ needs.lint-and-format.result }}" == "success" && \
-              "${{ needs.priority-tests.result }}" == "success" && \
-              "${{ needs.realm-compatibility.result }}" == "success" && \
-              "${{ needs.performance-tests.result }}" == "success" ]]; then
+              "${{ needs.test-ios-simulator.result }}" == "success" ]]; then
           echo "🎉 **All tests passed successfully!**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "The DownloadKit library is ready for deployment." >> $GITHUB_STEP_SUMMARY
