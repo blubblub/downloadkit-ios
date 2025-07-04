@@ -12,7 +12,7 @@ concurrency:
 jobs:
   quick-validation:
     name: Quick Validation
-    runs-on: macos-latest
+    runs-on: macos-15
     
     steps:
     - name: Checkout code
@@ -46,7 +46,7 @@ jobs:
 
   essential-tests:
     name: Essential Tests
-    runs-on: macos-latest
+    runs-on: macos-15
     needs: quick-validation
     
     strategy:
@@ -87,7 +87,7 @@ jobs:
 
   build-verification:
     name: Build Verification
-    runs-on: macos-latest
+    runs-on: macos-15
     needs: quick-validation
     
     strategy:
@@ -122,17 +122,18 @@ jobs:
       run: |
         echo "⚠️ Checking for build warnings..."
         swift build 2>&1 | tee build.log
-        if grep -i "warning:" build.log; then
-          echo "🟡 Build warnings found:"
-          grep -i "warning:" build.log
+        # Filter out warnings from 3rd party libraries (Packages and Plugins directories)
+        if grep -i "warning:" build.log | grep -v "/Packages/" | grep -v "/Plugins/" | grep -v "RealmSwift"; then
+          echo "🟡 Build warnings found in project code:"
+          grep -i "warning:" build.log | grep -v "/Packages/" | grep -v "/Plugins/" | grep -v "RealmSwift"
           # Don't fail on warnings for PR checks, just report them
         else
-          echo "✅ No build warnings found"
+          echo "✅ No build warnings found in project code"
         fi
 
   ios-compatibility:
     name: iOS Compatibility Check
-    runs-on: macos-latest
+    runs-on: macos-15
     needs: quick-validation
     
     steps:

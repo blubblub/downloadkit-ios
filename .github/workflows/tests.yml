@@ -9,7 +9,7 @@ on:
 jobs:
   test-macos:
     name: Test on macOS
-    runs-on: macos-latest
+    runs-on: macos-15
     
     strategy:
       matrix:
@@ -62,7 +62,7 @@ jobs:
 
   test-ios-simulator:
     name: Test on iOS Simulator
-    runs-on: macos-latest
+    runs-on: macos-15
     
     strategy:
       matrix:
@@ -108,7 +108,7 @@ jobs:
 
   test-swift-versions:
     name: Test Swift Package Manager compatibility
-    runs-on: macos-latest
+    runs-on: macos-15
     
     strategy:
       matrix:
@@ -142,7 +142,7 @@ jobs:
 
   lint-and-format:
     name: Code Quality Checks
-    runs-on: macos-latest
+    runs-on: macos-15
     
     steps:
     - name: Checkout code
@@ -159,17 +159,18 @@ jobs:
     - name: Check for build warnings
       run: |
         swift build 2>&1 | tee build.log
-        if grep -i "warning:" build.log; then
-          echo "⚠️ Build warnings found!"
-          grep -i "warning:" build.log
+        # Filter out warnings from 3rd party libraries (Packages and Plugins directories)
+        if grep -i "warning:" build.log | grep -v "/Packages/" | grep -v "/Plugins/" | grep -v "RealmSwift"; then
+          echo "⚠️ Build warnings found in project code!"
+          grep -i "warning:" build.log | grep -v "/Packages/" | grep -v "/Plugins/" | grep -v "RealmSwift"
           exit 1
         else
-          echo "✅ No build warnings found"
+          echo "✅ No build warnings found in project code"
         fi
 
   priority-tests:
     name: Priority System Tests
-    runs-on: macos-latest
+    runs-on: macos-15
     
     steps:
     - name: Checkout code
@@ -211,7 +212,7 @@ jobs:
 
   realm-compatibility:
     name: Realm Compatibility Tests
-    runs-on: macos-latest
+    runs-on: macos-15
     
     steps:
     - name: Checkout code
@@ -243,7 +244,7 @@ jobs:
 
   performance-tests:
     name: Performance Tests
-    runs-on: macos-latest
+    runs-on: macos-15
     
     steps:
     - name: Checkout code
