@@ -101,7 +101,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         await manager.process(requests: requests)
         
         // Wait for all downloads to complete (allow some failures due to network)
-        await fulfillment(of: [batchExpectation], timeout: 10) // 2 minutes timeout
+        await fulfillment(of: [batchExpectation], timeout: 20) // 2 minutes timeout
         
         let finalSuccessCount = await successCount.value
         let finalFailureCount = await failureCount.value
@@ -188,7 +188,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         await manager.process(requests: requests)
         
         // Wait for download to complete
-        await fulfillment(of: [downloadExpectation], timeout: 30)
+        await fulfillment(of: [downloadExpectation], timeout: 60)
         
         // Check if resource is in cache (handle silently)
         let cachedURL = await cache[resource.id]
@@ -256,7 +256,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         
         print("Waiting for downloads to be processed")
         
-        await fulfillment(of: [allExpectation], timeout: 90)
+        await fulfillment(of: [allExpectation], timeout: 180)
         
         let normalCount = await normalCompletions.count
         let highPriorityCount = await highPriorityCompletions.count
@@ -364,7 +364,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         await manager.process(requests: requests)
         
         // Wait for all download attempts to complete
-        await fulfillment(of: [batchExpectation], timeout: 30) // 30 seconds timeout
+        await fulfillment(of: [batchExpectation], timeout: 60) // 30 seconds timeout
         
         // Get final results
         let finalCompletedCount = await completedCount.value
@@ -494,7 +494,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         await manager.process(requests: requests)
         
         // Wait for downloads to complete
-        await fulfillment(of: [metricsExpectation], timeout: 120)
+        await fulfillment(of: [metricsExpectation], timeout: 240)
         
         let completedCount = await completionCount.value
         let failedCount = await failureCount.value

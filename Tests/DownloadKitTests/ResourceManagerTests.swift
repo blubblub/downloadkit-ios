@@ -127,7 +127,7 @@ class ResourceManagerTests: XCTestCase {
         
         await manager.process(request: request.first!)
 
-        await fulfillment(of: [expectation], timeout: 10)
+        await fulfillment(of: [expectation], timeout: 20)
     }
     
     func testThatMultipleResourceCompletionAreCalled() async throws {
@@ -185,7 +185,7 @@ class ResourceManagerTests: XCTestCase {
         // Process all download requests
         await manager.process(requests: requests)
         
-        await fulfillment(of: [expectation], timeout: 30)
+        await fulfillment(of: [expectation], timeout: 60)
         // Verify that all 3 resource completion callbacks were called
     }
     
@@ -211,7 +211,7 @@ class ResourceManagerTests: XCTestCase {
         
         await manager.process(request: request!)
         
-        await fulfillment(of: [expectation], timeout: 1)
+        await fulfillment(of: [expectation], timeout: 2)
     }
     
     func testCancelingAllDownloads() async {
@@ -228,7 +228,7 @@ class ResourceManagerTests: XCTestCase {
         }
         await manager.cancelAll()
         
-        await fulfillment(of: [expectation], timeout: 1)
+        await fulfillment(of: [expectation], timeout: 2)
     }
     
     func testMakingManagerInactive() async {

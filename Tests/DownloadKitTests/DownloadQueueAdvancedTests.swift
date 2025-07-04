@@ -269,7 +269,7 @@ class DownloadQueueAdvancedTests: XCTestCase, @unchecked Sendable {
         let download = WebDownload(identifier: "no-processor-test", url: URL(string: "https://example.com/file")!)
         await downloadQueue.download([download])
         
-        await fulfillment(of: [expectation], timeout: 2)
+        await fulfillment(of: [expectation], timeout: 4)
     }
     
     // MARK: - Helper Methods

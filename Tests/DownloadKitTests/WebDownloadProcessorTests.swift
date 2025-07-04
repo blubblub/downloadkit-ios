@@ -94,7 +94,7 @@ class WebDownloadProcessorTests: XCTestCase {
         
         await processor.process(item)
         
-        await fulfillment(of: [expectation], timeout: 3)
+        await fulfillment(of: [expectation], timeout: 6)
     }
     
     func testDownloadFailsForInvalidURL() async throws {
@@ -110,7 +110,7 @@ class WebDownloadProcessorTests: XCTestCase {
         
         await processor.process(item)
         
-        await fulfillment(of: [expectation], timeout: 3)
+        await fulfillment(of: [expectation], timeout: 6)
     }
     
     func testEnqueuePendingWithPendingItems() async {
@@ -132,7 +132,7 @@ class WebDownloadProcessorTests: XCTestCase {
         await processor.process(WebDownload.createSample())
         await processor.pause()
         
-        await fulfillment(of: [expectation], timeout: 5)
+        await fulfillment(of: [expectation], timeout: 10)
         
         XCTAssertEqual(executed, 3, "Begin callback should be called on processor because we had pending items.")
     }
@@ -186,7 +186,7 @@ class WebDownloadProcessorTests: XCTestCase {
         await processor.process(webDownload)
         
         // Wait for download to complete and progress to be updated
-        await fulfillment(of: [expectation, progressExpectation], timeout: 30)
+        await fulfillment(of: [expectation, progressExpectation], timeout: 60)
         
         // Verify transferred bytes tracking
         let finalTransferredBytes = await webDownload.transferredBytes

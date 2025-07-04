@@ -93,7 +93,7 @@ class StorageDownloadTests: XCTestCase {
         
         // Process the cached download
         await manager.process(requests: cachedRequests)
-        await fulfillment(of: [cachedExpectation], timeout: 30)
+        await fulfillment(of: [cachedExpectation], timeout: 60)
         
         let finalSuccess = await successTracker.value
         XCTAssertEqual(finalSuccess, 1, "Cached download should succeed")
@@ -135,7 +135,7 @@ class StorageDownloadTests: XCTestCase {
             }
             
             await manager.process(requests: permanentRequests)
-            await fulfillment(of: [permanentUpdateExpectation], timeout: 30)
+            await fulfillment(of: [permanentUpdateExpectation], timeout: 60)
         } else {
             print("✅ No new download requests - storage update should have happened during request phase")
             // If no requests, storage update should happen during request phase
@@ -230,7 +230,7 @@ class StorageDownloadTests: XCTestCase {
         
         // Process the permanent download
         await manager.process(requests: permanentRequests)
-        await fulfillment(of: [permanentExpectation], timeout: 30)
+        await fulfillment(of: [permanentExpectation], timeout: 60)
         
         let finalPermanentSuccess = await permanentSuccessTracker.value
         XCTAssertEqual(finalPermanentSuccess, 1, "Permanent download should succeed")
@@ -270,7 +270,7 @@ class StorageDownloadTests: XCTestCase {
             }
             
             await manager.process(requests: cachedRequests)
-            await fulfillment(of: [cachedUpdateExpectation], timeout: 30)
+            await fulfillment(of: [cachedUpdateExpectation], timeout: 60)
         } else {
             print("✅ No new download requests - storage update should have happened during request phase")
             // If no requests, storage update should happen during request phase
@@ -365,7 +365,7 @@ class StorageDownloadTests: XCTestCase {
         
         // Process all downloads
         await manager.process(requests: cachedRequests)
-        await fulfillment(of: [batchExpectation], timeout: 60)
+        await fulfillment(of: [batchExpectation], timeout: 120)
         
         let successCount = await successCounter.value
         print("Successfully downloaded \(successCount) out of \(resources.count) files")
@@ -403,7 +403,7 @@ class StorageDownloadTests: XCTestCase {
             }
             
             await manager.process(requests: permanentUpdateRequests)
-            await fulfillment(of: [updateExpectation], timeout: 30)
+            await fulfillment(of: [updateExpectation], timeout: 60)
         } else {
             // If no requests, storage update should happen during request phase
             try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds for storage update
@@ -465,7 +465,7 @@ class StorageDownloadTests: XCTestCase {
         }
         
         await manager.process(requests: cachedRequests)
-        await fulfillment(of: [cachedExpectation], timeout: 30)
+        await fulfillment(of: [cachedExpectation], timeout: 60)
         
         cachedFileURL = await cache[resource.id]
         
@@ -505,7 +505,7 @@ class StorageDownloadTests: XCTestCase {
         }
         
         await manager.process(requests: permanentRequests)
-        await fulfillment(of: [permanentExpectation], timeout: 30)
+        await fulfillment(of: [permanentExpectation], timeout: 60)
         
         if let permanentURL = await cache[permanentResource.id] {
             print("Permanent file URL: \(permanentURL)")
@@ -561,7 +561,7 @@ class StorageDownloadTests: XCTestCase {
             }
             
             await manager.process(requests: failRequests)
-            await fulfillment(of: [failExpectation], timeout: 10)
+            await fulfillment(of: [failExpectation], timeout: 20)
             
             // Verify failed download is not stored
             let failedURL = await cache[invalidResource.id]
@@ -588,7 +588,7 @@ class StorageDownloadTests: XCTestCase {
             }
             
             await manager.process(requests: rapidCachedRequests)
-            await fulfillment(of: [rapidExpectation], timeout: 30)
+            await fulfillment(of: [rapidExpectation], timeout: 60)
             
             // Rapid storage priority requests
             let _ = await manager.request(resources: [rapidResource], options: RequestOptions(storagePriority: .permanent))

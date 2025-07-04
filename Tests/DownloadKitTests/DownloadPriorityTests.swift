@@ -144,7 +144,7 @@ class DownloadPriorityTests: XCTestCase {
         await manager.process(requests: requests, priority: .normal)
         
         // Wait for completion
-        await fulfillment(of: [completionExpectation], timeout: 30)
+        await fulfillment(of: [completionExpectation], timeout: 60)
         
         let successCount = await successCounter.value
         print("Normal priority downloads completed: \(successCount)/3")

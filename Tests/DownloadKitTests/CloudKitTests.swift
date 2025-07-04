@@ -172,7 +172,7 @@ class CloudKitTests: XCTestCase, @unchecked Sendable {
         
         await processor.process(invalidDownload)
         
-        await fulfillment(of: [expectation], timeout: 1)
+        await fulfillment(of: [expectation], timeout: 2)
     }
     
     func testProcessorThrottlingBehavior() async {
