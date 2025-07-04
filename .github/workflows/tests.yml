@@ -29,13 +29,6 @@ jobs:
       with:
         swift-version: ${{ matrix.swift-version }}
     
-    - name: Cache Swift Package Manager
-      uses: actions/cache@v4
-      with:
-        path: .build
-        key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
-        restore-keys: |
-          ${{ runner.os }}-spm-
     
     - name: Build package
       run: swift build
@@ -79,13 +72,6 @@ jobs:
       with:
         xcode-version: '16.4'
     
-    - name: Cache Swift Package Manager
-      uses: actions/cache@v4
-      with:
-        path: .build
-        key: ${{ runner.os }}-spm-ios-${{ hashFiles('**/Package.resolved') }}
-        restore-keys: |
-          ${{ runner.os }}-spm-ios-
     
     - name: List available simulators
       run: xcrun simctl list devices available
@@ -123,13 +109,6 @@ jobs:
       with:
         swift-version: ${{ matrix.swift-version }}
     
-    - name: Cache Swift Package Manager
-      uses: actions/cache@v4
-      with:
-        path: .build
-        key: ${{ runner.os }}-spm-${{ matrix.swift-version }}-${{ hashFiles('**/Package.resolved') }}
-        restore-keys: |
-          ${{ runner.os }}-spm-${{ matrix.swift-version }}-
     
     - name: Resolve package dependencies
       run: swift package resolve
@@ -181,13 +160,6 @@ jobs:
       with:
         swift-version: '6.0'
     
-    - name: Cache Swift Package Manager
-      uses: actions/cache@v4
-      with:
-        path: .build
-        key: ${{ runner.os }}-spm-priority-${{ hashFiles('**/Package.resolved') }}
-        restore-keys: |
-          ${{ runner.os }}-spm-priority-
     
     - name: Build package
       run: swift build
@@ -223,13 +195,6 @@ jobs:
       with:
         swift-version: '6.0'
     
-    - name: Cache Swift Package Manager
-      uses: actions/cache@v4
-      with:
-        path: .build
-        key: ${{ runner.os }}-spm-realm-${{ hashFiles('**/Package.resolved') }}
-        restore-keys: |
-          ${{ runner.os }}-spm-realm-
     
     - name: Build with Realm
       run: swift build
@@ -255,13 +220,6 @@ jobs:
       with:
         swift-version: '6.0'
     
-    - name: Cache Swift Package Manager
-      uses: actions/cache@v4
-      with:
-        path: .build
-        key: ${{ runner.os }}-spm-perf-${{ hashFiles('**/Package.resolved') }}
-        restore-keys: |
-          ${{ runner.os }}-spm-perf-
     
     - name: Build in release mode
       run: swift build -c release
