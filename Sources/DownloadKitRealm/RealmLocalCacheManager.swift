@@ -89,7 +89,9 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
     /// - Parameters:
     ///   - resources: resources to operate on
     ///   - priority: priority to move to.
-    public func updateStorage(resources: [ResourceFile], to priority: StoragePriority, onResourceChange: ((L) -> Void)?) {
+    public func updateStorage(resources: [ResourceFile], to priority: StoragePriority) -> [L] {
+        var changedResources = [L]()
+        
         do {
             let realm = try self.realm
             
@@ -120,19 +122,23 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
                         localResource.fileURL = targetURL
                         localResource.storage = priority
                         realm.add(localResource, update: .modified)
-                        onResourceChange?(localResource)
+                        
                         try realm.commitWrite()
+                        
+                        changedResources.append(localResource)
+                        
                         log.info("Moved \(localURL.absoluteString) from to \(targetURL.absoluteString)")
                     } catch {
                         log.error("Error \(error.localizedDescription) moving file from: \(localURL.absoluteString) to \(targetURL.absoluteString)")
                     }
                 }
             }
-
         }
         catch {
             log.error("Error updating Realm store for files.")
         }
+        
+        return changedResources
     }
     
     /// Filters through `resources` and returns only those that are not downloaded.

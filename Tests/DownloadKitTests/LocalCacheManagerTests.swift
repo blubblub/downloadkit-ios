@@ -72,7 +72,7 @@ let resources: [Resource] = (0..<5).map({ _ in
         }
         
         // update stored resources and move them to permanent storage
-        manager.updateStorage(resources: resources, to: .permanent, onResourceChange: nil)
+        manager.updateStorage(resources: resources, to: .permanent)
         
         let requests = manager.downloads(from: resources, options: permanentOptions)
         XCTAssertEqual(requests.count, 0, "All resources should be stored locally in permanent storage")

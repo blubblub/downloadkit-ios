@@ -40,11 +40,10 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     // MARK: - ResourceCachable
     public func requestDownloads(resources: [ResourceFile], options: RequestOptions) async -> [DownloadRequest] {
         // Update storage for resources that exists.
-        localCache.updateStorage(resources: resources, to: options.storagePriority) { [weak self] resource in
-            guard let self = self else { return }
-            Task {
-                await self.memoryCache?.update(for: resource)
-            }
+        let changedResources = localCache.updateStorage(resources: resources, to: options.storagePriority)
+        
+        for changedResource in changedResources {
+            await memoryCache?.update(for: changedResource)
         }
 
         // Filter out binary and existing resources in local cache.

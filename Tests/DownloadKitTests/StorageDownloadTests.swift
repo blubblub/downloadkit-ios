@@ -16,15 +16,38 @@ class StorageDownloadTests: XCTestCase {
     
     var manager: ResourceManager!
     var cache: RealmCacheManager<CachedLocalFile>!
+    var realmFileURL: URL?
     
     override func setUpWithError() throws {
         // Setup will be done in async test methods to avoid concurrency issues
     }
     
     override func tearDownWithError() throws {
-        // Cleanup will be done in test methods
+        // Clean up Realm file if it exists
+        if let realmURL = realmFileURL {
+            try? FileManager.default.removeItem(at: realmURL)
+            // Also clean up any auxiliary files (lock files, etc.)
+            let realmDirectory = realmURL.deletingLastPathComponent()
+            let realmFileName = realmURL.lastPathComponent
+            let realmBaseName = realmFileName.replacingOccurrences(of: ".realm", with: "")
+            
+            // Clean up auxiliary files
+            let auxiliaryFiles = [
+                "\(realmBaseName).realm.lock",
+                "\(realmBaseName).realm.note",
+                "\(realmBaseName).realm.management"
+            ]
+            
+            for auxiliaryFile in auxiliaryFiles {
+                let auxiliaryURL = realmDirectory.appendingPathComponent(auxiliaryFile)
+                try? FileManager.default.removeItem(at: auxiliaryURL)
+            }
+        }
+        
+        // Clear references
         cache = nil
         manager = nil
+        realmFileURL = nil
     }
     
     /// Helper method to setup ResourceManager for storage tests
@@ -32,9 +55,19 @@ class StorageDownloadTests: XCTestCase {
         let downloadQueue = DownloadQueue()
         await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
         
-        // Use in-memory Realm for testing to avoid conflicts
-        let config = Realm.Configuration()
-        cache = RealmCacheManager<CachedLocalFile>(configuration: config)
+        // Use unique random file for each test to avoid conflicts
+        let randomFileName = "test_realm_\(UUID().uuidString).realm"
+        let tempDirectory = FileManager.default.temporaryDirectory
+        let realmURL = tempDirectory.appendingPathComponent(randomFileName)
+        
+        // Store the realm file URL for cleanup
+        //realmFileURL = realmURL
+        
+        let config = Realm.Configuration(
+            fileURL: realmURL,
+            deleteRealmIfMigrationNeeded: true
+        )
+        cache = RealmCacheManager<CachedLocalFile>(configuration: Realm.Configuration(inMemoryIdentifier: "test-identifier"))
         manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
     }
     
