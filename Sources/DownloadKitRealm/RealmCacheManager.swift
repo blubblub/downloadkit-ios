@@ -62,8 +62,8 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         }
         
         for request in downloadRequests {
-            let idenitifier = request.resourceId
-            requestMap[idenitifier] = request
+            let identifier = request.resourceId
+            requestMap[identifier] = request
         }
         
         return downloadRequests
