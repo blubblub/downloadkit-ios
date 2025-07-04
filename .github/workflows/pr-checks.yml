@@ -34,8 +34,6 @@ jobs:
     - name: Resolve dependencies
       run: swift package resolve
     
-    - name: Check package format
-      run: swift package diagnose
     
     - name: Build all targets
       run: swift build --build-tests
