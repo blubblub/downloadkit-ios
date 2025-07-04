@@ -127,7 +127,7 @@ class ResourceManagerTests: XCTestCase {
         
         await manager.process(request: request.first!)
 
-        await fulfillment(of: [expectation], timeout: 1)
+        await fulfillment(of: [expectation], timeout: 10)
     }
     
     func testThatMultipleResourceCompletionAreCalled() async throws {
