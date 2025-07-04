@@ -190,21 +190,9 @@ public actor ResourceManager: DownloadQueuable {
         
         if let priorityQueue = priorityQueue, priority.rawValue > 0 {
             
-            // Only if urgent priority, we will cancel other priority downloads,
-            // otherwise this just goes to priority queue based on download priority.
+            // Handle urgent priority downloads
             if priority.rawValue > 1 {
-                let currentPriorityDownloads = await priorityQueue.queuedDownloads
-                await priorityQueue.cancel(items: currentPriorityDownloads)
-                
-                let maxDownloadPriority = await downloadQueue.currentMaximumPriority() + 1
-                
-                for currentPriorityDownload in currentPriorityDownloads {
-                    await currentPriorityDownload.set(priority: maxDownloadPriority)
-                }
-                
-                metrics.priorityDecreased += currentPriorityDownloads.count
-                
-                await downloadQueue.download(currentPriorityDownloads)
+                await reprioritise(priorityQueue: priorityQueue)
             }
             
             metrics.priorityIncreased += 1
@@ -250,22 +238,11 @@ public actor ResourceManager: DownloadQueuable {
             // Move current priority queued downloads back to normal queue, because we have
             // a higher priority downloads now.
             if priority == .urgent {
-                let currentPriorityDownloads = await priorityQueue.queuedDownloads
-                await priorityQueue.cancel(items: currentPriorityDownloads)
-                
-                let maxDownloadPriority = await downloadQueue.currentMaximumPriority() + 1
-                
-                for currentPriorityDownload in currentPriorityDownloads {
-                    await currentPriorityDownload.set(priority: maxDownloadPriority)
-                }
-                
-                metrics.priorityDecreased += currentPriorityDownloads.count
-                
-                await downloadQueue.download(currentPriorityDownloads)
+                await reprioritise(priorityQueue: priorityQueue)
                 
                 // Since all downloads were cancelled as urgent, reduce priority,
                 // since otherwise each file will cancel out previous download,
-                // so the priotity is kept high for all files in this "batch".
+                // so the priority is kept high for all files in this "batch".
                 finalPriority = .high
             }
                         
@@ -326,6 +303,25 @@ public actor ResourceManager: DownloadQueuable {
     private func ensureObserverSetup() async {
         await downloadQueue.set(observer: self)
         await priorityQueue?.set(observer: self)
+    }
+    
+    /// Handles urgent priority downloads by moving current priority queue downloads to the normal queue.
+    /// This method extracts the common logic for urgent priority handling that was duplicated
+    /// in both single and batch request processing methods.
+    /// - Parameter priorityQueue: The priority queue from which to move downloads
+    private func reprioritise(priorityQueue: DownloadQueue) async {
+        let currentPriorityDownloads = await priorityQueue.queuedDownloads
+        await priorityQueue.cancel(items: currentPriorityDownloads)
+        
+        let maxDownloadPriority = await downloadQueue.currentMaximumPriority() + 1
+        
+        for currentPriorityDownload in currentPriorityDownloads {
+            await currentPriorityDownload.set(priority: maxDownloadPriority)
+        }
+        
+        metrics.priorityDecreased += currentPriorityDownloads.count
+        
+        await downloadQueue.download(currentPriorityDownloads)
     }
 }
 
