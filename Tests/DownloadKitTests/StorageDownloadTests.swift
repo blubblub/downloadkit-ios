@@ -33,7 +33,7 @@ class StorageDownloadTests: XCTestCase {
         await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
         
         // Use in-memory Realm for testing to avoid conflicts
-        let config = Realm.Configuration(inMemoryIdentifier: "storage-test-\(UUID().uuidString)")
+        let config = Realm.Configuration()
         cache = RealmCacheManager<CachedLocalFile>(configuration: config)
         manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
     }

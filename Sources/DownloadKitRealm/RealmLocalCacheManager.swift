@@ -90,50 +90,48 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
     ///   - resources: resources to operate on
     ///   - priority: priority to move to.
     public func updateStorage(resources: [ResourceFile], to priority: StoragePriority, onResourceChange: ((L) -> Void)?) {
-        autoreleasepool {
-            do {
-                let realm = try self.realm
-                
-                for resource in resources {
-                    if var localResource = realm.object(ofType: L.self, forPrimaryKey: resource.id),
-                        let localURL = localResource.fileURL {
-                        guard file.fileExists(atPath: localURL.path) else {
-                            realm.delete(localResource)
-                            continue
+        do {
+            let realm = try self.realm
+            
+            for resource in resources {
+                if var localResource = realm.object(ofType: L.self, forPrimaryKey: resource.id),
+                    let localURL = localResource.fileURL {
+                    guard file.fileExists(atPath: localURL.path) else {
+                        realm.delete(localResource)
+                        continue
+                    }
+                    // if priorities are the same, skip moving files
+                    if localResource.storage == priority { continue }
+                    
+                    let targetURL = L.targetUrl(for: resource, mirror: resource.main, // main mirror here?
+                                                at: localURL,
+                                                storagePriority: priority, file: file)
+                    let directoryURL = targetURL.deletingLastPathComponent()
+                                            
+                    do {
+                        if !file.fileExists(atPath: directoryURL.path) {
+                            try file.createDirectory(atPath: directoryURL.path, withIntermediateDirectories: true)
                         }
-                        // if priorities are the same, skip moving files
-                        if localResource.storage == priority { continue }
                         
-                        let targetURL = L.targetUrl(for: resource, mirror: resource.main, // main mirror here?
-                                                    at: localURL,
-                                                    storagePriority: priority, file: file)
-                        let directoryURL = targetURL.deletingLastPathComponent()
-                                                
-                        do {
-                            if !file.fileExists(atPath: directoryURL.path) {
-                                try file.createDirectory(atPath: directoryURL.path, withIntermediateDirectories: true)
-                            }
-                            
-                            // move to new location
-                            try file.moveItem(at: localURL, to: targetURL)
-                            // update fileURL with new location and storage
-                            realm.beginWrite()
-                            localResource.fileURL = targetURL
-                            localResource.storage = priority
-                            realm.add(localResource, update: .modified)
-                            onResourceChange?(localResource)
-                            try realm.commitWrite()
-                            log.info("Moved \(localURL.absoluteString) from to \(targetURL.absoluteString)")
-                        } catch {
-                            log.error("Error \(error.localizedDescription) moving file from: \(localURL.absoluteString) to \(targetURL.absoluteString)")
-                        }
+                        // move to new location
+                        try file.moveItem(at: localURL, to: targetURL)
+                        // update fileURL with new location and storage
+                        realm.beginWrite()
+                        localResource.fileURL = targetURL
+                        localResource.storage = priority
+                        realm.add(localResource, update: .modified)
+                        onResourceChange?(localResource)
+                        try realm.commitWrite()
+                        log.info("Moved \(localURL.absoluteString) from to \(targetURL.absoluteString)")
+                    } catch {
+                        log.error("Error \(error.localizedDescription) moving file from: \(localURL.absoluteString) to \(targetURL.absoluteString)")
                     }
                 }
+            }
 
-            }
-            catch {
-                log.error("Error updating Realm store for files.")
-            }
+        }
+        catch {
+            log.error("Error updating Realm store for files.")
         }
     }
     
@@ -173,33 +171,31 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
     ///   - options: options
     /// - Returns: resources that are not yet stored locally.
     public func downloads(from resources: [ResourceFile], options: RequestOptions) -> [ResourceFile] {
-        return autoreleasepool { () -> [ResourceFile] in
-            guard let realm = try? self.realm else {
-                return []
+        guard let realm = try? self.realm else {
+            return []
+        }
+                    
+        // Get resources that need to be downloaded.
+        let downloadableResources = resources.filter { item in
+            
+            if let shouldDownload = shouldDownload {
+                return shouldDownload(item, options)
+            }
+            
+            // No local resource, let's download.
+            guard let resource = realm.object(ofType: L.self, forPrimaryKey: item.id), resource.fileURL != nil else {
+                return true
             }
                         
-            // Get resources that need to be downloaded.
-            let downloadableResources = resources.filter { item in
-                
-                if let shouldDownload = shouldDownload {
-                    return shouldDownload(item, options)
-                }
-                
-                // No local resource, let's download.
-                guard let resource = realm.object(ofType: L.self, forPrimaryKey: item.id), resource.fileURL != nil else {
-                    return true
-                }
-                            
-                // Check if file supports modification date, only download if newer.
-                if let localModifyDate = resource.modifyDate, let fileModifyDate = item.modifyDate {
-                    return fileModifyDate > localModifyDate
-                }
-                
-                return false
+            // Check if file supports modification date, only download if newer.
+            if let localModifyDate = resource.modifyDate, let fileModifyDate = item.modifyDate {
+                return fileModifyDate > localModifyDate
             }
-         
-            return downloadableResources
+            
+            return false
         }
+     
+        return downloadableResources
     }
     
     /// Removes all traces of files in document and cache folder.
