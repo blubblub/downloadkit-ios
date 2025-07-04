@@ -30,24 +30,35 @@ jobs:
         swift-version: ${{ matrix.swift-version }}
     
     
-    - name: Build package
-      run: swift build
+    - name: Build for macOS
+      run: |
+        xcodebuild build-for-testing \
+          -scheme DownloadKit \
+          -destination "platform=macOS" \
+          -derivedDataPath .build/macos \
+          -skipPackagePluginValidation
     
-    - name: Run tests
-      run: swift test --enable-code-coverage
+    - name: Run tests on macOS
+      run: |
+        xcodebuild test-without-building \
+          -scheme DownloadKit \
+          -destination "platform=macOS" \
+          -derivedDataPath .build/macos \
+          -skipPackagePluginValidation \
+          -enableCodeCoverage YES
     
     - name: Generate code coverage report
       if: matrix.swift-version == '6.0'
       run: |
-        xcrun llvm-cov export .build/debug/DownloadKitPackageTests.xctest/Contents/MacOS/DownloadKitPackageTests \
-          -instr-profile .build/debug/codecov/default.profdata \
-          -format="lcov" > coverage.lcov
+        xcrun xccov view --report --json .build/macos/Logs/Test/*.xcresult > coverage.json
+        # Convert xccov JSON to lcov format if needed
+        echo "Coverage report generated"
     
     - name: Upload coverage reports to Codecov
       if: matrix.swift-version == '6.0'
       uses: codecov/codecov-action@v4
       with:
-        file: coverage.lcov
+        file: coverage.json
         fail_ci_if_error: false
         verbose: true
       env:
