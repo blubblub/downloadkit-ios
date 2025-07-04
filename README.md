@@ -49,41 +49,234 @@ After adding the package, run `swift build` or use Xcode’s build to fetch the 
 ```swift
 import DownloadKit
 ```
-Now you’re ready to use the library in your app.
+Now you're ready to use the library in your app.
+
+## Package Architecture
+
+DownloadKit is split into two main components:
+
+### DownloadKitCore
+The core functionality that handles:
+- Download queue management and prioritization
+- Download processors (Web, CloudKit)
+- Resource and mirror abstractions
+- Progress tracking and metrics
+- Basic caching protocols
+
+**Dependencies**: Only Foundation and system frameworks (URLSession, CloudKit)
+
+### DownloadKitRealm
+Realm-based implementation for local file cache tracking:
+- Persistent storage of download metadata
+- File location tracking and cache management
+- Default ResourceManager convenience methods
+- Local file deduplication and cleanup
+
+**Dependencies**: RealmSwift for local database operations
+
+### Importing Components
+
+You can import either the complete package or individual components:
+
+```swift
+// Import everything (recommended for most users)
+import DownloadKit
+
+// Or import only specific components
+import DownloadKitCore     // Core download functionality only
+import DownloadKitRealm    // Realm-based cache + convenience methods
+```
+
+**Note**: The `ResourceManager.default()` convenience method is provided by DownloadKitRealm. If you only import DownloadKitCore, you'll need to manually set up your ResourceManager with a custom cache implementation.
 
 ## Usage
 
-Using DownloadKit typically involves three steps:
+DownloadKit uses modern Swift concurrency (async/await) and provides a resource-based API. Using DownloadKit typically involves:
 
-1. Create a Resource reference for each file you want to download (this could be an URL or a CloudKit record reference).
-2. Enqueue the download using the shared download manager.
-3. Handle completion or progress via a completion callback, delegate, or observer.
+1. Creating a Resource with one or more mirror locations for each file you want to download.
+2. Enqueuing the download using the ResourceManager (async).
+3. Handling completion via completion callbacks or observers.
 
-Below is an example of downloading a file from an URL:
+### Basic Web Download
+
+Below is an example of downloading a file from a web URL:
 
 ```swift
 import DownloadKit
 
-// 1. Define the resource to download (from a URL in this case)
-let fileURL = URL(string: "https://example.com/path/to/file.zip")!
-let resource = ResourceFile(id: "example-file", url: fileURL, fileName: "file.zip")
+// 1. Create a mirror for the file location
+let mirror = FileMirror(
+    id: "mirror-1",
+    location: "https://example.com/path/to/file.zip",
+    info: [:]
+)
 
-// 2. Enqueue the download request via the ResourceManager
-let requests = ResourceManager.shared.request(resources: [resource])
-guard let downloadRequest = requests.first else {
-    return  // No download started (perhaps already cached or invalid URL)
-}
+// 2. Create a resource with the mirror
+let resource = Resource(
+    id: "example-file",
+    main: mirror,
+    alternatives: [],  // Optional alternative mirrors
+    fileURL: nil,
+    modifyDate: nil
+)
 
-// 3. (Optional) Monitor or handle the download completion
-// You could use an observer/delegate to get progress updates or, for simplicity, 
-// poll the request’s state or use a completion handler if available.
-downloadRequest.onCompletion = { result in
-    switch result {
-    case .success(let fileLocation):
-        print("Download finished. File saved at: \(fileLocation.path)")
-    case .failure(let error):
-        print("Download failed with error: \(error)")
+// 3. Get default resource manager and request the download
+Task {
+    let resourceManager = await ResourceManager.default()
+    
+    let requests = await resourceManager.request(
+        resources: [resource],
+        options: RequestOptions(downloadPriority: .normal, storagePriority: .cached)
+    )
+    
+    guard let downloadRequest = requests.first else {
+        return  // No download started (already cached or invalid)
     }
+    
+    // 4. (Optional) Add completion callback
+    await resourceManager.addResourceCompletion(for: resource.id) { success, identifier in
+        if success {
+            print("Download completed for: \(identifier)")
+        } else {
+            print("Download failed for: \(identifier)")
+        }
+    }
+}
+```
+
+### Advanced Usage with Multiple Mirrors
+
+DownloadKit supports multiple mirror locations for redundancy:
+
+```swift
+import DownloadKit
+
+// Create multiple mirrors for redundancy
+let primaryMirror = FileMirror(
+    id: "primary",
+    location: "https://cdn1.example.com/file.zip",
+    info: ["weight": 1]
+)
+
+let backupMirror = FileMirror(
+    id: "backup",
+    location: "https://cdn2.example.com/file.zip",
+    info: ["weight": 2]
+)
+
+let resource = Resource(
+    id: "redundant-file",
+    main: primaryMirror,
+    alternatives: [backupMirror]
+)
+
+Task {
+    let resourceManager = await ResourceManager.default()
+    
+    let requests = await resourceManager.request(
+        resources: [resource],
+        options: RequestOptions(downloadPriority: .high, storagePriority: .permanent)
+    )
+}
+```
+
+### CloudKit Downloads
+
+DownloadKit also supports CloudKit asset downloads:
+
+```swift
+// CloudKit resource
+let cloudKitMirror = FileMirror(
+    id: "cloudkit-mirror",
+    location: "cloudkit://database/record/asset",
+    info: [:]
+)
+
+let cloudResource = Resource(
+    id: "cloud-file",
+    main: cloudKitMirror
+)
+
+Task {
+    let resourceManager = await ResourceManager.default()
+    await resourceManager.request(resources: [cloudResource])
+}
+```
+
+### DownloadProcessors
+
+DownloadKit uses a modular processor architecture. **DownloadProcessors** are responsible for handling the actual download logic for different types of resources (web URLs, CloudKit assets, etc.). Each processor knows how to handle specific download types:
+
+- **WebDownloadProcessor**: Handles HTTP/HTTPS downloads using URLSession
+- **CloudKitDownloadProcessor**: Handles CloudKit CKAsset downloads
+- Custom processors can be created by implementing the `DownloadProcessor` protocol
+
+### Resource Manager Setup
+
+**Quick Start**: For most use cases, you can use the convenient default setup:
+
+```swift
+let resourceManager = await ResourceManager.default()
+```
+
+This creates a ResourceManager with:
+- Realm-based cache using the default configuration
+- WebDownloadProcessor for HTTP/HTTPS downloads
+- Proper async setup
+
+**Custom Setup**: For advanced use cases, you can manually configure a ResourceManager with:
+1. A cache implementation
+2. DownloadQueues configured with the appropriate DownloadProcessors
+
+```swift
+import DownloadKit
+
+Task {
+    // 1. Set up download queues with processors
+    let downloadQueue = DownloadQueue()
+    await downloadQueue.add(processor: WebDownloadProcessor())  // For web downloads
+    await downloadQueue.add(processor: CloudKitDownloadProcessor())  // For CloudKit downloads
+    
+    // 2. (Optional) Set up a priority queue for high-priority downloads
+    let priorityQueue = DownloadQueue()
+    await priorityQueue.add(processor: WebDownloadProcessor.priorityProcessor())
+    await priorityQueue.add(processor: CloudKitDownloadProcessor())
+    
+    // 3. Set up cache (using Realm-based cache)
+    let cache = RealmCacheManager<CachedLocalFile>()
+    
+    // 4. Create resource manager
+    let resourceManager = ResourceManager(
+        cache: cache,
+        downloadQueue: downloadQueue,
+        priorityQueue: priorityQueue  // optional
+    )
+    
+    // 5. Start the manager
+    await resourceManager.resume()
+}
+```
+
+### Processor Configuration
+
+You can customize processors during setup:
+
+```swift
+// Custom web processor with specific URLSession configuration
+let customConfig = URLSessionConfiguration.background(withIdentifier: "my-app-downloads")
+customConfig.allowsCellularAccess = false  // WiFi only
+let webProcessor = WebDownloadProcessor(configuration: customConfig)
+
+// CloudKit processor with specific database
+let container = CKContainer(identifier: "iCloud.com.yourapp.container")
+let cloudKitProcessor = CloudKitDownloadProcessor(database: container.publicCloudDatabase)
+
+Task {
+    let downloadQueue = DownloadQueue()
+    await downloadQueue.add(processor: webProcessor)
+    await downloadQueue.add(processor: cloudKitProcessor)
+    
+    // Continue with ResourceManager setup...
 }
 ```
 

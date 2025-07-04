@@ -4,25 +4,40 @@ import RealmSwift
 
 class MemoryCacheTests: XCTestCase {
     
-    let config = Realm.Configuration(inMemoryIdentifier: "memory-id")
-    var cache: RealmMemoryCache<LocalFile>!
+    let config = Realm.Configuration(inMemoryIdentifier: "memory-cache-test-\(UUID().uuidString)")
+    var cache: RealmMemoryCache<CachedLocalFile>!
+    var realm: Realm!
     
     override func setUpWithError() throws {
-        cache = RealmMemoryCache<LocalFile>(configuration: config, loadURLs: false)
+        // Synchronous setup - realm will be configured in async test methods
+    }
+    
+    private func setupCache() async {
+        // Create Realm instance and keep it alive during the test
+        realm = try! await Realm(configuration: config, actor: MainActor.shared)
+        cache = RealmMemoryCache<CachedLocalFile>(configuration: config)
     }
 
     override func tearDownWithError() throws {
+        // Clear references - in-memory realm will be automatically cleaned up
         cache = nil
+        realm = nil
     }
     
-    func testFetchingFromEmptyCache() {
-        XCTAssertNil(cache.assetImage(url: URL(string: "https://google.com/logo.png")!))
-        XCTAssertNil(cache["randomid"])
+    func testFetchingFromEmptyCache() async {
+        await setupCache()
+        let imageResult = await cache.resourceImage(url: URL(string: "https://google.com/logo.png")!)
+        XCTAssertNil(imageResult)
+        let subscriptResult = await cache["randomid"]
+        XCTAssertNil(subscriptResult)
     }
     
-    func testGettingImageFromCache() {
+    func testGettingImageFromCache() async {
+        await setupCache()
         let imageURL = Bundle.module.url(forResource: "sample", withExtension: "png")!
-        XCTAssertNotNil(cache.assetImage(url: imageURL))
-        XCTAssertNotNil(cache.assetImage(url: imageURL))
+        let imageResult1 = await cache.resourceImage(url: imageURL)
+        XCTAssertNotNil(imageResult1)
+        let imageResult2 = await cache.resourceImage(url: imageURL)
+        XCTAssertNotNil(imageResult2)
     }
 }

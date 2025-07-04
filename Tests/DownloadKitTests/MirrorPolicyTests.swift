@@ -18,7 +18,10 @@ class WeightedMirrorPolicyTests: XCTestCase {
     override func setUpWithError() throws {
         policy = WeightedMirrorPolicy(numberOfRetries: retries)
         delegate = MockPolicyDelegate()
-        policy.delegate = delegate
+    }
+    
+    func setupPolicyAsync() async {
+        await policy.setDelegate(delegate)
     }
 
     override func tearDownWithError() throws {
@@ -26,61 +29,89 @@ class WeightedMirrorPolicyTests: XCTestCase {
         delegate = nil
     }
     
-    func testPolicyReturnsMirrorWithHighestWeight() {
+    func testPolicyReturnsMirrorWithHighestWeight() async {
+        await setupPolicyAsync()
+        
         let numberOfMirrors = 5
-        let asset = Asset.sample(mirrorCount: numberOfMirrors)
-        let selection = policy.mirror(for: asset, lastMirrorSelection: nil, error: nil)!
+        let resource = Resource.sample(mirrorCount: numberOfMirrors)
+        let selection = await policy.mirror(for: resource, lastMirrorSelection: nil, error: nil)!
         
         XCTAssertEqual(selection.mirror.weight, numberOfMirrors)
     }
     
-    func testExhaustingAllMirrorsNotifiesDelegate() {
-        let numberOfMirrors = 5
-        let asset = Asset.sample(mirrorCount: numberOfMirrors)
+    func testExhaustingAllMirrorsNotifiesDelegate() async {
+        await setupPolicyAsync()
         
-        var previousSelection: AssetMirrorSelection?
+        let numberOfMirrors = 5
+        let resource = Resource.sample(mirrorCount: numberOfMirrors)
+        
+        var previousSelection: ResourceMirrorSelection?
         let error = NSError(domain: "mirror.policy.error", code: 10, userInfo: nil)
         
         for _ in 0...(numberOfMirrors + retries) {
-            previousSelection = policy.mirror(for: asset, lastMirrorSelection: previousSelection, error: error)
+            previousSelection = await policy.mirror(for: resource, lastMirrorSelection: previousSelection, error: error)
         }
         
         XCTAssertEqual(delegate.exhaustedAllMirrors, true)
     }
     
-    func testCreatingDownloadableFromUnsupportedURL() {
-        let asset = Asset(id: "random-id",
-                          main: FileMirror(id: "mirror-id",
-                                           location: "Path/To/Local/File.jpg", // unsupported URL
-                                           info: [:]),
-                          alternatives: [],
-                          fileURL: nil)
+    func testCreatingDownloadableFromUnsupportedURL() async {
+        await setupPolicyAsync()
         
-        _ = policy.mirror(for: asset, lastMirrorSelection: nil, error: nil)
+        let resource = Resource(id: "random-id",
+                                main: FileMirror(id: "mirror-id",
+                                                 location: "Path/To/Local/File.jpg", // unsupported URL
+                                                 info: [:]),
+                                alternatives: [],
+                                fileURL: nil)
+        
+        _ = await policy.mirror(for: resource, lastMirrorSelection: nil, error: nil)
         XCTAssertEqual(delegate.failedToGenerateDownloadable, true)
     }
     
-    func testDownloadCompleteClearsRetryCount() {
-        let numberOfMirrors = 1
-        let asset = Asset.sample(mirrorCount: numberOfMirrors)
+    func testDownloadCompleteClearsRetryCount() async {
+        await setupPolicyAsync()
         
-        var previousSelection: AssetMirrorSelection?
+        let numberOfMirrors = 1
+        let resource = Resource.sample(mirrorCount: numberOfMirrors)
+        
+        var previousSelection: ResourceMirrorSelection?
         let error = NSError(domain: "mirror.policy.error", code: 10, userInfo: nil)
         for _ in 0...(numberOfMirrors) {
-            previousSelection = policy.mirror(for: asset, lastMirrorSelection: previousSelection, error: error)
+            previousSelection = await policy.mirror(for: resource, lastMirrorSelection: previousSelection, error: error)
         }
         
-        policy.downloadComplete(for: asset)
+        await policy.downloadComplete(for: resource)
         
-        XCTAssertEqual(policy.retryCounters(for: asset).isEmpty, true)
+        let retryCounters = await policy.retryCounters(for: resource)
+        XCTAssertEqual(retryCounters.isEmpty, true)
     }
     
 }
 
-class MockPolicyDelegate: MirrorPolicyDelegate {
+class MockPolicyDelegate: MirrorPolicyDelegate, @unchecked Sendable {
     
-    var exhaustedAllMirrors = false
-    var failedToGenerateDownloadable = false
+    private var _exhaustedAllMirrors = false
+    private var _failedToGenerateDownloadable = false
+    private let lock = NSLock()
+    
+    var exhaustedAllMirrors: Bool {
+        get {
+            lock.withLock { _exhaustedAllMirrors }
+        }
+        set {
+            lock.withLock { _exhaustedAllMirrors = newValue }
+        }
+    }
+    
+    var failedToGenerateDownloadable: Bool {
+        get {
+            lock.withLock { _failedToGenerateDownloadable }
+        }
+        set {
+            lock.withLock { _failedToGenerateDownloadable = newValue }
+        }
+    }
     
     func mirrorPolicy(_ mirrorPolicy: MirrorPolicy, didExhaustMirrorsIn file: ResourceFile) {
         exhaustedAllMirrors = true
