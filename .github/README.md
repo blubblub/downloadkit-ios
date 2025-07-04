@@ -5,7 +5,7 @@ This directory contains GitHub Actions workflows for continuous integration and 
 ## Workflows
 
 ### 1. `tests.yml` - Comprehensive Test Suite
-**Triggers**: Push to `main`/`master` branches
+**Triggers**: Push to `main` branch
 
 A comprehensive test suite that runs when code is merged to the main branch. This workflow ensures the library maintains high quality and compatibility across platforms.
 
@@ -26,7 +26,7 @@ A comprehensive test suite that runs when code is merged to the main branch. Thi
 - ✅ Detailed test results summary
 
 ### 2. `pr-checks.yml` - Fast Pull Request Validation
-**Triggers**: Pull requests to `main`/`master` branches
+**Triggers**: Pull requests to `main` branch
 
 A fast, focused workflow optimized for pull request validation. Provides quick feedback to developers while ensuring essential functionality works.
 
@@ -83,7 +83,7 @@ Tests run on multiple Swift versions:
 ## Usage
 
 ### For Pull Requests
-1. Create a pull request to `main` or `master`
+1. Create a pull request to `main`
 2. The `pr-checks.yml` workflow runs automatically
 3. Review the check results in the PR
 4. Fix any failing checks before requesting review

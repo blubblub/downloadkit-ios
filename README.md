@@ -2,13 +2,13 @@
 
 ## Introduction
 
-DownloadKit is a Swift library for managing file downloads in the background on Apple platforms. It supports multiple download sources – for example, standard HTTP(S) web servers as well as Apple’s CloudKit – and caches downloaded files locally for offline access. The library uses a priority-based queue system, allowing you to enqueue a large number of downloads (even thousands of files) and control the order in which they are fetched ￼. DownloadKit is used in production (e.g. in the Speech Blubs app) and is designed to handle robust, long-running download tasks reliably.
+DownloadKit is a Swift library for managing file downloads in the background on Apple platforms. Built with Swift tools version 6.0 and targeting Swift version 6.1.2, it supports multiple download sources like standard HTTP(S) web servers and Apple’s CloudKit. Files are cached locally for offline access. The priority-based queue system allows enqueuing numerous downloads efficiently. It's used in production scenarios, such as in the Speech Blubs app, and designed for robust, long-running download tasks.
 
 ## Key features
 
 • Background downloads: Uses background URL sessions and CloudKit operations so downloads can continue even if the app is suspended.
 
-• Multiple sources: Unified interface to download from URLs or CloudKit (e.g. fetching CKAsset files from an iCloud database).
+• Multiple sources: Unified interface to download from URLs or CloudKit (e.g., fetching CKAsset files from an iCloud database) with improved error handling and mirroring.
 
 • Local caching: Files are stored locally once downloaded, avoiding redundant network fetches for the same resource.
 
@@ -19,19 +19,19 @@ DownloadKit is a Swift library for managing file downloads in the background on 
 
 ## Installation
 
-DownloadKit is distributed as a Swift Package. You can add it to your Xcode project or Swift package manifest using Swift Package Manager.
+DownloadKit is distributed as a Swift Package. Platforms supported include iOS 15 and macOS 12. Add it to your Xcode project or Swift package manifest via Swift Package Manager.
 Swift Package Manager (SPM) via Xcode: In Xcode, select File > Add Packages… and enter the GitHub repository URL for DownloadKit:
 
 `https://github.com/blubblub/downloadkit-ios`
 
-Choose the latest release (e.g. 1.1.0) and add the package to your project. Xcode will handle fetching and integrating the package.
+Choose the latest release available in the repository and add the package to your project. Xcode will handle fetching and integrating the package.
 
 Swift Package Manager via Package.swift: If you use a Package.swift manifest, add DownloadKit as a dependency:
 
 ```swift
 // In Package.swift
 dependencies: [
-    .package(url: "https://github.com/blubblub/downloadkit-ios.git", from: "1.1.0")
+    .package(url: "https://github.com/blubblub/downloadkit-ios.git", from: "1.0.0")
 ],
 …
 targets: [
@@ -60,6 +60,7 @@ The core functionality that handles:
 - Download queue management and prioritization
 - Download processors (Web, CloudKit)
 - Resource and mirror abstractions
+- Error handling, including DownloadKitError
 - Progress tracking and metrics
 - Basic caching protocols
 
@@ -87,7 +88,7 @@ import DownloadKitCore     // Core download functionality only
 import DownloadKitRealm    // Realm-based cache + convenience methods
 ```
 
-**Note**: The `ResourceManager.default()` convenience method is provided by DownloadKitRealm. If you only import DownloadKitCore, you'll need to manually set up your ResourceManager with a custom cache implementation.
+**Note**: The `ResourceManager.default()` setup is now async and provides caching using Realm by default. If you import only DownloadKitCore, you must manually configure your ResourceManager with a custom cache and processor setup.
 
 ## Usage
 
@@ -134,13 +135,19 @@ Task {
     }
     
     // 4. (Optional) Add completion callback
-    await resourceManager.addResourceCompletion(for: resource.id) { success, identifier in
+    await resourceManager.addResourceCompletion(for: resource) { success, identifier in
         if success {
             print("Download completed for: \(identifier)")
         } else {
             print("Download failed for: \(identifier)")
         }
     }
+    
+    // 5. Process the download request to start downloading
+    await resourceManager.process(request: downloadRequest)
+    
+    // 6. Resume downloads (if needed)
+    await resourceManager.resume()
 }
 ```
 
@@ -177,6 +184,10 @@ Task {
         resources: [resource],
         options: RequestOptions(downloadPriority: .high, storagePriority: .permanent)
     )
+    
+    // Process the downloads with high priority
+    await resourceManager.process(requests: requests, priority: .high)
+    await resourceManager.resume()
 }
 ```
 
@@ -199,7 +210,9 @@ let cloudResource = Resource(
 
 Task {
     let resourceManager = await ResourceManager.default()
-    await resourceManager.request(resources: [cloudResource])
+    let requests = await resourceManager.request(resources: [cloudResource])
+    await resourceManager.process(requests: requests)
+    await resourceManager.resume()
 }
 ```
 
@@ -282,4 +295,4 @@ Task {
 
 # License
 
-MIT License
+Please refer to the project's license file for licensing information.
