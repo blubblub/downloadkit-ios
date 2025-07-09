@@ -47,6 +47,7 @@ public typealias ProgressCompletion = @Sendable (Bool, String) -> Void
 
 /// Protocol for cache implementations that don't require specific database dependencies
 public protocol ResourceFileCacheable {
+
     func resourceImage(url: URL) async -> LocalImage?
     subscript(id: String) -> URL? { get async }
 }

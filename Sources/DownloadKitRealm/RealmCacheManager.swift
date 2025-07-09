@@ -38,6 +38,13 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     }
     
     // MARK: - ResourceCachable
+    
+    public func isAvailable(resource: ResourceFile) -> Bool {
+        // Check if resource is available in local cache
+        // If downloads() returns empty, it means the resource is already available
+        return localCache.downloads(from: [resource], options: RequestOptions()).isEmpty
+    }
+    
     public func requestDownloads(resources: [ResourceFile], options: RequestOptions) async -> [DownloadRequest] {
         // Update storage for resources that exists.
         let changedResources = localCache.updateStorage(resources: resources, to: options.storagePriority)

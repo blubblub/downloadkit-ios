@@ -10,6 +10,9 @@ import os.log
 
 public protocol ResourceCachable: Actor, ResourceFileCacheable {
     
+    /// Returnst true, if actual file is available in the cache.
+    func isAvailable(resource: ResourceFile) -> Bool
+    
     /// Mirror policy.
     var mirrorPolicy: MirrorPolicy { get set }
     
@@ -43,3 +46,11 @@ public protocol ResourceCachable: Actor, ResourceFileCacheable {
     /// - Parameter urls: urls to ignore while clean up process.
     func cleanup(excluding urls: Set<URL>)
 }
+
+public extension ResourceFile {
+    func isAvailable(in cache: ResourceCachable) async -> Bool {
+        return await cache.isAvailable(resource: self)
+    }
+}
+
+
