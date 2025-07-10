@@ -99,7 +99,9 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
                 if var localResource = realm.object(ofType: L.self, forPrimaryKey: resource.id),
                     let localURL = localResource.fileURL {
                     guard file.fileExists(atPath: localURL.path) else {
-                        realm.delete(localResource)
+                        try realm.write {
+                            realm.delete(localResource)
+                        }
                         continue
                     }
                     // if priorities are the same, skip moving files
