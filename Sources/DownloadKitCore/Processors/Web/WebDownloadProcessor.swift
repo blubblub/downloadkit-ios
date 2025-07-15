@@ -47,6 +47,7 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
         
         sessionConfiguration.waitsForConnectivity = true
         sessionConfiguration.allowsConstrainedNetworkAccess = true
+        sessionConfiguration.allowsCellularAccess = true
         
         self.init(configuration: sessionConfiguration)
     }

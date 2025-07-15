@@ -187,7 +187,7 @@ class DownloadQueueAdvancedTests: XCTestCase, @unchecked Sendable {
     func testMaximumPriority() async {
         await downloadQueue.add(processor: processor)
         
-        let maxPriority = await downloadQueue.currentMaximumPriority()
+        let maxPriority = await downloadQueue.currentMaximumPriority
         XCTAssertEqual(maxPriority, 0) // Should be 0 when queue is empty
         
         let highPriorityDownload = WebDownload(identifier: "max-priority-test", url: URL(string: "https://example.com/file")!, priority: 999)
@@ -196,7 +196,7 @@ class DownloadQueueAdvancedTests: XCTestCase, @unchecked Sendable {
         // Allow some time for the download to be processed and potentially moved from queue to current downloads
         try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         
-        let newMaxPriority = await downloadQueue.currentMaximumPriority()
+        let newMaxPriority = await downloadQueue.currentMaximumPriority
         // The priority might be 0 if the download was already processed and moved to current downloads
         // Since we're testing the queue behavior, this is acceptable
         XCTAssertGreaterThanOrEqual(newMaxPriority, 0)

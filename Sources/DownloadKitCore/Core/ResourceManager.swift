@@ -109,6 +109,17 @@ public actor ResourceManager: DownloadQueuable {
         }
     }
     
+    public static func create(cache: any ResourceCachable) async -> ResourceManager {
+        let downloadQueue = DownloadQueue()
+        await downloadQueue.add(processor: WebDownloadProcessor())
+        
+        let priorityQueue = DownloadQueue()
+        await priorityQueue.add(processor: WebDownloadProcessor.priorityProcessor())
+        await priorityQueue.set(simultaneousDownloads: 30)
+        
+        return ResourceManager(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue)
+    }
+    
     // MARK: - Initialization
     
     public init(cache: any ResourceCachable, downloadQueue: DownloadQueue, priorityQueue: DownloadQueue? = nil) {
@@ -313,7 +324,7 @@ public actor ResourceManager: DownloadQueuable {
         let currentPriorityDownloads = await priorityQueue.queuedDownloads
         await priorityQueue.cancel(items: currentPriorityDownloads)
         
-        let maxDownloadPriority = await downloadQueue.currentMaximumPriority() + 1
+        let maxDownloadPriority = await downloadQueue.currentMaximumPriority + 1
         
         for currentPriorityDownload in currentPriorityDownloads {
             await currentPriorityDownload.set(priority: maxDownloadPriority)

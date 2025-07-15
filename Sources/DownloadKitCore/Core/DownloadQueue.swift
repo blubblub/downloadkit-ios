@@ -153,16 +153,19 @@ public actor DownloadQueue: DownloadQueuable {
         return Array(downloadQueue)
     }
     
-    /// Returns maximum priority of the items on queue.
-    public func currentMaximumPriority() async -> Int {
-        return await downloadQueue.first?.priority ?? 0
+    public var currentMaximumPriority : Int {
+        get async {
+            return await downloadQueue.first?.priority ?? 0
+        }
     }
-    
-    // MARK: - Public Methods
+        
+    // MARK: - Iniitialization
     
     public init() {
         downloadQueue.order = { await $0.priority > $1.priority }
     }
+        
+    // MARK: - Public Methods
     
     public func enqueuePending() async {
         for downloadProcessor in downloadProcessors {
