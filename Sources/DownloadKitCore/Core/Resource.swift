@@ -31,14 +31,12 @@ public struct Resource: ResourceFile, Sendable {
     public var id: String
     public var main: ResourceFileMirror
     public var alternatives: [ResourceFileMirror]
-    public var fileURL: URL?
     public var modifyDate: Date?
     
     public init(id: String, main: ResourceFileMirror, alternatives: [ResourceFileMirror] = [], fileURL: URL? = nil, modifyDate: Date? = nil) {
         self.id = id
         self.main = main
         self.alternatives = alternatives
-        self.fileURL = fileURL
         self.modifyDate = modifyDate
     }
 }

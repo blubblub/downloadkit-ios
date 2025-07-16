@@ -14,7 +14,6 @@ public protocol ResourceFile : Sendable {
     var id: String { get }
     var main: ResourceFileMirror { get }
     var alternatives: [ResourceFileMirror] { get }
-    var fileURL: URL? { get }
     
     var modifyDate: Date? { get }
 }
