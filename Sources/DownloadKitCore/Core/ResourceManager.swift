@@ -9,9 +9,9 @@ import Foundation
 import os
 
 public protocol ResourceManagerObserver: AnyObject, Sendable {
-    func didStartDownloading(_ downloadRequest: DownloadRequest)
-    func willRetryFailedDownload(_ downloadRequest: DownloadRequest, mirror: ResourceMirrorSelection, with error: Error)
-    func didFinishDownload(_ downloadRequest: DownloadRequest, with error: Error?)
+    func didStartDownloading(_ downloadRequest: DownloadRequest) async
+    func willRetryFailedDownload(_ downloadRequest: DownloadRequest, mirror: ResourceMirrorSelection, with error: Error) async
+    func didFinishDownload(_ downloadRequest: DownloadRequest, with error: Error?) async
 }
 
 /// ResourceManager manages a set of resources, allowing a user to request downloads from multiple mirrors,
@@ -302,8 +302,12 @@ public actor ResourceManager: DownloadQueuable {
         self.observers[ObjectIdentifier(observer)] = nil
     }
     
-    private func foreachObserver(action: (ResourceManagerObserver) -> Void) {
-        observers.forEach { $0.value.instance.flatMap(action) }
+    private func foreachObserver(action: (ResourceManagerObserver) async -> Void) async {
+        
+        for observer in observers {
+            guard let instance = observer.value.instance else { continue }
+            await action(instance)
+        }
         
         // cleanup deallocated observer wrappers
         for key in observers.compactMap({ $1.instance == nil ? $0 : nil }) {
@@ -345,7 +349,7 @@ extension ResourceManager: DownloadQueueObserver {
         }
         
         self.metrics.downloadBegan += 1
-        self.foreachObserver { $0.didStartDownloading(downloadRequest) }
+        await self.foreachObserver { await $0.didStartDownloading(downloadRequest) }
     }
     
     public func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadable: Downloadable, using processor: DownloadProcessor) async {
@@ -393,7 +397,7 @@ extension ResourceManager: DownloadQueueObserver {
                 await tempMetrics.updateDownloadSpeed(downloadable: retryDownloadable)
                 metrics = tempMetrics
                 
-                self.foreachObserver { $0.willRetryFailedDownload(retryRequest.request, mirror: retry, with: error) }
+                await self.foreachObserver { await $0.willRetryFailedDownload(retryRequest.request, mirror: retry, with: error) }
                 
                 let identifier = await retryDownloadable.identifier
                 log.error("Download failed, retrying: \(identifier) Error: \(error.localizedDescription)")
@@ -438,8 +442,8 @@ extension ResourceManager {
                 completion(error == nil, identifier)
             }
             
-            self.foreachObserver {
-                $0.didFinishDownload(downloadRequest, with: error)
+            await self.foreachObserver {
+                await $0.didFinishDownload(downloadRequest, with: error)
             }
     }
 }
