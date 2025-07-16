@@ -162,7 +162,7 @@ public actor ResourceManager: DownloadQueuable {
         return false
     }
     
-    public func request(resource: Resource, options: RequestOptions = RequestOptions()) async -> DownloadRequest? {
+    public func request(resource: ResourceFile, options: RequestOptions = RequestOptions()) async -> DownloadRequest? {
         return await request(resources: [resource], options: options).first
     }
     
@@ -172,7 +172,7 @@ public actor ResourceManager: DownloadQueuable {
     ///   - options: download options
     /// - Returns: list of download requests
     @discardableResult
-    public func request(resources: [Resource], options: RequestOptions = RequestOptions()) async -> [DownloadRequest] {
+    public func request(resources: [ResourceFile], options: RequestOptions = RequestOptions()) async -> [DownloadRequest] {
         
         await ensureObserverSetup()
         
