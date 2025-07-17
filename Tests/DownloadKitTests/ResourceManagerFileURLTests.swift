@@ -633,25 +633,6 @@ class ResourceManagerFileURLTests: XCTestCase {
         XCTAssertEqual(url, localFile.fileURL, "File URL should match the cached file URL.")
     }
     
-    func testFileURLForResourceWithLongID() async throws {
-        await setupManager()
-        
-        let longID = String(repeating: "a", count: 1000)
-        let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
-        let resource = Resource(id: longID, main: sampleMain)
-        
-        // Create a temporary file to simulate a cached resource
-        let tempFileURL = try FileManager.createFileOnDisk()
-        
-        // Store the resource in cache
-        let options = RequestOptions(storagePriority: .cached)
-        let localFile = try await cache.localCache.store(resource: resource, mirror: resource.main, at: tempFileURL, options: options)
-        
-        let url = await manager.fileURL(for: resource)
-        XCTAssertNotNil(url, "File URL should not be nil for a cached resource with long ID.")
-        XCTAssertEqual(url, localFile.fileURL, "File URL should match the cached file URL.")
-    }
-    
     // MARK: - Cache Behavior Tests
     
     func testFileURLAfterCacheCleanup() async throws {

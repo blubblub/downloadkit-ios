@@ -69,6 +69,21 @@ public actor RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalRe
         return nil
     }
     
+    public func cleanup(excluding urls: Set<URL>) {
+        // Clear the cache and resourceURLs except those in urls.
+        var resourceURLsCopy = resourceURLs
+        
+        for (key, value) in resourceURLsCopy {
+            if urls.contains(value) {
+                continue
+            }
+            
+            resourceURLs.removeValue(forKey: key)
+            
+            cache.removeObject(forKey: value as NSURL)
+        }
+    }
+    
     public func update(for localResource: L) {
         resourceURLs[localResource.id] = localResource.fileURL
     }

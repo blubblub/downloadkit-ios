@@ -188,6 +188,9 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     
     public func cleanup(excluding urls: Set<URL>) {
         do {
+            Task {
+                await memoryCache?.cleanup(excluding: urls)
+            }
             try localCache.cleanup(excluding: urls)
         }
         catch let error {
