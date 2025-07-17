@@ -133,22 +133,4 @@ class LocalCacheManagerTests: XCTestCase {
     
 }
 
-extension FileManager {
-    var supportDirectoryURL: URL {
-        return self.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-    }
-    
-    var cacheDirectoryURL: URL {
-        return self.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-    }
-    
-    static func createFileOnDisk() throws -> URL {
-        let filename = FileManager.default.cacheDirectoryURL.appendingPathComponent(UUID().uuidString)
-
-        // we're just outputting an emoji into a file
-        try "😃".write(to: filename, atomically: true, encoding: String.Encoding.utf8)
-        
-        return filename
-    }
-}
 
