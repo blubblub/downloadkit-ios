@@ -70,8 +70,6 @@ public actor RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalRe
     }
     
     public func update(for localResource: L) {
-        if let localUrl = localResource.fileURL {
-            resourceURLs[localResource.id] = localUrl
-        }
+        resourceURLs[localResource.id] = localResource.fileURL
     }
 }

@@ -108,9 +108,8 @@ class IsAvailableTests: XCTestCase {
         XCTAssertTrue(isAvailableBeforeDelete, "Resource should be available before file deletion")
         
         // Delete the actual file from disk
-        if let fileURL = localResource.fileURL {
-            try FileManager.default.removeItem(at: fileURL)
-        }
+        let fileURL = localResource.fileURL
+        try FileManager.default.removeItem(at: fileURL)
         
         // Trigger cleanup by calling requestDownloads which will remove orphaned database entries
         let _ = await cache.requestDownloads(resources: [resource], options: cachedOptions)
@@ -180,7 +179,7 @@ class IsAvailableTests: XCTestCase {
             ),
             alternatives: [],
             fileURL: nil,
-            modifyDate: oldDate
+            createdAt: oldDate
         )
         
         // Store the resource in cache
@@ -202,7 +201,7 @@ class IsAvailableTests: XCTestCase {
             ),
             alternatives: [],
             fileURL: nil,
-            modifyDate: newDate
+            createdAt: newDate
         )
         
         // Check availability with newer modification date

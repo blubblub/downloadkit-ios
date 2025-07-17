@@ -43,7 +43,7 @@ class LocalCacheManagerTests: XCTestCase {
         let stored = try manager.store(resource: resource, mirror: resource.main, at: url, options: cachedOptions)
         
         XCTAssertNotNil(stored, "Local resource was stored in realm.")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: stored.fileURL!.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: stored.fileURL.path))
     }
     
     func testRequestingDownloadsOnEmptyCacheReturnsAllResources() async {
@@ -125,7 +125,7 @@ class LocalCacheManagerTests: XCTestCase {
         }
         
         // clean up everything except the first resource
-        try manager.cleanup(excluding: Set([localResources.first!.fileURL!]))
+        try manager.cleanup(excluding: Set([localResources.first!.fileURL]))
         let requested = manager.downloads(from: resources, options: permanentOptions)
         
         XCTAssertEqual(requested.count, 4)

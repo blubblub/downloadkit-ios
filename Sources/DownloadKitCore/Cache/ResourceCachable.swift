@@ -10,7 +10,12 @@ import os.log
 
 public protocol ResourceCachable: Actor, ResourceFileCacheable {
     
-    /// Returnst true, if actual file is available in the cache.
+    /// Returns fileURL for file (if downloaded)
+    func fileURL(for resource: ResourceFile) async -> URL?
+    
+    func image(for resource: ResourceFile) async -> LocalImage?
+    
+    /// Returns true, if actual file is available in the cache.
     func isAvailable(resource: ResourceFile) -> Bool
     
     /// Mirror policy.

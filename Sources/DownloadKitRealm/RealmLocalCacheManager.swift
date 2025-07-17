@@ -38,6 +38,16 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         self.configuration = configuration
     }
     
+    public func fileURL(for resource: ResourceFile) throws -> URL? {
+        let realm = try self.realm
+        
+        if let localResource = realm.object(ofType: L.self, forPrimaryKey: resource.id) {
+            return localResource.freeze().fileURL
+        }
+        
+        return nil
+    }
+    
     /// Creates a new local resource and stores it in realm database.
     /// - Parameters:
     ///   - resource: resource to store in realm.
@@ -96,8 +106,9 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
             let realm = try self.realm
             
             for resource in resources {
-                if var localResource = realm.object(ofType: L.self, forPrimaryKey: resource.id),
-                    let localURL = localResource.fileURL {
+                if var localResource = realm.object(ofType: L.self, forPrimaryKey: resource.id) {
+                    
+                    let localURL = localResource.fileURL
                     guard file.fileExists(atPath: localURL.path) else {
                         try realm.write {
                             realm.delete(localResource)
@@ -191,13 +202,13 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
             }
             
             // No local resource, let's download.
-            guard let resource = realm.object(ofType: L.self, forPrimaryKey: item.id), resource.fileURL != nil else {
+            guard let resource = realm.object(ofType: L.self, forPrimaryKey: item.id) else {
                 return true
             }
                         
             // Check if file supports modification date, only download if newer.
-            if let localModifyDate = resource.modifyDate, let fileModifyDate = item.modifyDate {
-                return fileModifyDate > localModifyDate
+            if let localCreatedAt = resource.createdAt, let fileCreatedAt = item.createdAt {
+                return fileCreatedAt > localCreatedAt
             }
             
             return false
@@ -267,13 +278,8 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         try? realm.write {
             for object in objects {
                 // If the object has no URL, there is no file, we can delete the record.
-                guard let fileURL = object.fileURL else {
-                    realm.delete(object)
-                    
-                    deleteCounter += 1
-                    continue
-                }
-                
+                let fileURL = object.fileURL
+
                 // Objects has url and we are excluding it. Continue.
                 guard !urls.contains(fileURL) else {
                     continue
@@ -303,10 +309,7 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
     }
     
     private func resourceExistsLocally(resource: L) -> Bool {
-        // if we don't have file URL, delete
-        guard let url = resource.fileURL else {
-            return false
-        }
+        let url = resource.fileURL
         
         return file.fileExists(atPath: url.path)
     }
@@ -321,7 +324,7 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         localResource.id = resource.id
         localResource.mirrorId = mirror.id
         localResource.fileURL = url
-        localResource.modifyDate = resource.modifyDate ?? Date()
+        localResource.createdAt = resource.createdAt ?? Date()
         
         return localResource
     }
