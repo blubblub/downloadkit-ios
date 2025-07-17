@@ -130,6 +130,15 @@ public actor ResourceManager: DownloadQueuable {
     
     // MARK: - Public Methods
     
+    public func fileURL(for resource: ResourceFile) async -> URL? {
+        let cachedURL = await cache.fileURL(for: resource)
+        return cachedURL
+    }
+    
+    public func image(for resource: ResourceFile) async -> LocalImage? {
+        return await cache.image(for: resource)
+    }
+    
     public func setActive(_ active: Bool) async {
         await downloadQueue.setActive(active)
         await priorityQueue?.setActive(active)
