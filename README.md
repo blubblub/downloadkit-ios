@@ -118,7 +118,7 @@ let resource = Resource(
     main: mirror,
     alternatives: [],  // Optional alternative mirrors
     fileURL: nil,
-    modifyDate: nil
+    createdAt: nil
 )
 
 // 3. Get default resource manager and request the download

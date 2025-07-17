@@ -303,5 +303,152 @@ class ResourceManagerTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(totalActiveDownloads, 0, "Should have some download activity after activation")
         }
     }
+    
+    func testSingleRequestCancelCompletion() async {
+        await setupManager()
+        
+        let resource = Resource(id: "test-cancel-request", main: FileMirror(id: "test-cancel-request",
+                                                                             location: "https://example.com/fakefile.jpg",
+                                                                             info: [:]),
+                                alternatives: [], fileURL: nil)
+
+        let request = await manager.request(resource: resource)
+        let expectation = self.expectation(description: "Resource cancelation should call completion with success: false.")
+
+        await manager.addResourceCompletion(for: resource) { (success: Bool, resourceId: String) in
+            XCTAssertFalse(success, "Cancelation should call completion with success: false")
+            expectation.fulfill()
+        }
+
+        XCTAssertNotNil(request)
+
+        await manager.cancel(request: request!)
+
+        await fulfillment(of: [expectation], timeout: 2)
+    }
+    
+    func testSingleRequestCancellation() async {
+        await setupManager()
+        
+        let resource = Resource(id: "test-cancel-resource", main: FileMirror(id: "test-cancel-resource",
+                                                                             location: "https://example.com/fakefile.jpg",
+                                                                             info: [:]),
+                                alternatives: [], fileURL: nil)
+
+        let request = await manager.request(resource: resource)
+        let expectation = self.expectation(description: "Resource cancellation should trigger completion with success: false.")
+
+        await manager.addResourceCompletion(for: resource) { (success: Bool, resourceId: String) in
+            XCTAssertFalse(success, "Cancellation should trigger completion with success: false")
+            XCTAssertEqual(resourceId, "test-cancel-resource", "Resource ID should match")
+            expectation.fulfill()
+        }
+
+        XCTAssertNotNil(request)
+
+        await manager.cancel(request: request!)
+
+        await fulfillment(of: [expectation], timeout: 2)
+
+        // Verify internal state is cleaned up
+        let downloadableIdentifier = await request!.downloadableIdentifier()
+        let isDownloading = await manager.isDownloading(for: downloadableIdentifier)
+        XCTAssertFalse(isDownloading, "Download should no longer be in progress after cancellation")
+        
+        let hasDownloadable = await manager.hasDownloadable(with: downloadableIdentifier)
+        XCTAssertFalse(hasDownloadable, "Download should be removed from queue after cancellation")
+    }
+    
+    func testSingleRequestCancellationWithPriorityQueue() async {
+        await setupWithPriorityQueue()
+        
+        let resource = Resource(id: "test-cancel-priority-resource", main: FileMirror(id: "test-cancel-priority-resource",
+                                                                                      location: "https://example.com/fakefile.jpg",
+                                                                                      info: [:]),
+                                alternatives: [], fileURL: nil)
+
+        let request = await manager.request(resource: resource)
+        let expectation = self.expectation(description: "Resource cancellation should trigger completion with success: false.")
+
+        await manager.addResourceCompletion(for: resource) { (success: Bool, resourceId: String) in
+            XCTAssertFalse(success, "Cancellation should trigger completion with success: false")
+            XCTAssertEqual(resourceId, "test-cancel-priority-resource", "Resource ID should match")
+            expectation.fulfill()
+        }
+
+        XCTAssertNotNil(request)
+
+        // Cancel the request without processing it to avoid double completion
+        await manager.cancel(request: request!)
+
+        await fulfillment(of: [expectation], timeout: 2)
+
+        // Verify internal state is cleaned up from both queues
+        let downloadableIdentifier = await request!.downloadableIdentifier()
+        let isDownloading = await manager.isDownloading(for: downloadableIdentifier)
+        XCTAssertFalse(isDownloading, "Download should no longer be in progress after cancellation")
+        
+        let hasDownloadable = await manager.hasDownloadable(with: downloadableIdentifier)
+        XCTAssertFalse(hasDownloadable, "Download should be removed from both queues after cancellation")
+    }
+    
+    func testSingleRequestCancellationProgressTracking() async {
+        await setupManager()
+        
+        let resource = Resource(id: "test-cancel-progress-resource", main: FileMirror(id: "test-cancel-progress-resource",
+                                                                                      location: "https://slowlink.example.com/fakefile.jpg",
+                                                                                      info: [:]),
+                                alternatives: [], fileURL: nil)
+
+        let request = await manager.request(resource: resource)
+        XCTAssertNotNil(request)
+        
+        let expectation = self.expectation(description: "Resource cancellation should trigger completion with success: false.")
+        
+        await manager.addResourceCompletion(for: resource) { (success: Bool, resourceId: String) in
+            XCTAssertFalse(success, "Cancellation should trigger completion with success: false")
+            expectation.fulfill()
+        }
+        
+        // Cancel the request without processing it to avoid double completion
+        await manager.cancel(request: request!)
+        
+        await fulfillment(of: [expectation], timeout: 2)
+        
+        // Verify progress tracking is cleaned up
+        let downloadableIdentifier = await request!.downloadableIdentifier()
+        let progressAfter = await manager.progress.progresses[downloadableIdentifier]
+        XCTAssertNil(progressAfter, "Progress should be cleaned up after cancellation")
+    }
+    
+    func testMultipleCompletionHandlersOnSingleRequestCancellation() async {
+        await setupManager()
+        
+        let resource = Resource(id: "test-cancel-multiple-handlers", main: FileMirror(id: "test-cancel-multiple-handlers",
+                                                                                       location: "https://example.com/fakefile.jpg",
+                                                                                       info: [:]),
+                                alternatives: [], fileURL: nil)
+
+        let request = await manager.request(resource: resource)
+        XCTAssertNotNil(request)
+        
+        let expectation1 = self.expectation(description: "First completion handler should be called")
+        let expectation2 = self.expectation(description: "Second completion handler should be called")
+        
+        // Add multiple completion handlers
+        await manager.addResourceCompletion(for: resource) { (success: Bool, resourceId: String) in
+            XCTAssertFalse(success, "First handler: Cancellation should trigger completion with success: false")
+            expectation1.fulfill()
+        }
+        
+        await manager.addResourceCompletion(for: resource) { (success: Bool, resourceId: String) in
+            XCTAssertFalse(success, "Second handler: Cancellation should trigger completion with success: false")
+            expectation2.fulfill()
+        }
+
+        await manager.cancel(request: request!)
+
+        await fulfillment(of: [expectation1, expectation2], timeout: 2)
+    }
 
 }

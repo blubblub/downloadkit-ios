@@ -130,6 +130,15 @@ public actor ResourceManager: DownloadQueuable {
     
     // MARK: - Public Methods
     
+    public func fileURL(for resource: ResourceFile) async -> URL? {
+        let cachedURL = await cache.fileURL(for: resource)
+        return cachedURL
+    }
+    
+    public func image(for resource: ResourceFile) async -> LocalImage? {
+        return await cache.image(for: resource)
+    }
+    
     public func setActive(_ active: Bool) async {
         await downloadQueue.setActive(active)
         await priorityQueue?.setActive(active)
@@ -292,6 +301,37 @@ public actor ResourceManager: DownloadQueuable {
         }
         
         resourceCompletions.removeAll()
+    }
+    
+    public func cancel(request: DownloadRequest) async {
+        let downloadableIdentifier = await request.downloadableIdentifier()
+        
+        // Cancel the download from both queues - it will only exist in one of them
+        await downloadQueue.cancel(with: downloadableIdentifier)
+        await priorityQueue?.cancel(with: downloadableIdentifier)
+        
+        // Complete the request with cancellation
+        await request.complete(with: DownloadKitError.networkError(.cancelled))
+        
+        // Remove progress tracking
+        await progress.complete(identifier: downloadableIdentifier, with: DownloadKitError.networkError(.cancelled))
+        
+        // Execute and remove any completion handlers for this resource
+        let resourceId = request.resourceId
+        if let completions = resourceCompletions[resourceId] {
+            resourceCompletions[resourceId] = nil
+            for completion in completions {
+                completion(false, resourceId)
+            }
+        }
+        
+        log.info("Cancelled download request: \(resourceId)")
+    }
+    
+    public func cancel(requests: [DownloadRequest]) async {
+        for request in requests {
+            await cancel(request: request)
+        }
     }
     
     public func add(observer: ResourceManagerObserver) {

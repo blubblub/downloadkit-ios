@@ -39,6 +39,38 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     
     // MARK: - ResourceCachable
     
+    public func image(for resource: any ResourceFile) async -> LocalImage? {
+        do {
+            if let memory = memoryCache, let url = await memory[resource.id], let image = await memory.resourceImage(url: url) {
+                return image
+            }
+            else if let url = try localCache.fileURL(for: resource) {
+                let data = try Data(contentsOf: url)
+                let image = LocalImage(data: data)
+                return image
+            }
+        }
+        catch {
+            
+        }
+        
+        return nil
+    }
+    
+    public func fileURL(for resource: any ResourceFile) async -> URL? {
+        do {
+            if let memory = memoryCache {
+                return await memory[resource.id]
+            }
+            else {
+                return try localCache.fileURL(for: resource)
+            }
+        }
+        catch {
+            return nil
+        }
+    }
+    
     public func isAvailable(resource: ResourceFile) -> Bool {
         // Check if resource is available in local cache
         // If downloads() returns empty, it means the resource is already available
@@ -156,6 +188,9 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     
     public func cleanup(excluding urls: Set<URL>) {
         do {
+            Task {
+                await memoryCache?.cleanup(excluding: urls)
+            }
             try localCache.cleanup(excluding: urls)
         }
         catch let error {

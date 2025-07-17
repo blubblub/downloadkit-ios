@@ -108,9 +108,8 @@ class IsAvailableTests: XCTestCase {
         XCTAssertTrue(isAvailableBeforeDelete, "Resource should be available before file deletion")
         
         // Delete the actual file from disk
-        if let fileURL = localResource.fileURL {
-            try FileManager.default.removeItem(at: fileURL)
-        }
+        let fileURL = localResource.fileURL
+        try FileManager.default.removeItem(at: fileURL)
         
         // Trigger cleanup by calling requestDownloads which will remove orphaned database entries
         let _ = await cache.requestDownloads(resources: [resource], options: cachedOptions)
@@ -164,7 +163,7 @@ class IsAvailableTests: XCTestCase {
     }
     
     /// Test that isAvailable works correctly with resource modification dates
-    func testIsAvailable_ResourceWithModificationDate_ReturnsCorrectAvailability() async throws {
+    func testIsAvailable_ResourceWithCreationDate_ReturnsCorrectAvailability() async throws {
         await setupCache()
         
         let oldDate = Date(timeIntervalSinceNow: -3600) // 1 hour ago
@@ -180,7 +179,7 @@ class IsAvailableTests: XCTestCase {
             ),
             alternatives: [],
             fileURL: nil,
-            modifyDate: oldDate
+            createdAt: oldDate
         )
         
         // Store the resource in cache
@@ -202,12 +201,12 @@ class IsAvailableTests: XCTestCase {
             ),
             alternatives: [],
             fileURL: nil,
-            modifyDate: newDate
+            createdAt: newDate
         )
         
-        // Check availability with newer modification date
+        // Check availability with newer creation date
         let isAvailableNew = await cache.isAvailable(resource: newResource)
-        XCTAssertFalse(isAvailableNew, "Resource with newer modification date should not be available (needs re-download)")
+        XCTAssertTrue(isAvailableNew, "Resource with newer modification date still be available. Same resources with different creation dates are not supported.")
     }
     
     /// Test that isAvailable works correctly after cache reset

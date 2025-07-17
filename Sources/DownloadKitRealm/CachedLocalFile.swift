@@ -3,15 +3,14 @@ import RealmSwift
 import DownloadKitCore
 
 public final class CachedLocalFile: Object, LocalResourceFile, @unchecked Sendable {
-    @objc public dynamic var identifier: String?
     
-    @objc public dynamic var mirrorIdentifier: String?
     
-    @objc public dynamic var modifyDate: Date?
+    @Persisted public var identifier: String?
+    @Persisted public var mirrorIdentifier: String?
+    @Persisted public var createdDate: Date?
+    @Persisted public var url: String?
+    @Persisted public var storagePriority: String = StoragePriority.cached.rawValue
     
-    @objc public dynamic var url: String?
-    
-    @objc public dynamic var storagePriority: String = StoragePriority.cached.rawValue
     
     public override static func primaryKey() -> String? {
         return "identifier"
@@ -39,9 +38,20 @@ public final class CachedLocalFile: Object, LocalResourceFile, @unchecked Sendab
         set { mirrorIdentifier = newValue }
     }
     
-    public var fileURL: URL? {
-        get { return url.flatMap { URL(string: $0) } }
-        set { url = newValue?.absoluteString }
+    public var fileURL: URL {
+        get {
+            guard let url = url else {
+                fatalError("First set URL before accessing fileURL!")
+            }
+            
+            return URL(string: url)!
+        }
+        set { url = newValue.absoluteString }
+    }
+    
+    public var createdAt: Date {
+        get { return createdDate ?? Date() }
+        set { createdDate = newValue }
     }
     
     public class func randomLocalPath(for identifier: String, fileExtension: String) -> String {

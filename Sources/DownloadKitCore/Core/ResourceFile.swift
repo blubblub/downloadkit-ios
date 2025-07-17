@@ -15,11 +15,11 @@ public protocol ResourceFile : Sendable {
     var main: ResourceFileMirror { get }
     var alternatives: [ResourceFileMirror] { get }
     
-    var modifyDate: Date? { get }
+    var createdAt: Date? { get }
 }
 
 public extension ResourceFile {
-    var modifyDate: Date? {
+    var createdAt: Date? {
         return nil
     }
     
@@ -47,12 +47,9 @@ public protocol ResourceFileMirror : Sendable {
 
 public protocol LocalResourceFile : Sendable {
     var id: String { get set }
-    
     var mirrorId: String { get set }
-    
-    var fileURL: URL? { get set }
-    
-    var modifyDate: Date? { get set }
+    var fileURL: URL { get set }
+    var createdAt: Date { get set }
     
     /// Storage priority when the file was saved locally.
     var storage: StoragePriority { get set }
@@ -61,7 +58,7 @@ public protocol LocalResourceFile : Sendable {
 }
 
 public extension LocalResourceFile {
-    var modifyDate: Date? {
+    var createdAt: Date? {
         get { return nil }
         set { }
     }
