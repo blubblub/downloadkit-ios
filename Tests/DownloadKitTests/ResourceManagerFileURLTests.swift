@@ -407,7 +407,7 @@ class ResourceManagerFileURLTests: XCTestCase {
             id: "cancelled-download-test",
             main: FileMirror(
                 id: "cancelled-download-mirror",
-                location: "https://picsum.photos/200/200.jpg",
+                location: "https://picsum.photos/800/800.jpg",
                 info: [:]
             ),
             alternatives: [],
@@ -439,7 +439,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         await manager.process(requests: requests)
         
         // Wait a short time to let download start, then cancel it
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 0.1 second
         await manager.cancel(request: downloadRequest)
         
         // Wait for the cancellation to complete

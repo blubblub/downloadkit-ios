@@ -28,7 +28,9 @@ private actor DownloadRequestState {
 
     fileprivate func markComplete(with error: Error? = nil) {
         if isComplete {
-            fatalError("Should not call markComplete twice.")
+            // To prevent multiple continuation calls.
+            // This happens when a download in-flight is cancelled, as URLSession will call the delegate again.
+            return
         }
         
         isComplete = true
@@ -74,6 +76,10 @@ public struct DownloadRequest: Sendable, Equatable {
     }
     
     public func complete(with error: Error? = nil) async {
+        if resource.id == "cancelled-download-test" {
+            print("COMPLETING: \(resource.id)")
+        }
+        
         await state.markComplete(with: error)
     }
         
