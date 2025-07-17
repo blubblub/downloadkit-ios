@@ -30,7 +30,7 @@ public actor ResourceManager: DownloadQueuable {
     public let cache: any ResourceCachable
     
     /// Progress tracker for all resource downloads.
-    private let progress = ResourceDownloadProgress()
+    public let progress = ResourceDownloadProgress()
     
     private let log = Logger.logResourceManager
     
