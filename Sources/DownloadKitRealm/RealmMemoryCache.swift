@@ -15,10 +15,10 @@ import RealmSwift
 /// Images are stored as `UIImage` or `NSImage`.
 /// Note:
 /// Cache Manager will load the image into memory after downloading it.
-public actor RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalResourceFile {
+public actor RealmMemoryCache<L: Object>: ResourceRetrievable where L: LocalResourceFile {
     private var resourceURLs = [String: URL]()
     
-    private let cache = NSCache<NSURL, LocalImage>()
+    private let cache = NSCache<NSString, LocalImage>()
     
     /// Target Realm to update
     let configuration: Realm.Configuration
@@ -37,7 +37,7 @@ public actor RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalRe
         self.configuration = configuration
     }
     
-    public subscript(id: String) -> URL? {
+    public func fileURL(for id: String) -> URL? {
         if let url = resourceURLs[id] {
             return url
         }
@@ -55,13 +55,13 @@ public actor RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalRe
         return resourceURLs[id]
     }
     
-    public func resourceImage(url: URL) -> LocalImage? {
-        if let image = cache.object(forKey: url as NSURL) {
+    public func image(for id: String) -> LocalImage? {
+        if let image = cache.object(forKey: id as NSString) {
             return image
         }
-        
-        if let data = try? Data(contentsOf: url), let image = LocalImage(data: data) {
-            cache.setObject(image, forKey: url as NSURL)
+                
+        if let url = fileURL(for: id), let data = try? Data(contentsOf: url), let image = LocalImage(data: data) {
+            cache.setObject(image, forKey: id as NSString)
             
             return image
         }
@@ -69,18 +69,25 @@ public actor RealmMemoryCache<L: Object>: ResourceFileCacheable where L: LocalRe
         return nil
     }
     
-    public func cleanup(excluding urls: Set<URL>) {
+    public func data(for id: String) -> Data? {
+        if let url = fileURL(for: id) {
+            return try? Data(contentsOf: url)
+        }
+        return nil
+    }
+    
+    public func cleanup(excluding ids: Set<String>) {
         // Clear the cache and resourceURLs except those in urls.
         let resourceURLsCopy = resourceURLs
         
-        for (key, value) in resourceURLsCopy {
-            if urls.contains(value) {
+        for (key, _) in resourceURLsCopy {
+            if ids.contains(key) {
                 continue
             }
             
             resourceURLs.removeValue(forKey: key)
             
-            cache.removeObject(forKey: value as NSURL)
+            cache.removeObject(forKey: key as NSString)
         }
     }
     

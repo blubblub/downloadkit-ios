@@ -18,12 +18,6 @@ public struct FileMirror: ResourceFileMirror, Sendable {
         self.location = location
         self.info = info
     }
-    
-    public static func random(weight: Int) -> FileMirror {
-        FileMirror(id: UUID().uuidString,
-                   location: "https://example.com/file",
-                   info: [WeightedMirrorPolicy.weightKey: weight])
-    }
 }
 
 /// Default implementation of ResourceFile
@@ -38,14 +32,5 @@ public struct Resource: ResourceFile, Sendable {
         self.main = main
         self.alternatives = alternatives
         self.createdAt = createdAt
-    }
-}
-
-public extension Resource {
-    static func sample(mirrorCount: Int) -> Resource {
-        return Resource(id: "sample-id",
-                        main: FileMirror.random(weight: 0),
-                        alternatives: (1...mirrorCount).map { FileMirror.random(weight: $0) },
-                        fileURL: nil)
     }
 }

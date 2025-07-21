@@ -646,7 +646,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         
         // Store the resource in cache
         let options = RequestOptions(storagePriority: .cached)
-        let localFile = try await cache.localCache.store(resource: resource, mirror: resource.main, at: tempFileURL, options: options)
+        _ = try await cache.localCache.store(resource: resource, mirror: resource.main, at: tempFileURL, options: options)
         
         // Verify the file URL is available
         let urlBefore = await manager.fileURL(for: resource)
@@ -671,7 +671,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         
         // Store the resource in cache with cached priority
         let cachedOptions = RequestOptions(storagePriority: .cached)
-        let localFile = try await cache.localCache.store(resource: resource, mirror: resource.main, at: tempFileURL, options: cachedOptions)
+        _ = try await cache.localCache.store(resource: resource, mirror: resource.main, at: tempFileURL, options: cachedOptions)
         
         // Verify the file URL is available
         let urlBefore = await manager.fileURL(for: resource)

@@ -46,10 +46,20 @@ public struct RequestOptions: Sendable {
 public typealias ProgressCompletion = @Sendable (Bool, String) -> Void
 
 /// Protocol for cache implementations that don't require specific database dependencies
-public protocol ResourceFileCacheable {
+public protocol ResourceFileRetrievable : Sendable {
+    func fileURL(for id: String) async -> URL?
+}
 
-    func resourceImage(url: URL) async -> LocalImage?
-    subscript(id: String) -> URL? { get async }
+public protocol ResourceDataRetrievable: Sendable {
+    func data(for id: String) async -> Data?
+}
+
+public protocol ResourceImageRetrievable : Sendable {
+    func image(for id: String) async -> LocalImage?
+}
+
+public protocol ResourceRetrievable : ResourceFileRetrievable, ResourceDataRetrievable, ResourceImageRetrievable {
+    
 }
 
 public extension DownloadRequest {

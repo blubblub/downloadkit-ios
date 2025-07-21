@@ -9,6 +9,23 @@
 import XCTest
 @testable import DownloadKit
 
+public extension FileMirror {
+    static func random(weight: Int) -> FileMirror {
+        FileMirror(id: UUID().uuidString,
+                   location: "https://example.com/file",
+                   info: [WeightedMirrorPolicy.weightKey: weight])
+    }
+}
+
+public extension Resource {
+    static func sample(mirrorCount: Int) -> Resource {
+        return Resource(id: "sample-id",
+                        main: FileMirror.random(weight: 0),
+                        alternatives: (1...mirrorCount).map { FileMirror.random(weight: $0) },
+                        fileURL: nil)
+    }
+}
+
 class WeightedMirrorPolicyTests: XCTestCase {
     
     var policy: WeightedMirrorPolicy!

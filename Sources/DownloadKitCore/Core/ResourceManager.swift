@@ -16,8 +16,8 @@ public protocol ResourceManagerObserver: AnyObject, Sendable {
 
 /// ResourceManager manages a set of resources, allowing a user to request downloads from multiple mirrors,
 /// managing caching and retries internally.
-public actor ResourceManager: DownloadQueuable {
-    
+public actor ResourceManager: ResourceRetrievable, DownloadQueuable {
+
     // MARK: - Private Properties
     
     /// Queue for downloading resources.
@@ -128,17 +128,22 @@ public actor ResourceManager: DownloadQueuable {
         self.priorityQueue = priorityQueue
     }
     
+    // MARK: - ResourceRetrievable
+    
+    public func fileURL(for id: String) async -> URL? {
+        return await cache.fileURL(for: id)
+    }
+    
+    public func data(for id: String) async -> Data? {
+        return await cache.data(for: id)
+    }
+    
+    public func image(for id: String) async -> LocalImage? {
+        return await cache.image(for: id)
+    }
+    
     // MARK: - Public Methods
-    
-    public func fileURL(for resource: ResourceFile) async -> URL? {
-        let cachedURL = await cache.fileURL(for: resource)
-        return cachedURL
-    }
-    
-    public func image(for resource: ResourceFile) async -> LocalImage? {
-        return await cache.image(for: resource)
-    }
-    
+
     public func setActive(_ active: Bool) async {
         await downloadQueue.setActive(active)
         await priorityQueue?.setActive(active)

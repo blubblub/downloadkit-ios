@@ -8,13 +8,8 @@
 import Foundation
 import os.log
 
-public protocol ResourceCachable: Actor, ResourceFileCacheable {
-    
-    /// Returns fileURL for file (if downloaded)
-    func fileURL(for resource: ResourceFile) async -> URL?
-    
-    func image(for resource: ResourceFile) async -> LocalImage?
-    
+public protocol ResourceCachable: Actor, ResourceRetrievable {
+
     /// Returns true, if actual file is available in the cache.
     func isAvailable(resource: ResourceFile) -> Bool
     
@@ -49,7 +44,7 @@ public protocol ResourceCachable: Actor, ResourceFileCacheable {
     
     /// Cleans up cache.
     /// - Parameter urls: urls to ignore while clean up process.
-    func cleanup(excluding urls: Set<URL>)
+    func cleanup(excluding ids: Set<String>)
 }
 
 public extension ResourceFile {

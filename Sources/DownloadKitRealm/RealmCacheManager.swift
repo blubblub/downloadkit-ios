@@ -11,6 +11,7 @@ import RealmSwift
 import os.log
 
 public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResourceFile {
+    
        
     public let log = Logger(subsystem: "org.blubblub.downloadkit.realm.cache.manager", category: "Cache")
     
@@ -39,12 +40,12 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     
     // MARK: - ResourceCachable
     
-    public func image(for resource: any ResourceFile) async -> LocalImage? {
+    public func image(for resourceId: String) async -> LocalImage? {
         do {
-            if let memory = memoryCache, let url = await memory[resource.id], let image = await memory.resourceImage(url: url) {
+            if let memory = memoryCache, let image = await memory.image(for: resourceId) {
                 return image
             }
-            else if let url = try localCache.fileURL(for: resource) {
+            else if let url = try localCache.fileURL(for: resourceId) {
                 let data = try Data(contentsOf: url)
                 let image = LocalImage(data: data)
                 return image
@@ -57,15 +58,23 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         return nil
     }
     
-    public func fileURL(for resource: any ResourceFile) async -> URL? {
+    public func data(for id: String) async -> Data? {
+        guard let fileUrl = await fileURL(for: id) else {
+            return nil
+        }
+        
+        return try? Data(contentsOf: fileUrl)
+    }
+    
+    public func fileURL(for resourceId: String) async -> URL? {
         do {
             // Return from Memory, if available.
-            if let memory = memoryCache, let fileUrl = await memory[resource.id] {
+            if let memory = memoryCache, let fileUrl = await memory.fileURL(for: resourceId) {
                 return fileUrl
             }
             
             // If memory does not have the URL, try fetching it and storing it back to memory as well.
-            let cachedResource = try localCache.cachedResource(for: resource)
+            let cachedResource = try localCache.cachedResource(for: resourceId)
             
             if let memoryCache, let cachedResource {
                 await memoryCache.update(for: cachedResource)
@@ -193,27 +202,15 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         return RetryDownloadRequest(request: request, nextMirror: mirrorSelection)
     }
     
-    public func cleanup(excluding urls: Set<URL>) {
+    public func cleanup(excluding ids: Set<String>) {
         do {
             Task {
-                await memoryCache?.cleanup(excluding: urls)
+                await memoryCache?.cleanup(excluding: ids)
             }
-            try localCache.cleanup(excluding: urls)
+            try localCache.cleanup(excluding: ids)
         }
         catch let error {
             log.error("Error Cleaning up: \(error.localizedDescription)")
         }
-    }
-    
-    // MARK: - ResourceFileCacheable
-    
-    public subscript(id: String) -> URL? {
-        get async {
-            return await memoryCache?[id]
-        }
-    }
-    
-    public func resourceImage(url: URL) async -> LocalImage? {
-        return await memoryCache?.resourceImage(url: url)
     }
 }

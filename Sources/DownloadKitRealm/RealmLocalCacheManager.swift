@@ -38,18 +38,18 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         self.configuration = configuration
     }
     
-    public func cachedResource(for resource: ResourceFile) throws -> L? {
-        guard let localResource = try self.realm.object(ofType: L.self, forPrimaryKey: resource.id) else {
+    public func cachedResource(for resourceId: String) throws -> L? {
+        guard let localResource = try self.realm.object(ofType: L.self, forPrimaryKey: resourceId) else {
             return nil
         }
         
         return localResource.freeze()
     }
     
-    public func fileURL(for resource: ResourceFile) throws -> URL? {
+    public func fileURL(for resourceId: String) throws -> URL? {
         let realm = try self.realm
         
-        if let localResource = realm.object(ofType: L.self, forPrimaryKey: resource.id) {
+        if let localResource = realm.object(ofType: L.self, forPrimaryKey: resourceId) {
             return localResource.fileURL
         }
         
@@ -249,16 +249,29 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         log.debug("Removed \(objects.count) objects.")
     }
     
-    public func cleanup(excluding urls: Set<URL>) throws {
+    public func cleanup(excluding ids: Set<String>) throws {
         let files = file.cachedFiles(directory: file.supportDirectoryURL,
                                      subdirectory: resourceSubdirectory)
         
-        let filesToRemove = files.filter({ !urls.contains($0) })
-        removeFiles(filesToRemove)
+        var urlsToRemove: Set<URL> = Set(files)
         
-        log.debug("Removed \(filesToRemove.count) files.")
+        // Pull all cached files from database.
+        let objectsInDatabase = try realm.objects(L.self)
         
-        try cleanupRealm(excluding: Set(urls))
+        for object in objectsInDatabase {
+            // If ids contain object, then remove the file from removal array
+            if ids.contains(object.id) {
+                urlsToRemove.remove(object.fileURL)
+            }
+        }
+        
+        // Filter objects
+        
+        removeFiles(Array(urlsToRemove))
+        
+        try cleanupRealm(excluding: ids)
+                
+        log.debug("Removed \(urlsToRemove.count) files.")
     }
     
     // MARK: - Private
@@ -277,7 +290,7 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         }
     }
     
-    private func cleanupRealm(excluding urls: Set<URL>) throws {
+    private func cleanupRealm(excluding ids: Set<String>) throws {
         let realm = try self.realm
         let objects = realm.objects(L.self)
         
@@ -285,11 +298,8 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
          
         try? realm.write {
             for object in objects {
-                // If the object has no URL, there is no file, we can delete the record.
-                let fileURL = object.fileURL
-
-                // Objects has url and we are excluding it. Continue.
-                guard !urls.contains(fileURL) else {
+                // If ids are matching.
+                if ids.contains(object.id) {
                     continue
                 }
                 
