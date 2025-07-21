@@ -439,7 +439,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         await manager.process(requests: requests)
         
         // Wait a short time to let download start, then cancel it
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 0.1 second
+        try await Task.sleep(nanoseconds: 1_000_000) // 0.1 second
         await manager.cancel(request: downloadRequest)
         
         // Wait for the cancellation to complete
