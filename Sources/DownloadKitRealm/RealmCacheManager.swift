@@ -62,9 +62,15 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
             if let memory = memoryCache {
                 return await memory[resource.id]
             }
-            else {
-                return try localCache.fileURL(for: resource)
+            
+            // If memory does not have the URL, try fetching it and storing it back to memory as well.
+            let cachedResource = try localCache.cachedResource(for: resource)
+            
+            if let memoryCache, let cachedResource {
+                await memoryCache.update(for: cachedResource)
             }
+            
+            return cachedResource?.fileURL
         }
         catch {
             return nil

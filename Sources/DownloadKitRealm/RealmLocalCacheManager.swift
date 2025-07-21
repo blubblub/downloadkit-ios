@@ -38,11 +38,19 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
         self.configuration = configuration
     }
     
+    public func cachedResource(for resource: ResourceFile) throws -> L? {
+        guard let localResource = try self.realm.object(ofType: L.self, forPrimaryKey: resource.id) else {
+            return nil
+        }
+        
+        return localResource.freeze()
+    }
+    
     public func fileURL(for resource: ResourceFile) throws -> URL? {
         let realm = try self.realm
         
         if let localResource = realm.object(ofType: L.self, forPrimaryKey: resource.id) {
-            return localResource.freeze().fileURL
+            return localResource.fileURL
         }
         
         return nil
