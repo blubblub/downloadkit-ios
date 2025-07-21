@@ -59,8 +59,9 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     
     public func fileURL(for resource: any ResourceFile) async -> URL? {
         do {
-            if let memory = memoryCache {
-                return await memory[resource.id]
+            // Return from Memory, if available.
+            if let memory = memoryCache, let fileUrl = await memory[resource.id] {
+                return fileUrl
             }
             
             // If memory does not have the URL, try fetching it and storing it back to memory as well.
