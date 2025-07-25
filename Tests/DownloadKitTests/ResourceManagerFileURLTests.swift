@@ -67,7 +67,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         XCTAssertTrue(downloadSuccess, "The image should download successfully")
 
         if downloadSuccess {
-            if let fileURL = await manager.fileURL(for: resource) {
+            if let fileURL = await manager.fileURL(for: resource.id) {
                 let data = try Data(contentsOf: fileURL)
                 XCTAssertFalse(data.isEmpty, "Data should not be empty")
 
@@ -109,7 +109,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         
         // Verify initial state - no fileURL should be available
         for resource in resources {
-            let initialURL = await manager.fileURL(for: resource)
+            let initialURL = await manager.fileURL(for: resource.id)
             XCTAssertNil(initialURL, "FileURL should be nil before download for resource \(resource.id)")
         }
         
@@ -167,7 +167,7 @@ class ResourceManagerFileURLTests: XCTestCase {
                 continue
             }
             
-            let fileURL = await manager.fileURL(for: resource)
+            let fileURL = await manager.fileURL(for: resource.id)
             XCTAssertNotNil(fileURL, "File URL should not be nil for downloaded resource \(resourceID)")
             
             if let url = fileURL {
@@ -176,7 +176,7 @@ class ResourceManagerFileURLTests: XCTestCase {
                 
                 // Verify file has content
                 let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-                let fileSize = attributes[.size] as? Int64 ?? 0
+                let fileSize = attributes[FileAttributeKey.size] as? Int64 ?? 0
                 XCTAssertGreaterThan(fileSize, 0, "File should have content for \(resourceID)")
                 
                 // Verify file contains valid image data
@@ -205,21 +205,21 @@ class ResourceManagerFileURLTests: XCTestCase {
                 continue
             }
             
-            let retrievedURL = await manager.fileURL(for: resource)
+            let retrievedURL = await manager.fileURL(for: resource.id)
             XCTAssertEqual(retrievedURL, url, "FileURL should be consistent for resource \(resourceID)")
         }
         
         // Verify resources are properly cached
         var cachedCount = 0
         for resourceID in successfulIDs {
-            if let cachedURL = await cache[resourceID] {
+            if let cachedURL = await cache.fileURL(for: resourceID) {
                 cachedCount += 1
                 
                 // Verify cached URL matches the fileURL from manager
                 guard let resource = resources.first(where: { $0.id == resourceID }) else {
                     continue
                 }
-                let managerURL = await manager.fileURL(for: resource)
+                let managerURL = await manager.fileURL(for: resource.id)
                 XCTAssertEqual(cachedURL, managerURL, "Cached URL should match manager fileURL for \(resourceID)")
             }
         }
@@ -255,7 +255,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         )
         
         // Call manager.fileURL(for: resource) before any download
-        let fileURL = await manager.fileURL(for: resource)
+        let fileURL = await manager.fileURL(for: resource.id)
         
         // Assert the result is nil
         XCTAssertNil(fileURL, "File URL should be nil before download")
@@ -272,7 +272,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         let resource = Resource(id: UUID().uuidString, main: sampleMain)
 
         // No file should be cached, so the fileURL should be nil
-        let url = await manager.fileURL(for: resource)
+        let url = await manager.fileURL(for: resource.id)
         XCTAssertNil(url, "File URL should be nil for a resource not in cache.")
     }
     
@@ -289,7 +289,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         let options = RequestOptions(storagePriority: .cached)
         let localFile = try await cache.localCache.store(resource: resource, mirror: resource.main, at: tempFileURL, options: options)
         
-        let url = await manager.fileURL(for: resource)
+        let url = await manager.fileURL(for: resource.id)
         XCTAssertNotNil(url, "File URL should not be nil for a cached resource.")
         XCTAssertEqual(url, localFile.fileURL, "File URL should match the cached file URL.")
         
@@ -310,7 +310,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         let options = RequestOptions(storagePriority: .permanent)
         let localFile = try await cache.localCache.store(resource: resource, mirror: resource.main, at: tempFileURL, options: options)
         
-        let url = await manager.fileURL(for: resource)
+        let url = await manager.fileURL(for: resource.id)
         XCTAssertNotNil(url, "File URL should not be nil for a permanently stored resource.")
         XCTAssertEqual(url, localFile.fileURL, "File URL should match the cached file URL.")
         
@@ -338,7 +338,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         
         // Verify all resources return correct file URLs
         for (index, resource) in resources.enumerated() {
-            let url = await manager.fileURL(for: resource)
+            let url = await manager.fileURL(for: resource.id)
             XCTAssertNotNil(url, "File URL should not be nil for cached resource \(resource.id).")
             XCTAssertEqual(url, storedURLs[index], "File URL should match the stored URL for resource \(resource.id).")
         }
@@ -362,7 +362,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         )
         
         // Verify fileURL is nil before download
-        let initialURL = await manager.fileURL(for: resource)
+        let initialURL = await manager.fileURL(for: resource.id)
         XCTAssertNil(initialURL, "File URL should be nil before download")
         
         // Request the download
@@ -391,11 +391,11 @@ class ResourceManagerFileURLTests: XCTestCase {
         XCTAssertFalse(downloadSuccess, "Download should fail with invalid URL")
         
         // Verify fileURL remains nil after failed download
-        let finalURL = await manager.fileURL(for: resource)
+        let finalURL = await manager.fileURL(for: resource.id)
         XCTAssertNil(finalURL, "File URL should remain nil after failed download")
         
         // Verify resource is not in cache
-        let cachedURL = await cache[resource.id]
+        let cachedURL = await cache.fileURL(for: resource.id)
         XCTAssertNil(cachedURL, "Resource should not be cached after failed download")
     }
     
@@ -415,7 +415,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         )
         
         // Verify fileURL is nil before download
-        let initialURL = await manager.fileURL(for: resource)
+        let initialURL = await manager.fileURL(for: resource.id)
         XCTAssertNil(initialURL, "File URL should be nil before download")
         
         // Request the download
@@ -450,11 +450,11 @@ class ResourceManagerFileURLTests: XCTestCase {
         XCTAssertFalse(downloadSuccess, "Download should be cancelled")
         
         // Verify fileURL is nil after cancelled download
-        let finalURL = await manager.fileURL(for: resource)
+        let finalURL = await manager.fileURL(for: resource.id)
         XCTAssertNil(finalURL, "File URL should be nil after cancelled download")
         
         // Verify resource is not in cache
-        let cachedURL = await cache[resource.id]
+        let cachedURL = await cache.fileURL(for: resource.id)
         XCTAssertNil(cachedURL, "Resource should not be cached after cancelled download")
     }
     
@@ -499,7 +499,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         XCTAssertTrue(downloadSuccess, "Download should complete successfully")
         
         // Get fileURL from first manager
-        let firstManagerURL = await manager.fileURL(for: resource)
+        let firstManagerURL = await manager.fileURL(for: resource.id)
         XCTAssertNotNil(firstManagerURL, "First manager should have file URL")
         
         // Verify file exists
@@ -515,7 +515,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         let secondManager = ResourceManager(cache: cache, downloadQueue: secondDownloadQueue)
         
         // Verify fileURL is still available from the new manager
-        let secondManagerURL = await secondManager.fileURL(for: resource)
+        let secondManagerURL = await secondManager.fileURL(for: resource.id)
         XCTAssertNotNil(secondManagerURL, "Second manager should have file URL")
         XCTAssertEqual(secondManagerURL, firstManagerURL, "Both managers should return the same file URL")
         
@@ -552,7 +552,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         )
         
         // Verify fileURL is nil before download
-        let initialURL = await manager.fileURL(for: resource)
+        let initialURL = await manager.fileURL(for: resource.id)
         XCTAssertNil(initialURL, "File URL should be nil before download")
         
         // Request the download
@@ -581,7 +581,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         XCTAssertTrue(downloadSuccess, "Download should succeed using alternative mirror")
         
         // Verify fileURL is available after successful download
-        let finalURL = await manager.fileURL(for: resource)
+        let finalURL = await manager.fileURL(for: resource.id)
         XCTAssertNotNil(finalURL, "File URL should be available after successful download with alternative mirror")
         
         // Verify file exists and has content
@@ -589,7 +589,7 @@ class ResourceManagerFileURLTests: XCTestCase {
             XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), "File should exist")
             
             let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-            let fileSize = attributes[.size] as? Int64 ?? 0
+            let fileSize = attributes[FileAttributeKey.size] as? Int64 ?? 0
             XCTAssertGreaterThan(fileSize, 0, "File should have content")
             
             // Try to create an image from the data to verify it's valid
@@ -599,7 +599,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         }
         
         // Verify resource is cached
-        let cachedURL = await cache[resource.id]
+        let cachedURL = await cache.fileURL(for: resource.id)
         XCTAssertNotNil(cachedURL, "Resource should be cached after successful download")
         XCTAssertEqual(cachedURL, finalURL, "Cached URL should match fileURL")
     }
@@ -610,7 +610,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
         let resource = Resource(id: "", main: sampleMain)
         
-        let url = await manager.fileURL(for: resource)
+        let url = await manager.fileURL(for: resource.id)
         XCTAssertNil(url, "File URL should be nil for a resource with empty ID.")
     }
     
@@ -628,7 +628,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         let options = RequestOptions(storagePriority: .cached)
         let localFile = try await cache.localCache.store(resource: resource, mirror: resource.main, at: tempFileURL, options: options)
         
-        let url = await manager.fileURL(for: resource)
+        let url = await manager.fileURL(for: resource.id)
         XCTAssertNotNil(url, "File URL should not be nil for a cached resource with unicode ID.")
         XCTAssertEqual(url, localFile.fileURL, "File URL should match the cached file URL.")
     }
@@ -649,14 +649,14 @@ class ResourceManagerFileURLTests: XCTestCase {
         _ = try await cache.localCache.store(resource: resource, mirror: resource.main, at: tempFileURL, options: options)
         
         // Verify the file URL is available
-        let urlBefore = await manager.fileURL(for: resource)
+        let urlBefore = await manager.fileURL(for: resource.id)
         XCTAssertNotNil(urlBefore, "File URL should be available before cleanup.")
         
         // Clean up the cache, excluding this file
         await cache.cleanup(excluding: [])
         
         // File URL should be nil after cleanup
-        let urlAfter = await manager.fileURL(for: resource)
+        let urlAfter = await manager.fileURL(for: resource.id)
         XCTAssertNil(urlAfter, "File URL should be nil after cache cleanup.")
     }
     
@@ -674,7 +674,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         _ = try await cache.localCache.store(resource: resource, mirror: resource.main, at: tempFileURL, options: cachedOptions)
         
         // Verify the file URL is available
-        let urlBefore = await manager.fileURL(for: resource)
+        let urlBefore = await manager.fileURL(for: resource.id)
         XCTAssertNotNil(urlBefore, "File URL should be available before storage update.")
         
         // Update storage to permanent
@@ -682,7 +682,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         XCTAssertEqual(updatedResources.count, 1, "One resource should be updated.")
         
         // File URL should still be available after storage update
-        let urlAfter = await manager.fileURL(for: resource)
+        let urlAfter = await manager.fileURL(for: resource.id)
         XCTAssertNotNil(urlAfter, "File URL should still be available after storage update.")
     }
     
@@ -713,7 +713,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         
         // Verify initial state - no fileURL should be available
         for resource in resources {
-            let initialURL = await manager.fileURL(for: resource)
+            let initialURL = await manager.fileURL(for: resource.id)
             XCTAssertNil(initialURL, "FileURL should be nil before download for resource \(resource.id)")
         }
         
@@ -770,7 +770,7 @@ class ResourceManagerFileURLTests: XCTestCase {
                 continue
             }
             
-            let fileURL = await manager.fileURL(for: resource)
+            let fileURL = await manager.fileURL(for: resource.id)
             XCTAssertNotNil(fileURL, "FileURL should be available for successfully downloaded resource \(resourceID)")
             
             if let url = fileURL {
@@ -780,7 +780,7 @@ class ResourceManagerFileURLTests: XCTestCase {
                 
                 // Verify file has content (image files should be > 0 bytes)
                 let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-                let fileSize = attributes[.size] as? Int64 ?? 0
+                let fileSize = attributes[FileAttributeKey.size] as? Int64 ?? 0
                 XCTAssertGreaterThan(fileSize, 0, "Downloaded file should have content for resource \(resourceID)")
                 
                 print("✅ Resource \(resourceID): FileURL available at \(url.path), size: \(fileSize) bytes")
@@ -790,11 +790,11 @@ class ResourceManagerFileURLTests: XCTestCase {
         // Verify resources are properly cached
         var cachedResourceCount = 0
         for resource in resources {
-            if let cachedURL = await cache[resource.id] {
+            if let cachedURL = await cache.fileURL(for: resource.id) {
                 cachedResourceCount += 1
                 
                 // Verify cached URL matches fileURL
-                let managerURL = await manager.fileURL(for: resource)
+                let managerURL = await manager.fileURL(for: resource.id)
                 XCTAssertEqual(cachedURL, managerURL, 
                               "Cached URL should match manager fileURL for resource \(resource.id)")
             }
@@ -814,9 +814,9 @@ class ResourceManagerFileURLTests: XCTestCase {
         
         // For cached resources, fileURL should still be available immediately
         for resource in resources {
-            let cachedURL = await cache[resource.id]
+            let cachedURL = await cache.fileURL(for: resource.id)
             if cachedURL != nil {
-                let fileURL = await manager.fileURL(for: resource)
+                let fileURL = await manager.fileURL(for: resource.id)
                 XCTAssertNotNil(fileURL, "FileURL should be available for cached resource \(resource.id)")
             }
         }
@@ -844,7 +844,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         )
         
         // Verify no fileURL initially
-        let initialURL = await manager.fileURL(for: resource)
+        let initialURL = await manager.fileURL(for: resource.id)
         XCTAssertNil(initialURL, "FileURL should be nil before download")
         
         // Request download
@@ -874,7 +874,7 @@ class ResourceManagerFileURLTests: XCTestCase {
             print("✅ Large image download completed successfully")
             
             // Verify fileURL is available
-            let fileURL = await manager.fileURL(for: resource)
+            let fileURL = await manager.fileURL(for: resource.id)
             XCTAssertNotNil(fileURL, "FileURL should be available after successful download")
             
             if let url = fileURL {
@@ -883,7 +883,7 @@ class ResourceManagerFileURLTests: XCTestCase {
                              "Downloaded file should exist")
                 
                 let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-                let fileSize = attributes[.size] as? Int64 ?? 0
+                let fileSize = attributes[FileAttributeKey.size] as? Int64 ?? 0
                 XCTAssertGreaterThan(fileSize, 1000, "Image file should be reasonably sized (>1KB)")
                 
                 // Verify file extension or content type if possible
@@ -896,7 +896,7 @@ class ResourceManagerFileURLTests: XCTestCase {
             }
             
             // Verify resource is cached
-            let cachedURL = await cache[resource.id]
+            let cachedURL = await cache.fileURL(for: resource.id)
             XCTAssertNotNil(cachedURL, "Downloaded resource should be cached")
             XCTAssertEqual(cachedURL, fileURL, "Cached URL should match fileURL")
             
@@ -904,7 +904,7 @@ class ResourceManagerFileURLTests: XCTestCase {
             print("⚠️ Large image download failed - this may be due to network conditions")
             
             // Even if download failed, fileURL should still be nil
-            let fileURL = await manager.fileURL(for: resource)
+            let fileURL = await manager.fileURL(for: resource.id)
             XCTAssertNil(fileURL, "FileURL should be nil for failed download")
         }
     }
@@ -926,7 +926,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         )
         
         // Verify fileURL is nil before download
-        let initialURL = await manager.fileURL(for: resource)
+        let initialURL = await manager.fileURL(for: resource.id)
         XCTAssertNil(initialURL, "File URL should be nil before download")
         
         // Request the download using manager.request()
@@ -955,7 +955,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         XCTAssertTrue(downloadSuccess, "Download should complete successfully")
         
         // After successful download, call manager.fileURL(for: resource)
-        let fileURL = await manager.fileURL(for: resource)
+        let fileURL = await manager.fileURL(for: resource.id)
         
         // Assert the returned URL is not nil
         XCTAssertNotNil(fileURL, "File URL should not be nil after successful download")
@@ -986,7 +986,7 @@ class ResourceManagerFileURLTests: XCTestCase {
             
             // Verify the file has content (should be > 0 bytes for a valid image)
             let attributes = try FileManager.default.attributesOfItem(atPath: urlPath)
-            let fileSize = attributes[.size] as? Int64 ?? 0
+            let fileSize = attributes[FileAttributeKey.size] as? Int64 ?? 0
             XCTAssertGreaterThan(fileSize, 0, "Downloaded file should have content")
         }
     }

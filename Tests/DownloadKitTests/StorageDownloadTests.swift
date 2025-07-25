@@ -99,7 +99,7 @@ class StorageDownloadTests: XCTestCase {
         XCTAssertEqual(finalSuccess, 1, "Cached download should succeed")
         
         // Verify file is stored in cache directory
-        guard let cachedURL = await cache[resource.id] else {
+        guard let cachedURL = await cache.fileURL(for: resource.id) else {
             XCTFail("File should be cached after download")
             return
         }
@@ -143,7 +143,7 @@ class StorageDownloadTests: XCTestCase {
         }
         
         // Verify file has been moved to permanent location
-        guard let permanentURL = await cache[resource.id] else {
+        guard let permanentURL = await cache.fileURL(for: resource.id) else {
             XCTFail("File should still be available after storage update")
             return
         }
@@ -236,7 +236,7 @@ class StorageDownloadTests: XCTestCase {
         XCTAssertEqual(finalPermanentSuccess, 1, "Permanent download should succeed")
         
         // Verify file is stored in permanent directory
-        guard let permanentURL = await cache[resource.id] else {
+        guard let permanentURL = await cache.fileURL(for: resource.id) else {
             XCTFail("File should be cached after download")
             return
         }
@@ -278,7 +278,7 @@ class StorageDownloadTests: XCTestCase {
         }
         
         // Verify file has been moved to cached location
-        guard let cachedURL = await cache[resource.id] else {
+        guard let cachedURL = await cache.fileURL(for: resource.id) else {
             XCTFail("File should still be available after storage update")
             return
         }
@@ -373,7 +373,7 @@ class StorageDownloadTests: XCTestCase {
         // Verify all successful files are in cache directories
         var cachedURLs: [String: URL] = [:]
         for resource in resources {
-            if let url = await cache[resource.id] {
+            if let url = await cache.fileURL(for: resource.id) {
                 cachedURLs[resource.id] = url
                 XCTAssertTrue(url.path.contains("Caches") || url.path.contains("cache"), 
                              "File \(resource.id) should be in cache directory")
@@ -412,7 +412,7 @@ class StorageDownloadTests: XCTestCase {
         // Verify all files have been moved to permanent storage
         var movedCount = 0
         for resource in resources {
-            if let permanentURL = await cache[resource.id] {
+            if let permanentURL = await cache.fileURL(for: resource.id) {
                 let isPermanentLocation = permanentURL.path.contains("Application Support") || 
                                          (!permanentURL.path.contains("Caches") && !permanentURL.path.contains("cache"))
                 
@@ -467,7 +467,7 @@ class StorageDownloadTests: XCTestCase {
         await manager.process(requests: cachedRequests)
         await fulfillment(of: [cachedExpectation], timeout: 60)
         
-        cachedFileURL = await cache[resource.id]
+        cachedFileURL = await cache.fileURL(for: resource.id)
         
         if let url = cachedFileURL {
             print("Cached file URL: \(url)")
@@ -507,7 +507,7 @@ class StorageDownloadTests: XCTestCase {
         await manager.process(requests: permanentRequests)
         await fulfillment(of: [permanentExpectation], timeout: 60)
         
-        if let permanentURL = await cache[permanentResource.id] {
+        if let permanentURL = await cache.fileURL(for: permanentResource.id) {
             print("Permanent file URL: \(permanentURL)")
             
             // Verify directory structure
@@ -564,7 +564,7 @@ class StorageDownloadTests: XCTestCase {
             await fulfillment(of: [failExpectation], timeout: 20)
             
             // Verify failed download is not stored
-            let failedURL = await cache[invalidResource.id]
+            let failedURL = await cache.fileURL(for: invalidResource.id)
             XCTAssertNil(failedURL, "Failed download should not be stored")
             print("✅ Failed download correctly not stored")
         } else {
@@ -601,7 +601,7 @@ class StorageDownloadTests: XCTestCase {
             try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
             
             // Verify final state is consistent
-            if let finalURL = await cache[rapidResource.id] {
+            if let finalURL = await cache.fileURL(for: rapidResource.id) {
                 XCTAssertTrue(FileManager.default.fileExists(atPath: finalURL.path), 
                              "File should exist after rapid updates")
                 print("✅ File survived rapid storage updates")

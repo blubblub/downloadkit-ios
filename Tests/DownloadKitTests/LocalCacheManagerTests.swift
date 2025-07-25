@@ -125,7 +125,7 @@ class LocalCacheManagerTests: XCTestCase {
         }
         
         // clean up everything except the first resource
-        try manager.cleanup(excluding: Set([localResources.first!.fileURL]))
+        try manager.cleanup(excluding: Set([localResources.first!.id]))
         let requested = manager.downloads(from: resources, options: permanentOptions)
         
         XCTAssertEqual(requested.count, 4)

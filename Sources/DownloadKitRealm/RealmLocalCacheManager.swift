@@ -10,17 +10,20 @@ import DownloadKitCore
 import RealmSwift
 import os.log
 
-public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where L: LocalResourceFile {
-    public let file = FileManager.default
+public final class RealmLocalCacheManager<L: Object>: Sendable where L: LocalResourceFile {
     public let log = Logger(subsystem: "org.blubblub.downloadkit.realm.cache.local", category: "Cache")
     
     /// Target Realm to update
     public let configuration: Realm.Configuration
     
-    public var resourceSubdirectory = "resources/"
-    public var excludeFilesFromBackup = true
+    public let resourceSubdirectory : String
+    public let excludeFilesFromBackup : Bool
     
-    public var shouldDownload: ((ResourceFile, RequestOptions) -> Bool)?
+    public let shouldDownload: (@Sendable (ResourceFile, RequestOptions) -> Bool)?
+    
+    private var file : FileManager {
+        FileManager.default
+    }
 
     private var realm: Realm {
         get throws {
@@ -34,8 +37,14 @@ public final class RealmLocalCacheManager<L: Object>: @unchecked Sendable where 
     
     // MARK: - Public
     
-    public init(configuration: Realm.Configuration) {
+    public init(configuration: Realm.Configuration,
+                resourceSubdirectory: String = "resources/",
+                excludeFilesFromBackup: Bool = true,
+                shouldDownload: (@Sendable (ResourceFile, RequestOptions) -> Bool)? = nil) {
         self.configuration = configuration
+        self.resourceSubdirectory = resourceSubdirectory
+        self.excludeFilesFromBackup = excludeFilesFromBackup
+        self.shouldDownload = shouldDownload
     }
     
     public func cachedResource(for resourceId: String) throws -> L? {
