@@ -151,7 +151,7 @@ class DownloadPriorityTests: XCTestCase {
         print("Normal priority downloads completed: \(successCount)/3")
         
         // Verify metrics were updated
-        let metrics = await manager.metrics
+        let metrics = manager.metrics
         let downloadBegan = await metrics.downloadBegan
         XCTAssertGreaterThan(downloadBegan, 0, "Should have started some downloads")
         
@@ -165,7 +165,7 @@ class DownloadPriorityTests: XCTestCase {
         print("=== TESTING HIGH PRIORITY DOWNLOADS ===")
         
         // Check initial metrics
-        let initialMetrics = await manager.metrics
+        let initialMetrics = manager.metrics
         let initialPriorityIncreased = await initialMetrics.priorityIncreased
         print("Initial priority increased: \(initialPriorityIncreased)")
         
@@ -180,7 +180,7 @@ class DownloadPriorityTests: XCTestCase {
         await manager.process(requests: normalRequests, priority: .normal)
         
         // Check metrics after normal processing
-        let metricsAfterNormal = await manager.metrics
+        let metricsAfterNormal = manager.metrics
         let priorityIncreasedAfterNormal = await metricsAfterNormal.priorityIncreased
         print("Priority increased after normal: \(priorityIncreasedAfterNormal)")
         XCTAssertEqual(priorityIncreasedAfterNormal, 0, "Normal priority should not increase priority counter")
@@ -200,7 +200,7 @@ class DownloadPriorityTests: XCTestCase {
         await manager.process(requests: highPriorityRequests, priority: .high)
         
         // Check metrics for priority increase
-        let metrics = await manager.metrics
+        let metrics = manager.metrics
         let priorityIncreasedValue = await metrics.priorityIncreased
         print("Priority increased after high: \(priorityIncreasedValue)")
         print("Priority increased after normal (captured): \(priorityIncreasedAfterNormal)")
@@ -246,7 +246,7 @@ class DownloadPriorityTests: XCTestCase {
         await manager.process(requests: highPriorityRequests, priority: .high)
         
         // Get metrics after high priority
-        let metricsAfterHigh = await manager.metrics
+        let metricsAfterHigh = manager.metrics
         let metricsAfterHighPriorityIncreased = await metricsAfterHigh.priorityIncreased
         print("DEBUG: After high priority processing - priority increased: \(metricsAfterHighPriorityIncreased)")
         
@@ -264,7 +264,7 @@ class DownloadPriorityTests: XCTestCase {
         }
         
         // Check metrics for priority changes
-        let metricsAfterUrgent = await manager.metrics
+        let metricsAfterUrgent = manager.metrics
         let priorityIncreasedAfterUrgent = await metricsAfterUrgent.priorityIncreased
         let priorityDecreasedAfterUrgent = await metricsAfterUrgent.priorityDecreased
         print("Priority increased: \(priorityIncreasedAfterUrgent)")
@@ -316,7 +316,7 @@ class DownloadPriorityTests: XCTestCase {
         XCTAssertGreaterThan(queuedDownloads + currentDownloads, 0, "Should have downloads in main queue")
         
         // Metrics should not show priority increases since no priority queue exists
-        let metrics = await manager.metrics
+        let metrics = manager.metrics
         let priorityIncreased = await metrics.priorityIncreased
         XCTAssertEqual(priorityIncreased, 0, "Should not increase priority without priority queue")
         
@@ -335,7 +335,7 @@ class DownloadPriorityTests: XCTestCase {
         print("DEBUG: Normal requests created: \(normalRequests.count)")
         await manager.process(requests: normalRequests, priority: .normal)
         
-        let metricsAfterNormal = await manager.metrics
+        let metricsAfterNormal = manager.metrics
         let normalPriorityIncreased = await metricsAfterNormal.priorityIncreased
         print("DEBUG: After normal processing - priority increased: \(normalPriorityIncreased)")
         
@@ -345,7 +345,7 @@ class DownloadPriorityTests: XCTestCase {
         print("DEBUG: High requests created: \(highRequests.count)")
         await manager.process(requests: highRequests, priority: .high)
         
-        let metricsAfterHigh = await manager.metrics
+        let metricsAfterHigh = manager.metrics
         let highPriorityIncreased = await metricsAfterHigh.priorityIncreased
         print("DEBUG: After high processing - priority increased: \(highPriorityIncreased)")
         
@@ -358,7 +358,7 @@ class DownloadPriorityTests: XCTestCase {
             await manager.process(request: urgentRequest, priority: .urgent)
         }
         
-        let finalMetrics = await manager.metrics
+        let finalMetrics = manager.metrics
         let finalPriorityIncreased = await finalMetrics.priorityIncreased
         print("DEBUG: After urgent processing - priority increased: \(finalPriorityIncreased)")
         
@@ -370,7 +370,6 @@ class DownloadPriorityTests: XCTestCase {
         // The problem might be that previous resources are already cached
         // Let's adjust expectations based on what actually happened
         XCTAssertEqual(normalPriorityIncreased, 0, "Normal should not increase priority")
-        
         // Only check if we actually processed requests
         if highRequests.count > 0 {
             XCTAssertGreaterThan(highPriorityIncreased, normalPriorityIncreased, "High should increase priority")
@@ -397,7 +396,7 @@ class DownloadPriorityTests: XCTestCase {
         print("=== TESTING PRIORITY METRICS ===")
         
         // Get initial metrics
-        let initialMetrics = await manager.metrics
+        let initialMetrics = manager.metrics
         let initialPriorityIncreased = await initialMetrics.priorityIncreased
         let initialPriorityDecreased = await initialMetrics.priorityDecreased
         XCTAssertEqual(initialPriorityIncreased, 0, "Should start with 0 priority increases")
@@ -412,7 +411,7 @@ class DownloadPriorityTests: XCTestCase {
         let normalRequests = await manager.request(resources: normalResources)
         await manager.process(requests: normalRequests, priority: .normal)
         
-        let afterNormalMetrics = await manager.metrics
+        let afterNormalMetrics = manager.metrics
         let afterNormalPriorityIncreased = await afterNormalMetrics.priorityIncreased
         XCTAssertEqual(afterNormalPriorityIncreased, 0, "Normal priority should not increase priority counter")
         
@@ -420,7 +419,7 @@ class DownloadPriorityTests: XCTestCase {
         let highRequests = await manager.request(resources: highResources)
         await manager.process(requests: highRequests, priority: .high)
         
-        let afterHighMetrics = await manager.metrics
+        let afterHighMetrics = manager.metrics
         let afterHighPriorityIncreased = await afterHighMetrics.priorityIncreased
         XCTAssertGreaterThan(afterHighPriorityIncreased, afterNormalPriorityIncreased, 
                            "High priority should increase priority counter")
@@ -429,7 +428,7 @@ class DownloadPriorityTests: XCTestCase {
         let urgentRequests = await manager.request(resources: urgentResources)
         await manager.process(requests: urgentRequests, priority: .urgent)
         
-        let finalMetrics = await manager.metrics
+        let finalMetrics = manager.metrics
         let finalPriorityIncreased = await finalMetrics.priorityIncreased
         XCTAssertGreaterThan(finalPriorityIncreased, afterHighPriorityIncreased, 
                            "Urgent priority should further increase priority counter")
@@ -458,7 +457,7 @@ class DownloadPriorityTests: XCTestCase {
         let backgroundRequests = await manager.request(resources: [backgroundResource])
         await manager.process(requests: backgroundRequests, priority: .normal)
         
-        let initialMetrics = await manager.metrics
+        let initialMetrics = manager.metrics
         let initialPriorityIncreased = await initialMetrics.priorityIncreased
         print("DEBUG: Initial priority increased: \(initialPriorityIncreased)")
         
@@ -470,7 +469,7 @@ class DownloadPriorityTests: XCTestCase {
             await manager.process(request: firstRequest, priority: .urgent)
         }
         
-        let metricsAfterFirst = await manager.metrics
+        let metricsAfterFirst = manager.metrics
         let firstPriorityIncreased = await metricsAfterFirst.priorityIncreased
         print("DEBUG: After first urgent - priority increased: \(firstPriorityIncreased)")
         
@@ -482,7 +481,7 @@ class DownloadPriorityTests: XCTestCase {
             await manager.process(request: secondRequest, priority: .urgent)
         }
         
-        let metricsAfterSecond = await manager.metrics
+        let metricsAfterSecond = manager.metrics
         let secondPriorityIncreased = await metricsAfterSecond.priorityIncreased
         print("DEBUG: After second urgent - priority increased: \(secondPriorityIncreased)")
         
@@ -494,7 +493,7 @@ class DownloadPriorityTests: XCTestCase {
             await manager.process(request: thirdRequest, priority: .urgent)
         }
         
-        let finalMetrics = await manager.metrics
+        let finalMetrics = manager.metrics
         let finalPriorityIncreased = await finalMetrics.priorityIncreased
         print("DEBUG: After third urgent - priority increased: \(finalPriorityIncreased)")
         
@@ -542,7 +541,7 @@ class DownloadPriorityTests: XCTestCase {
         // Verify normal queue is busy
         let initialQueuedCount = await manager.queuedDownloadCount
         let initialCurrentCount = await manager.currentDownloadCount
-        let initialMetrics = await manager.metrics
+        let initialMetrics = manager.metrics
         
         print("Initial state - Queued: \(initialQueuedCount), Current: \(initialCurrentCount)")
         XCTAssertGreaterThan(initialQueuedCount + initialCurrentCount, 10, "Normal queue should be busy with many downloads")
@@ -561,7 +560,7 @@ class DownloadPriorityTests: XCTestCase {
         await manager.process(requests: highPriorityRequests, priority: .high)
         
         // Verify high priority downloads were processed immediately
-        let afterHighMetrics = await manager.metrics
+        let afterHighMetrics = manager.metrics
         let afterHighQueuedCount = await manager.queuedDownloadCount
         let afterHighCurrentCount = await manager.currentDownloadCount
         
@@ -604,7 +603,7 @@ class DownloadPriorityTests: XCTestCase {
         let busyNormalRequests = await manager.request(resources: busyNormalResources)
         await manager.process(requests: busyNormalRequests, priority: .normal)
         
-        let initialMetrics = await manager.metrics
+        let initialMetrics = manager.metrics
         let initialQueuedCount = await manager.queuedDownloadCount
         let initialCurrentCount = await manager.currentDownloadCount
         let initialDownloadCounts = initialQueuedCount + initialCurrentCount
@@ -616,14 +615,14 @@ class DownloadPriorityTests: XCTestCase {
         let batchHighRequests = await manager.request(resources: batchHighResources)
         await manager.process(requests: batchHighRequests, priority: .high)
         
-        let afterBatchHighMetrics = await manager.metrics
+        let afterBatchHighMetrics = manager.metrics
         
         // Add batch of urgent downloads
         let batchUrgentResources = (1...5).map { createTestResource(id: "batch-urgent-\($0)") }
         let batchUrgentRequests = await manager.request(resources: batchUrgentResources)
         await manager.process(requests: batchUrgentRequests, priority: .urgent)
         
-        let finalMetrics = await manager.metrics
+        let finalMetrics = manager.metrics
         let finalQueuedCount = await manager.queuedDownloadCount
         let finalCurrentCount = await manager.currentDownloadCount
         let finalDownloadCounts = finalQueuedCount + finalCurrentCount
@@ -674,7 +673,7 @@ class DownloadPriorityTests: XCTestCase {
         let highPriorityRequests = await manager.request(resources: highPriorityResources)
         await manager.process(requests: highPriorityRequests, priority: .high)
         
-        let metricsAfterHigh = await manager.metrics
+        let metricsAfterHigh = manager.metrics
         
         let metricsAfterHighPriorityIncreased = await metricsAfterHigh.priorityIncreased
         let metricsAfterHighPriorityDecreased = await metricsAfterHigh.priorityDecreased
@@ -695,7 +694,7 @@ class DownloadPriorityTests: XCTestCase {
         let urgentRequests = await manager.request(resources: urgentResources)
         await manager.process(requests: urgentRequests, priority: .urgent)
         
-        let finalMetrics = await manager.metrics
+        let finalMetrics = manager.metrics
         
         let finalPriorityIncreased = await finalMetrics.priorityIncreased
         let finalPriorityDecreased = await finalMetrics.priorityDecreased
@@ -742,7 +741,7 @@ class DownloadPriorityTests: XCTestCase {
         let highPriorityRequests = await manager.request(resources: highPriorityResources)
         await manager.process(requests: highPriorityRequests, priority: .high)
         
-        let metricsAfterHigh = await manager.metrics
+        let metricsAfterHigh = manager.metrics
         let metricsAfterHighPriorityIncreased = await metricsAfterHigh.priorityIncreased
         let metricsAfterHighPriorityDecreased = await metricsAfterHigh.priorityDecreased
         print("After high priority - Increased: \(metricsAfterHighPriorityIncreased), Decreased: \(metricsAfterHighPriorityDecreased)")
@@ -752,7 +751,7 @@ class DownloadPriorityTests: XCTestCase {
         let urgentRequests = await manager.request(resources: urgentResources)
         await manager.process(requests: urgentRequests, priority: .urgent)
         
-        let metricsAfterUrgent = await manager.metrics
+        let metricsAfterUrgent = manager.metrics
         let metricsAfterUrgentPriorityIncreased = await metricsAfterUrgent.priorityIncreased
         let metricsAfterUrgentPriorityDecreased = await metricsAfterUrgent.priorityDecreased
         print("After urgent - Increased: \(metricsAfterUrgentPriorityIncreased), Decreased: \(metricsAfterUrgentPriorityDecreased)")
@@ -774,7 +773,7 @@ class DownloadPriorityTests: XCTestCase {
         if availableForReprioritization.count > 0 {
             await manager.process(requests: availableForReprioritization, priority: .high)
             
-            let metricsAfterReprio = await manager.metrics
+            let metricsAfterReprio = manager.metrics
             let metricsAfterReprioPriorityIncreased = await metricsAfterReprio.priorityIncreased
             let metricsAfterReprioPriorityDecreased = await metricsAfterReprio.priorityDecreased
             print("After re-prioritization - Increased: \(metricsAfterReprioPriorityIncreased), Decreased: \(metricsAfterReprioPriorityDecreased)")
@@ -791,7 +790,7 @@ class DownloadPriorityTests: XCTestCase {
         if reUrgentRequests.count > 0 {
             await manager.process(requests: reUrgentRequests, priority: .urgent)
             
-            let finalMetrics = await manager.metrics
+            let finalMetrics = manager.metrics
             let finalPriorityIncreased = await finalMetrics.priorityIncreased
             let finalPriorityDecreased = await finalMetrics.priorityDecreased
             print("After urgent re-prioritization - Increased: \(finalPriorityIncreased), Decreased: \(finalPriorityDecreased)")
@@ -820,7 +819,7 @@ class DownloadPriorityTests: XCTestCase {
         let phase1NormalRequests = await manager.request(resources: phase1Normal)
         await manager.process(requests: phase1NormalRequests, priority: .normal)
         
-        let phase1Metrics = await manager.metrics
+        let phase1Metrics = manager.metrics
         let phase1PriorityIncreased = await phase1Metrics.priorityIncreased
         print("Phase 1 (Normal queue busy) - Increased: \(phase1PriorityIncreased)")
         
@@ -829,7 +828,7 @@ class DownloadPriorityTests: XCTestCase {
         let phase2HighRequests = await manager.request(resources: phase2High)
         await manager.process(requests: phase2HighRequests, priority: .high)
         
-        let phase2Metrics = await manager.metrics
+        let phase2Metrics = manager.metrics
         let phase2PriorityIncreased = await phase2Metrics.priorityIncreased
         let phase2PriorityDecreased = await phase2Metrics.priorityDecreased
         print("Phase 2 (High priority added) - Increased: \(phase2PriorityIncreased), Decreased: \(phase2PriorityDecreased)")
@@ -839,7 +838,7 @@ class DownloadPriorityTests: XCTestCase {
         let phase3HighRequests = await manager.request(resources: phase3High)
         await manager.process(requests: phase3HighRequests, priority: .high)
         
-        let phase3Metrics = await manager.metrics
+        let phase3Metrics = manager.metrics
         let phase3PriorityIncreased = await phase3Metrics.priorityIncreased
         let phase3PriorityDecreased = await phase3Metrics.priorityDecreased
         print("Phase 3 (More high priority) - Increased: \(phase3PriorityIncreased), Decreased: \(phase3PriorityDecreased)")
@@ -849,7 +848,7 @@ class DownloadPriorityTests: XCTestCase {
         let phase4UrgentRequests = await manager.request(resources: phase4Urgent)
         await manager.process(requests: phase4UrgentRequests, priority: .urgent)
         
-        let phase4Metrics = await manager.metrics
+        let phase4Metrics = manager.metrics
         let phase4PriorityIncreased = await phase4Metrics.priorityIncreased
         let phase4PriorityDecreased = await phase4Metrics.priorityDecreased
         print("Phase 4 (Urgent empties priority queue) - Increased: \(phase4PriorityIncreased), Decreased: \(phase4PriorityDecreased)")
@@ -859,7 +858,7 @@ class DownloadPriorityTests: XCTestCase {
         let phase5UrgentRequests = await manager.request(resources: phase5Urgent)
         await manager.process(requests: phase5UrgentRequests, priority: .urgent)
         
-        let finalMetrics = await manager.metrics
+        let finalMetrics = manager.metrics
         let finalPriorityIncreased = await finalMetrics.priorityIncreased
         let finalPriorityDecreased = await finalMetrics.priorityDecreased
         print("Phase 5 (More urgent) - Increased: \(finalPriorityIncreased), Decreased: \(finalPriorityDecreased)")

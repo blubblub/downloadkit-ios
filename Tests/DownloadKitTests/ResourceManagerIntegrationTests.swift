@@ -316,7 +316,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         let resources = createTestResources(count: resourceCount)
         
         // Verify initial state
-        let initialMetrics = await manager.metrics
+        let initialMetrics = manager.metrics
         let description = await initialMetrics.description
         let requested = await initialMetrics.requested
         print("Initial metrics: \(description)")
@@ -335,7 +335,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         XCTAssertTrue(isActive, "Manager should be active")
         
         // Check intermediate metrics
-        let afterRequestMetrics = await manager.metrics
+        let afterRequestMetrics = manager.metrics
         let afterRequestMetricsDescription = await afterRequestMetrics.description
         let afterRequested = await afterRequestMetrics.requested
         print("After request metrics: \(afterRequestMetricsDescription)")
@@ -373,7 +373,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         // Get final results
         let finalCompletedCount = await completedCount.value
         let finalFailedCount = await failedCount.value
-        let finalMetrics = await manager.metrics
+        let finalMetrics = manager.metrics
         let finalMetricsDescription = await finalMetrics.description
         let finalRequested = await finalMetrics.requested
         let finalDownloadBegan = await finalMetrics.downloadBegan
@@ -458,7 +458,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         print("Testing ResourceManager metrics with \(resourceCount) resources...")
         
         // Get initial metrics
-        let initialMetrics = await manager.metrics
+        let initialMetrics = manager.metrics
         let initialMetricsDescription = await initialMetrics.description
         let initialRequested = await initialMetrics.requested
         let initialDownloadBegan = await initialMetrics.downloadBegan
@@ -477,7 +477,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         print("Created \(requests.count) download requests")
         
         // Check metrics after request
-        let afterRequestMetrics = await manager.metrics
+        let afterRequestMetrics = manager.metrics
         let afterRequestMetricsDescription = await afterRequestMetrics.description
         let afterRequestRequested = await afterRequestMetrics.requested
         print("After request metrics: \(afterRequestMetricsDescription)")
@@ -519,7 +519,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         print("Total processed: \(completedCount + failedCount)")
         
         // Get final metrics
-        let finalMetrics = await manager.metrics
+        let finalMetrics = manager.metrics
         let finalMetricsDescription = await finalMetrics.description
         let finalRequested = await finalMetrics.requested
         let finalDownloadBegan = await finalMetrics.downloadBegan
