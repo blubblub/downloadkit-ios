@@ -10,18 +10,24 @@ import DownloadKitCore
 import RealmSwift
 import os.log
 
-public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResourceFile {
+private actor DownloadRequestMap {
+    // Track original download requests, so we can retry.
+    private(set) var requestMap = [String: DownloadRequest]()
     
-       
+    func set(_ request: DownloadRequest?, for key: String) {
+        requestMap[key] = request
+    }
+}
+
+public final class RealmCacheManager<L: Object>: ResourceCachable where L: LocalResourceFile {
     public let log = Logger(subsystem: "org.blubblub.downloadkit.realm.cache.manager", category: "Cache")
     
     public let memoryCache: RealmMemoryCache<L>?
     public let localCache: RealmLocalCacheManager<L>
     
-    public var mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()
+    public let mirrorPolicy: MirrorPolicy
     
-    // Track original download requests, so we can retry.
-    private var requestMap = [String: DownloadRequest]()
+    private let requestMap = DownloadRequestMap()
     
     public init(configuration: Realm.Configuration,
                 mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()) {
@@ -118,7 +124,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         
         for request in downloadRequests {
             let identifier = request.resourceId
-            requestMap[identifier] = request
+            await requestMap.set(request, for: identifier)
         }
         
         return downloadRequests
@@ -128,7 +134,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
         // Find original request based on mirror ids.
         let downloadableIdentifier = await downloadable.identifier
         
-        for (_, request) in requestMap {
+        for (_, request) in await requestMap.requestMap {
             if request.resource.mirrorIds.contains(downloadableIdentifier) {
                 return request
             }
@@ -156,10 +162,10 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
             // Update Memory Cache with resource.
             await memoryCache?.update(for: localObject)
             await request.complete()
-            requestMap[request.resourceId] = nil
+            await requestMap.set(nil, for: request.resourceId)
         }
         catch {
-            requestMap[request.resourceId] = nil
+            await requestMap.set(nil, for: request.resourceId)
             await request.complete(with: error)
             throw error
         }
@@ -190,8 +196,7 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
             // Clear download selection for the identifier.
             await request.complete(with: error)
             
-            requestMap[identifier] = nil
-            
+            await requestMap.set(nil, for: identifier)
             return RetryDownloadRequest(request: request)
         }
         

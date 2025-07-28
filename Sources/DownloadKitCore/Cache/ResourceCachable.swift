@@ -8,13 +8,13 @@
 import Foundation
 import os.log
 
-public protocol ResourceCachable: Actor, ResourceRetrievable {
+public protocol ResourceCachable: Sendable, ResourceRetrievable {
 
     /// Returns true, if actual file is available in the cache.
     func isAvailable(resource: ResourceFile) -> Bool
     
     /// Mirror policy.
-    var mirrorPolicy: MirrorPolicy { get set }
+    var mirrorPolicy: MirrorPolicy { get }
     
     /// Returns downloadable items, that are not stored locally.
     /// - Parameters:
@@ -49,7 +49,7 @@ public protocol ResourceCachable: Actor, ResourceRetrievable {
 
 public extension ResourceFile {
     func isAvailable(in cache: ResourceCachable) async -> Bool {
-        return await cache.isAvailable(resource: self)
+        return cache.isAvailable(resource: self)
     }
 }
 
