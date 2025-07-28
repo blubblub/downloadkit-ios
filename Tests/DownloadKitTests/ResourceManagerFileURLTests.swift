@@ -656,7 +656,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         await cache.cleanup(excluding: [])
         
         // File URL should be nil after cleanup
-        let urlAfter = await manager.fileURL(for: resource.id)
+        let urlAfter = try await cache.localCache.fileURL(for: resource.id)
         XCTAssertNil(urlAfter, "File URL should be nil after cache cleanup.")
     }
     

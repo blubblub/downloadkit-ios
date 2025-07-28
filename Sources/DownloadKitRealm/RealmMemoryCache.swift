@@ -16,9 +16,9 @@ import RealmSwift
 /// Note:
 /// Cache Manager will load the image into memory after downloading it.
 public actor RealmMemoryCache<L: Object>: ResourceRetrievable where L: LocalResourceFile {
-    private var resourceURLs = [String: URL]()
+    private let urlCache = NSCache<NSString, NSURL>()
     
-    private let cache = NSCache<NSString, LocalImage>()
+    private let imageCache = NSCache<NSString, LocalImage>()
     
     /// Target Realm to update
     let configuration: Realm.Configuration
@@ -38,8 +38,8 @@ public actor RealmMemoryCache<L: Object>: ResourceRetrievable where L: LocalReso
     }
     
     public func fileURL(for id: String) -> URL? {
-        if let url = resourceURLs[id] {
-            return url
+        if let url = urlCache.object(forKey: id as NSString) {
+            return url as URL
         }
         
         guard let realm = try? self.realm else {
@@ -48,20 +48,20 @@ public actor RealmMemoryCache<L: Object>: ResourceRetrievable where L: LocalReso
         
         autoreleasepool {
             if let localResourceUrl = realm.object(ofType: L.self, forPrimaryKey: id)?.fileURL {
-                resourceURLs[id] = localResourceUrl
+                urlCache.setObject(localResourceUrl as NSURL, forKey: id as NSString)
             }
         }
         
-        return resourceURLs[id]
+        return urlCache.object(forKey: id as NSString) as? URL
     }
     
     public func image(for id: String) -> LocalImage? {
-        if let image = cache.object(forKey: id as NSString) {
+        if let image = imageCache.object(forKey: id as NSString) {
             return image
         }
                 
         if let url = fileURL(for: id), let data = try? Data(contentsOf: url), let image = LocalImage(data: data) {
-            cache.setObject(image, forKey: id as NSString)
+            imageCache.setObject(image, forKey: id as NSString)
             
             return image
         }
@@ -76,22 +76,7 @@ public actor RealmMemoryCache<L: Object>: ResourceRetrievable where L: LocalReso
         return nil
     }
     
-    public func cleanup(excluding ids: Set<String>) {
-        // Clear the cache and resourceURLs except those in urls.
-        let resourceURLsCopy = resourceURLs
-        
-        for (key, _) in resourceURLsCopy {
-            if ids.contains(key) {
-                continue
-            }
-            
-            resourceURLs.removeValue(forKey: key)
-            
-            cache.removeObject(forKey: key as NSString)
-        }
-    }
-    
     public func update(for localResource: L) {
-        resourceURLs[localResource.id] = localResource.fileURL
+        urlCache.setObject(localResource.fileURL as NSURL, forKey: localResource.id as NSString)
     }
 }

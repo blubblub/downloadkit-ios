@@ -204,9 +204,6 @@ public actor RealmCacheManager<L: Object>: ResourceCachable where L: LocalResour
     
     public func cleanup(excluding ids: Set<String>) {
         do {
-            Task {
-                await memoryCache?.cleanup(excluding: ids)
-            }
             try localCache.cleanup(excluding: ids)
         }
         catch let error {
