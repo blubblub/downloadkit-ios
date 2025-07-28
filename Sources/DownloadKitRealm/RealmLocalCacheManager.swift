@@ -64,9 +64,6 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
         
         
         // If it does not exist, we handle case of moving the sandbox then.
-        // We should check both application support and caches directories, by replacing the first part of the path.
-        
-        
         let updatedURL = replaceSandboxURL(in: localResource.fileURL, for: localResource.storage)
         
         if file.fileExists(atPath: updatedURL.path) {
@@ -77,21 +74,28 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
     }
     
     private func replaceSandboxURL(in url: URL, for storage: StoragePriority) -> URL {
-        //
-        
-        
-        let replacedURL: URL
+        let baseURL: URL
         
         if storage == .cached {
-            replacedURL = file.cacheDirectoryURL
+            baseURL = file.cacheDirectoryURL
         }
         else {
-            replacedURL = file.supportDirectoryURL
+            baseURL = file.supportDirectoryURL
         }
-        //file:///var/mobile/Containers/Data/Application/74BD8E49-F863-4B7F-949C-0FAF674D075B/Library/Caches/resources/63eb5f332c3c9aba159a1834.A7804343-6ABE-4376-8754-0655C6FDF259.png
-        // TODO: Implement here the replacement of first part of the URL. You can detect this by searching for "resources/" part of the directory, before it it should be replaced with the replaced URL.
         
-        return replacedURL
+        // Find the "resources/" part in the URL path and extract everything from that point onwards
+        let urlPath = url.path
+        
+        if let resourcesRange = urlPath.range(of: resourceSubdirectory) {
+            // Extract the relative path starting from "resources/"
+            let relativePath = String(urlPath[resourcesRange.lowerBound...])
+            
+            // Combine the new base URL with the relative path
+            return baseURL.appendingPathComponent(relativePath)
+        }
+        
+        // Fallback: if "resources/" is not found, return the URL
+        return url
     }
     
     /// Creates a new local resource and stores it in realm database.
