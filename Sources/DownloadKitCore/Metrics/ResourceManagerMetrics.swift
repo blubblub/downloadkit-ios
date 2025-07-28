@@ -9,7 +9,7 @@
 import Foundation
 
 /// Measured metrics on ResourceManager
-public struct ResourceManagerMetrics: Sendable {
+public actor ResourceManagerMetrics {
     
     public init() {}
 
@@ -32,11 +32,27 @@ public struct ResourceManagerMetrics: Sendable {
     public var bytesTransferred: Int64 = 0
     public private(set) var downloadSpeedBytes: Int64 = 0
     
+    public func increase(requested: Int = 0,
+                         downloadBegan: Int = 0,
+                         downloadCompleted: Int = 0,
+                         priorityIncreased: Int = 0,
+                         priorityDecreased: Int = 0,
+                         failed: Int = 0,
+                         retried: Int = 0) {
+        self.requested += requested
+        self.downloadBegan += downloadBegan
+        self.downloadCompleted += downloadCompleted
+        self.priorityIncreased += priorityIncreased
+        self.priorityDecreased += priorityDecreased
+        self.failed += failed
+        self.retried += retried
+    }
+    
     /// Updates Download Speed calculation and bytes transferred tracking
     /// - Parameters:
     ///   - downloadable: downloadable to update metrics for
     ///   - isCompleted: whether the download is completed (for final byte tracking)
-    public mutating func updateDownloadSpeed(downloadable: Downloadable? = nil, isCompleted: Bool = false) async {
+    public func updateDownloadSpeed(downloadable: Downloadable? = nil, isCompleted: Bool = false) async {
         guard let identifier = await downloadable?.identifier else {
             return
         }
@@ -101,7 +117,7 @@ public struct ResourceManagerMetrics: Sendable {
     }
 }
 
-extension ResourceManagerMetrics : CustomStringConvertible {
+extension ResourceManagerMetrics : @preconcurrency CustomStringConvertible {
     public var description: String {
         let formatter = ByteCountFormatter()
         

@@ -316,7 +316,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         let resources = createTestResources(count: resourceCount)
         
         // Verify initial state
-        let initialMetrics = await manager.metrics
+        let initialMetrics = manager.metrics
         print("Initial metrics: \(initialMetrics.description)")
         XCTAssertEqual(initialMetrics.requested, 0, "Should start with 0 requested")
         

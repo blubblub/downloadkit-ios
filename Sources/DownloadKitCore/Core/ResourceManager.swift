@@ -36,30 +36,8 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
             }
         }
         
-        var metrics = ResourceManagerMetrics()
-        
         /// Used to store callbacks for completion blocks.
         var resourceCompletions: [String: [@Sendable (Bool, String) -> Void]] = [:]
-        
-        func increaseMetrics(requested: Int = 0,
-                             downloadBegan: Int = 0,
-                             downloadCompleted: Int = 0,
-                             priorityIncreased: Int = 0,
-                             priorityDecreased: Int = 0,
-                             failed: Int = 0,
-                             retried: Int = 0) {
-            metrics.requested += requested
-            metrics.downloadBegan += downloadBegan
-            metrics.downloadCompleted += downloadCompleted
-            metrics.priorityIncreased += priorityIncreased
-            metrics.priorityDecreased += priorityDecreased
-            metrics.failed += failed
-            metrics.retried += retried
-        }
-        
-        func updateDownloadSpeed(with downloadable: Downloadable, isCompleted: Bool = false) async {
-            //await metrics.updateDownloadSpeed(downloadable: downloadable)
-        }
         
         func addResourceCompletion(_ resourceKey: String, _ completion: @escaping @Sendable (Bool, String) -> Void) {
             if resourceCompletions[resourceKey] == nil {
@@ -103,6 +81,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
     private let log = Logger.logResourceManager
     
     private let state = ResourceManagerState()
+    public let metrics = ResourceManagerMetrics()
     
     
     /// Returns all queues in an array for convenience.
@@ -254,12 +233,12 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         // Grab resources we need from file manager, filtering out those that are already downloaded.
         let requests = await cache.requestDownloads(resources: uniqueResources, options: options)
         
-        await state.increaseMetrics(requested: uniqueResources.count)
+        await metrics.increase(requested: uniqueResources.count)
         
         log.info("Requested unique resource count: \(uniqueResources.count) Downloads: \(requests.count)")
         
         guard requests.count > 0 else {
-            let metrics = await self.state.metrics.description
+            let metrics = await self.metrics.description
             log.info("Metrics on no downloads: \(metrics)")
             return []
         }
@@ -280,7 +259,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
                 await reprioritise(priorityQueue: priorityQueue)
             }
             
-            await state.increaseMetrics(priorityIncreased: 1)
+            await metrics.increase(priorityIncreased: 1)
             
             await priorityQueue.download(request.mirror.downloadable)
             
@@ -300,7 +279,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         // Add downloads to monitor progresses.
         await progress.add(downloadItem: downloadable)
         
-        let metrics = await state.metrics.description
+        let metrics = await metrics.description
         log.info("Metrics on request: \(metrics)")
     }
     
@@ -436,7 +415,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
             await currentPriorityDownload.set(priority: maxDownloadPriority)
         }
         
-        await state.increaseMetrics(priorityDecreased: currentPriorityDownloads.count)
+        await metrics.increase(priorityDecreased: currentPriorityDownloads.count)
         
         await downloadQueue.download(currentPriorityDownloads)
     }
@@ -450,12 +429,12 @@ extension ResourceManager: DownloadQueueObserver {
             return
         }
         
-        await state.increaseMetrics(downloadBegan: 1)
+        await metrics.increase(downloadBegan: 1)
         await self.foreachObserver { await $0.didStartDownloading(downloadRequest) }
     }
     
     public func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadable: Downloadable, using processor: DownloadProcessor) async {
-        await state.updateDownloadSpeed(with: downloadable)
+        await metrics.updateDownloadSpeed(downloadable: downloadable)
     }
             
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadable: Downloadable, to location: URL) async {
@@ -464,14 +443,14 @@ extension ResourceManager: DownloadQueueObserver {
         do {
             if let downloadRequest = try await self.cache.download(downloadable, didFinishTo: location) {
                 
-                await state.increaseMetrics(downloadCompleted: 1)
+                await metrics.increase(downloadCompleted: 1)
                 let identifier = await downloadable.identifier
                 
-                await state.updateDownloadSpeed(with: downloadable, isCompleted: true)
+                await metrics.updateDownloadSpeed(downloadable: downloadable, isCompleted: true)
                 
                 log.info("Download finished: \(identifier)")
                 
-                let metrics = await self.state.metrics.description
+                let metrics = await self.metrics.description
                 log.info("Metrics on download finished: \(metrics)")
                 
                 await self.completeProgress(downloadRequest, downloadable: downloadable, with: nil)
@@ -493,8 +472,8 @@ extension ResourceManager: DownloadQueueObserver {
             let retryDownloadable = await retryRequest.downloadable()
             if let retryDownloadable = retryDownloadable {
                 
-                await state.increaseMetrics(retried: 1)
-                await state.updateDownloadSpeed(with: retryDownloadable)
+                await metrics.increase(retried: 1)
+                await metrics.updateDownloadSpeed(downloadable: retryDownloadable)
                 
                 await self.foreachObserver { await $0.willRetryFailedDownload(retryRequest.request, mirror: retry, with: error) }
                 
@@ -504,7 +483,7 @@ extension ResourceManager: DownloadQueueObserver {
                 await queue.download([retryDownloadable])
             }
         } else if let retryRequest = retryRequest {
-            await state.increaseMetrics(failed: 1)
+            await metrics.increase(failed: 1)
             
             let identifier = await downloadable.identifier
             log.error("Download failed, done: \(identifier) Error: \(error.localizedDescription)")
@@ -515,7 +494,7 @@ extension ResourceManager: DownloadQueueObserver {
             log.fault("Download received, but cache knows nothing about this resource, not OK.")
         }
         
-        let metrics = await state.metrics.description
+        let metrics = await metrics.description
         log.info("Metrics on download failed: \(metrics)")
     }
 }
@@ -525,26 +504,26 @@ extension ResourceManager: DownloadQueueObserver {
 extension ResourceManager {
     
     private func completeProgress(_ downloadRequest: DownloadRequest, downloadable: Downloadable, with error: Error?) async {
-            let downloadableIdentifier = await downloadable.identifier
-            await self.progress.complete(identifier: downloadableIdentifier, with: error)
-            
-            let identifier = downloadRequest.resourceId
-            
-            guard let completions = await self.state.resourceCompletions[identifier] else {
-                return
-            }
-            
-            // Remove the completion from resources
-            await state.removeResourceCompletions(for: identifier)
-            
-            // Execute callbacks
-            for completion in completions {
-                completion(error == nil, identifier)
-            }
-            
-            await self.foreachObserver {
-                await $0.didFinishDownload(downloadRequest, with: error)
-            }
+        let downloadableIdentifier = await downloadable.identifier
+        await self.progress.complete(identifier: downloadableIdentifier, with: error)
+        
+        let identifier = downloadRequest.resourceId
+        
+        guard let completions = await self.state.resourceCompletions[identifier] else {
+            return
+        }
+        
+        // Remove the completion from resources
+        await state.removeResourceCompletions(for: identifier)
+        
+        // Execute callbacks
+        for completion in completions {
+            completion(error == nil, identifier)
+        }
+        
+        await self.foreachObserver {
+            await $0.didFinishDownload(downloadRequest, with: error)
+        }
     }
 }
 

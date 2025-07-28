@@ -5,7 +5,7 @@ import RealmSwift
 class MemoryCacheTests: XCTestCase {
     
     let config = Realm.Configuration(inMemoryIdentifier: "memory-cache-test-\(UUID().uuidString)")
-    var cache: RealmMemoryURLCache<CachedLocalFile>!
+    var cache: RealmMemoryCache<CachedLocalFile>!
     var realm: Realm!
     
     override func setUpWithError() throws {
@@ -15,7 +15,7 @@ class MemoryCacheTests: XCTestCase {
     private func setupCache() async {
         // Create Realm instance and keep it alive during the test
         realm = try! await Realm(configuration: config, actor: MainActor.shared)
-        cache = RealmMemoryURLCache<CachedLocalFile>(configuration: config)
+        cache = RealmMemoryCache<CachedLocalFile>(configuration: config)
     }
 
     override func tearDownWithError() throws {
@@ -26,9 +26,9 @@ class MemoryCacheTests: XCTestCase {
     
     func testFetchingFromEmptyCache() async {
         await setupCache()
-        let imageResult = await cache.image(for: "randomid")
+        let imageResult = cache.image(for: "randomid")
         XCTAssertNil(imageResult)
-        let fileURLResult = await cache.fileURL(for: "randomid")
+        let fileURLResult = cache.fileURL(for: "randomid")
         XCTAssertNil(fileURLResult)
     }
     
@@ -39,15 +39,15 @@ class MemoryCacheTests: XCTestCase {
         let testResourceId = "test-resource-id"
         
         // Since memory cache is empty initially, this should return nil
-        let imageResult1 = await cache.image(for: testResourceId)
+        let imageResult1 = cache.image(for: testResourceId)
         XCTAssertNil(imageResult1, "Image should be nil for non-cached resource")
         
         // Test file URL retrieval
-        let fileURLResult = await cache.fileURL(for: testResourceId)
+        let fileURLResult = cache.fileURL(for: testResourceId)
         XCTAssertNil(fileURLResult, "File URL should be nil for non-cached resource")
         
         // Test data retrieval
-        let dataResult = await cache.data(for: testResourceId)
+        let dataResult = cache.data(for: testResourceId)
         XCTAssertNil(dataResult, "Data should be nil for non-cached resource")
     }
 }
