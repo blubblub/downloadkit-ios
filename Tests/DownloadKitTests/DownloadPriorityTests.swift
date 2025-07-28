@@ -247,6 +247,8 @@ class DownloadPriorityTests: XCTestCase {
         
         // Get metrics after high priority
         let metricsAfterHigh = await manager.metrics
+        let metricsAfterHighPriorityIncreased = await metricsAfterHigh.priorityIncreased
+        print("DEBUG: After high priority processing - priority increased: \(metricsAfterHighPriorityIncreased)")
         
         // Now add urgent priority downloads - these should preempt others
         let urgentResources = [
@@ -269,8 +271,8 @@ class DownloadPriorityTests: XCTestCase {
         print("Priority decreased: \(priorityDecreasedAfterUrgent)")
         
         // Urgent priority should have increased priority counters and potentially decreased others
-        let metricsAfterHighPriorityIncreased = await metricsAfterHigh.priorityIncreased
         let metricsAfterUrgentPriorityIncreased = await metricsAfterUrgent.priorityIncreased
+        print("DEBUG: Comparing urgent (\(metricsAfterUrgentPriorityIncreased)) vs high (\(metricsAfterHighPriorityIncreased))")
         XCTAssertGreaterThan(metricsAfterUrgentPriorityIncreased, metricsAfterHighPriorityIncreased, 
                            "Should have increased priority for urgent downloads")
         
