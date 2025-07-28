@@ -48,7 +48,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
     
     public func image(for resourceId: String) async -> LocalImage? {
         do {
-            if let memory = memoryCache, let image = await memory.image(for: resourceId) {
+            if let memory = memoryCache, let image = memory.image(for: resourceId) {
                 return image
             }
             else if let url = try localCache.fileURL(for: resourceId) {
@@ -75,7 +75,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
     public func fileURL(for resourceId: String) async -> URL? {
         do {
             // Return from Memory, if available.
-            if let memory = memoryCache, let fileUrl = await memory.fileURL(for: resourceId) {
+            if let memory = memoryCache, let fileUrl = memory.fileURL(for: resourceId) {
                 return fileUrl
             }
             
@@ -83,7 +83,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             let cachedResource = try localCache.cachedResource(for: resourceId)
             
             if let memoryCache, let cachedResource {
-                await memoryCache.update(for: cachedResource)
+                memoryCache.update(for: cachedResource)
             }
             
             return cachedResource?.fileURL
@@ -104,7 +104,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         let changedResources = localCache.updateStorage(resources: resources, to: options.storagePriority)
         
         for changedResource in changedResources {
-            await memoryCache?.update(for: changedResource)
+            memoryCache?.update(for: changedResource)
         }
 
         // Filter out binary and existing resources in local cache.
@@ -160,7 +160,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
                                                   options: request.options)
             
             // Update Memory Cache with resource.
-            await memoryCache?.update(for: localObject)
+            memoryCache?.update(for: localObject)
             await request.complete()
             await requestMap.set(nil, for: request.resourceId)
         }
