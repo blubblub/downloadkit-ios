@@ -71,7 +71,7 @@ class IsAvailableTests: XCTestCase {
         
         let resource = createTestResource(id: "non-existent-resource")
         
-        let isAvailable = await cache.isAvailable(resource: resource)
+        let isAvailable = cache.isAvailable(resource: resource)
         
         XCTAssertFalse(isAvailable, "Resource should not be available when not in cache")
     }
@@ -87,7 +87,7 @@ class IsAvailableTests: XCTestCase {
         let cachedOptions = RequestOptions(storagePriority: .cached)
         let _ = try localCache.store(resource: resource, mirror: resource.main, at: tempFile, options: cachedOptions)
         
-        let isAvailable = await cache.isAvailable(resource: resource)
+        let isAvailable = cache.isAvailable(resource: resource)
         
         XCTAssertTrue(isAvailable, "Resource should be available when stored in cache")
     }
@@ -104,7 +104,7 @@ class IsAvailableTests: XCTestCase {
         let localResource = try localCache.store(resource: resource, mirror: resource.main, at: tempFile, options: cachedOptions)
         
         // Verify it's available before deletion
-        let isAvailableBeforeDelete = await cache.isAvailable(resource: resource)
+        let isAvailableBeforeDelete = cache.isAvailable(resource: resource)
         XCTAssertTrue(isAvailableBeforeDelete, "Resource should be available before file deletion")
         
         // Delete the actual file from disk
@@ -114,7 +114,7 @@ class IsAvailableTests: XCTestCase {
         // Trigger cleanup by calling requestDownloads which will remove orphaned database entries
         let _ = await cache.requestDownloads(resources: [resource], options: cachedOptions)
         
-        let isAvailable = await cache.isAvailable(resource: resource)
+        let isAvailable = cache.isAvailable(resource: resource)
         
         XCTAssertFalse(isAvailable, "Resource should not be available when file is missing from disk")
     }
@@ -131,8 +131,8 @@ class IsAvailableTests: XCTestCase {
         let cachedOptions = RequestOptions(storagePriority: .cached)
         let _ = try localCache.store(resource: cachedResource, mirror: cachedResource.main, at: tempFile, options: cachedOptions)
         
-        let cachedIsAvailable = await cache.isAvailable(resource: cachedResource)
-        let uncachedIsAvailable = await cache.isAvailable(resource: uncachedResource)
+        let cachedIsAvailable = cache.isAvailable(resource: cachedResource)
+        let uncachedIsAvailable = cache.isAvailable(resource: uncachedResource)
         
         XCTAssertTrue(cachedIsAvailable, "Cached resource should be available")
         XCTAssertFalse(uncachedIsAvailable, "Uncached resource should not be available")
@@ -155,8 +155,8 @@ class IsAvailableTests: XCTestCase {
         let _ = try localCache.store(resource: cachedResource, mirror: cachedResource.main, at: tempFile1, options: cachedOptions)
         let _ = try localCache.store(resource: permanentResource, mirror: permanentResource.main, at: tempFile2, options: permanentOptions)
         
-        let cachedIsAvailable = await cache.isAvailable(resource: cachedResource)
-        let permanentIsAvailable = await cache.isAvailable(resource: permanentResource)
+        let cachedIsAvailable = cache.isAvailable(resource: cachedResource)
+        let permanentIsAvailable = cache.isAvailable(resource: permanentResource)
         
         XCTAssertTrue(cachedIsAvailable, "Cached resource should be available")
         XCTAssertTrue(permanentIsAvailable, "Permanent resource should be available")
@@ -188,7 +188,7 @@ class IsAvailableTests: XCTestCase {
         let _ = try localCache.store(resource: oldResource, mirror: oldResource.main, at: tempFile, options: cachedOptions)
         
         // Check availability with same modification date
-        let isAvailableOld = await cache.isAvailable(resource: oldResource)
+        let isAvailableOld = cache.isAvailable(resource: oldResource)
         XCTAssertTrue(isAvailableOld, "Resource with same modification date should be available")
         
         // Create resource with newer modification date
@@ -205,7 +205,7 @@ class IsAvailableTests: XCTestCase {
         )
         
         // Check availability with newer creation date
-        let isAvailableNew = await cache.isAvailable(resource: newResource)
+        let isAvailableNew = cache.isAvailable(resource: newResource)
         XCTAssertTrue(isAvailableNew, "Resource with newer modification date still be available. Same resources with different creation dates are not supported.")
     }
     
@@ -221,14 +221,14 @@ class IsAvailableTests: XCTestCase {
         let _ = try localCache.store(resource: resource, mirror: resource.main, at: tempFile, options: cachedOptions)
         
         // Verify resource is available before reset
-        let isAvailableBeforeReset = await cache.isAvailable(resource: resource)
+        let isAvailableBeforeReset = cache.isAvailable(resource: resource)
         XCTAssertTrue(isAvailableBeforeReset, "Resource should be available before reset")
         
         // Reset the cache
         try localCache.reset()
         
         // Verify resource is not available after reset
-        let isAvailableAfterReset = await cache.isAvailable(resource: resource)
+        let isAvailableAfterReset = cache.isAvailable(resource: resource)
         XCTAssertFalse(isAvailableAfterReset, "Resource should not be available after reset")
     }
     
@@ -274,7 +274,7 @@ class IsAvailableTests: XCTestCase {
         
         var availableCount = 0
         for resource in resources {
-            if await cache.isAvailable(resource: resource) {
+            if cache.isAvailable(resource: resource) {
                 availableCount += 1
             }
         }

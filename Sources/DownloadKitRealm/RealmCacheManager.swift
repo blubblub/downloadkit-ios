@@ -46,12 +46,12 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
     
     // MARK: - ResourceCachable
     
-    public func image(for resourceId: String) async -> LocalImage? {
+    public func image(for resourceId: String) -> LocalImage? {
         do {
             if let memory = memoryCache, let image = memory.image(for: resourceId) {
                 return image
             }
-            else if let url = try localCache.fileURL(for: resourceId) {
+            else if let url = localCache.fileURL(for: resourceId) {
                 let data = try Data(contentsOf: url)
                 let image = LocalImage(data: data)
                 return image
@@ -64,33 +64,28 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         return nil
     }
     
-    public func data(for id: String) async -> Data? {
-        guard let fileUrl = await fileURL(for: id) else {
+    public func data(for id: String) -> Data? {
+        guard let fileUrl = fileURL(for: id) else {
             return nil
         }
         
         return try? Data(contentsOf: fileUrl)
     }
     
-    public func fileURL(for resourceId: String) async -> URL? {
-        do {
-            // Return from Memory, if available.
-            if let memory = memoryCache, let fileUrl = memory.fileURL(for: resourceId) {
-                return fileUrl
-            }
-            
-            // If memory does not have the URL, try fetching it and storing it back to memory as well.
-            let cachedResource = try localCache.cachedResource(for: resourceId)
-            
-            if let memoryCache, let cachedResource {
-                memoryCache.update(for: cachedResource)
-            }
-            
-            return cachedResource?.fileURL
+    public func fileURL(for resourceId: String) -> URL? {
+        // Return from Memory, if available.
+        if let memory = memoryCache, let fileUrl = memory.fileURL(for: resourceId) {
+            return fileUrl
         }
-        catch {
-            return nil
+        
+        // If memory does not have the URL, try fetching it and storing it back to memory as well.
+        let cachedResource = localCache.cachedResource(for: resourceId)
+        
+        if let memoryCache, let cachedResource {
+            memoryCache.update(for: cachedResource)
         }
+        
+        return cachedResource?.fileURL
     }
     
     public func isAvailable(resource: ResourceFile) -> Bool {

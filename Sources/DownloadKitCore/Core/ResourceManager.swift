@@ -168,16 +168,16 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
     
     // MARK: - ResourceRetrievable
     
-    public func fileURL(for id: String) async -> URL? {
-        return await cache.fileURL(for: id)
+    public func fileURL(for id: String) -> URL? {
+        return cache.fileURL(for: id)
     }
     
-    public func data(for id: String) async -> Data? {
-        return await cache.data(for: id)
+    public func data(for id: String) -> Data? {
+        return cache.data(for: id)
     }
     
-    public func image(for id: String) async -> LocalImage? {
-        return await cache.image(for: id)
+    public func image(for id: String) -> LocalImage? {
+        return cache.image(for: id)
     }
     
     // MARK: - Public Methods

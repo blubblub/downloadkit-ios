@@ -10,7 +10,7 @@ import DownloadKitCore
 import RealmSwift
 import os.log
 
-public final class RealmLocalCacheManager<L: Object>: Sendable where L: LocalResourceFile {
+public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, Sendable where L: LocalResourceFile {
     public let log = Logger(subsystem: "org.blubblub.downloadkit.realm.cache.local", category: "Cache")
     
     /// Target Realm to update
@@ -47,18 +47,18 @@ public final class RealmLocalCacheManager<L: Object>: Sendable where L: LocalRes
         self.shouldDownload = shouldDownload
     }
     
-    public func cachedResource(for resourceId: String) throws -> L? {
-        guard let localResource = try self.realm.object(ofType: L.self, forPrimaryKey: resourceId) else {
+    public func cachedResource(for resourceId: String) -> L? {
+        guard let localResource = try? self.realm.object(ofType: L.self, forPrimaryKey: resourceId) else {
             return nil
         }
         
         return localResource.freeze()
     }
     
-    public func fileURL(for resourceId: String) throws -> URL? {
-        let realm = try self.realm
+    public func fileURL(for resourceId: String) -> URL? {
+        let realm = try? self.realm
         
-        if let localResource = realm.object(ofType: L.self, forPrimaryKey: resourceId) {
+        if let localResource = realm?.object(ofType: L.self, forPrimaryKey: resourceId) {
             return localResource.fileURL
         }
         

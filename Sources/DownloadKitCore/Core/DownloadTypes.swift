@@ -47,15 +47,15 @@ public typealias ProgressCompletion = @Sendable (Bool, String) -> Void
 
 /// Protocol for cache implementations that don't require specific database dependencies
 public protocol ResourceFileRetrievable : Sendable {
-    func fileURL(for id: String) async -> URL?
+    func fileURL(for id: String) -> URL?
 }
 
 public protocol ResourceDataRetrievable: Sendable {
-    func data(for id: String) async -> Data?
+    func data(for id: String) -> Data?
 }
 
 public protocol ResourceImageRetrievable : Sendable {
-    func image(for id: String) async -> LocalImage?
+    func image(for id: String) -> LocalImage?
 }
 
 public protocol ResourceRetrievable : ResourceFileRetrievable, ResourceDataRetrievable, ResourceImageRetrievable {
