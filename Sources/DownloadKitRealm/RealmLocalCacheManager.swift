@@ -47,22 +47,51 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
         self.shouldDownload = shouldDownload
     }
     
-    public func cachedResource(for resourceId: String) -> L? {
-        guard let localResource = try? self.realm.object(ofType: L.self, forPrimaryKey: resourceId) else {
-            return nil
-        }
-        
-        return localResource.freeze()
-    }
     
+    /// Returns fileURL to resource id, if available.
+    /// - Parameter resourceId: resource id to fetch URL for
+    /// - Returns: URL if exists.
     public func fileURL(for resourceId: String) -> URL? {
         let realm = try? self.realm
         
-        if let localResource = realm?.object(ofType: L.self, forPrimaryKey: resourceId) {
+        guard let localResource = realm?.object(ofType: L.self, forPrimaryKey: resourceId) else {
+            return nil
+        }
+        
+        if file.fileExists(atPath: localResource.fileURL.path) {
             return localResource.fileURL
         }
         
+        
+        // If it does not exist, we handle case of moving the sandbox then.
+        // We should check both application support and caches directories, by replacing the first part of the path.
+        
+        
+        let updatedURL = replaceSandboxURL(in: localResource.fileURL, for: localResource.storage)
+        
+        if file.fileExists(atPath: updatedURL.path) {
+            return updatedURL
+        }
+        
         return nil
+    }
+    
+    private func replaceSandboxURL(in url: URL, for storage: StoragePriority) -> URL {
+        //
+        
+        
+        let replacedURL: URL
+        
+        if storage == .cached {
+            replacedURL = file.cacheDirectoryURL
+        }
+        else {
+            replacedURL = file.supportDirectoryURL
+        }
+        //file:///var/mobile/Containers/Data/Application/74BD8E49-F863-4B7F-949C-0FAF674D075B/Library/Caches/resources/63eb5f332c3c9aba159a1834.A7804343-6ABE-4376-8754-0655C6FDF259.png
+        // TODO: Implement here the replacement of first part of the URL. You can detect this by searching for "resources/" part of the directory, before it it should be replaced with the replaced URL.
+        
+        return replacedURL
     }
     
     /// Creates a new local resource and stores it in realm database.

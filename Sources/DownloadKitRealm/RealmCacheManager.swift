@@ -83,13 +83,13 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         }
         
         // If memory does not have the URL, try fetching it and storing it back to memory as well.
-        let cachedResource = localCache.cachedResource(for: resourceId)
+        let cachedResourceURL = localCache.fileURL(for: resourceId)
         
-        if let memoryCache, let cachedResource {
-            memoryCache.update(fileURL: cachedResource.fileURL, for: cachedResource.id)
+        if let memoryCache, let cachedResourceURL {
+            memoryCache.update(fileURL: cachedResourceURL, for: resourceId)
         }
         
-        return cachedResource?.fileURL
+        return cachedResourceURL
     }
     
     public func isAvailable(resource: ResourceFile) -> Bool {
