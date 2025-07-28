@@ -10,7 +10,7 @@ import DownloadKitCore
 
 public extension ResourceManager {
     static func `default`(with configuration: Realm.Configuration = .defaultConfiguration) async -> ResourceManager {
-        let cache = RealmCacheManager<CachedLocalFile>(memoryCache: RealmMemoryCache(configuration: configuration), localCache: RealmLocalCacheManager(configuration: configuration))
+        let cache = RealmCacheManager<CachedLocalFile>(memoryCache: MemoryCache(), localCache: RealmLocalCacheManager(configuration: configuration))
         
         let downloadQueue = DownloadQueue()
         await downloadQueue.add(processor: WebDownloadProcessor())

@@ -22,7 +22,7 @@ private actor DownloadRequestMap {
 public final class RealmCacheManager<L: Object>: ResourceCachable where L: LocalResourceFile {
     public let log = Logger(subsystem: "org.blubblub.downloadkit.realm.cache.manager", category: "Cache")
     
-    public let memoryCache: RealmMemoryCache<L>?
+    public let memoryCache: MemoryCache?
     public let localCache: RealmLocalCacheManager<L>
     
     public let mirrorPolicy: MirrorPolicy
@@ -31,12 +31,12 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
     
     public init(configuration: Realm.Configuration,
                 mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()) {
-        self.memoryCache = RealmMemoryCache<L>(configuration: configuration)
+        self.memoryCache = MemoryCache()
         self.localCache = RealmLocalCacheManager<L>(configuration: configuration)
         self.mirrorPolicy = mirrorPolicy
     }
     
-    public init(memoryCache: RealmMemoryCache<L>?,
+    public init(memoryCache: MemoryCache?,
                 localCache: RealmLocalCacheManager<L>,
                 mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()) {
         self.memoryCache = memoryCache
@@ -54,10 +54,14 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             else if let url = localCache.fileURL(for: resourceId) {
                 let data = try Data(contentsOf: url)
                 let image = LocalImage(data: data)
+                
+                if let memoryCache, let image {
+                    memoryCache.update(image: image, for: resourceId)
+                }
                 return image
             }
         }
-        catch let error {        
+        catch let error {
             log.error("Error reading file id: \(resourceId): \(error)")
         }
         
@@ -82,7 +86,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         let cachedResource = localCache.cachedResource(for: resourceId)
         
         if let memoryCache, let cachedResource {
-            memoryCache.update(for: cachedResource)
+            memoryCache.update(fileURL: cachedResource.fileURL, for: cachedResource.id)
         }
         
         return cachedResource?.fileURL
@@ -98,8 +102,11 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         // Update storage for resources that exists.
         let changedResources = localCache.updateStorage(resources: resources, to: options.storagePriority)
         
-        for changedResource in changedResources {
-            memoryCache?.update(for: changedResource)
+        if let memoryCache {
+            for changedResource in changedResources {
+                // Update the memory cache if needed.
+                memoryCache.update(fileURL: changedResource.fileURL, for: changedResource.id)
+            }
         }
 
         // Filter out binary and existing resources in local cache.
@@ -155,7 +162,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
                                                   options: request.options)
             
             // Update Memory Cache with resource.
-            memoryCache?.update(for: localObject)
+            memoryCache?.update(fileURL: localObject.fileURL, for: localObject.id)
             await request.complete()
             await requestMap.set(nil, for: request.resourceId)
         }

@@ -115,7 +115,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         // Verify caching for completed downloads
         var cachedCount = 0
         for resource in resources {
-            if let _ = await cache.fileURL(for: resource.id) {
+            if let _ = cache.fileURL(for: resource.id) {
                 cachedCount += 1
             }
         }
@@ -191,7 +191,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         await fulfillment(of: [downloadExpectation], timeout: 60)
         
         // Check if resource is in cache (handle silently)
-        let cachedURL = await cache.fileURL(for: resource.id)
+        let cachedURL = cache.fileURL(for: resource.id)
         if let url = cachedURL {
             // Resource successfully downloaded and cached
             XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), "Cached file should exist")
@@ -392,7 +392,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         // Test cache functionality for completed downloads
         var cachedCount = 0
         for resource in resources {
-            if let cachedURL = await cache.fileURL(for: resource.id) {
+            if let cachedURL = cache.fileURL(for: resource.id) {
                 cachedCount += 1
                 // Verify the cached file exists
                 XCTAssertTrue(FileManager.default.fileExists(atPath: cachedURL.path), 
@@ -552,7 +552,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         // Verify cache contains successful downloads
         var cachedCount = 0
         for resource in resources {
-            if let _ = await cache.fileURL(for: resource.id) {
+            if let _ = cache.fileURL(for: resource.id) {
                 cachedCount += 1
             }
         }
