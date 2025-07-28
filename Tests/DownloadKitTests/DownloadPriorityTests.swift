@@ -32,7 +32,7 @@ class DownloadPriorityTests: XCTestCase {
         realmFileURL = nil
     }
     
-    /// Helper method to setup ResourceManager with priority queue for priority tests
+/// Helper method to setup ResourceManager with priority queue for priority tests
     private func setupManagerWithPriorityQueue() async {
         let downloadQueue = DownloadQueue()
         await downloadQueue.set(simultaneousDownloads: 4)
@@ -54,6 +54,7 @@ class DownloadPriorityTests: XCTestCase {
         cache = RealmCacheManager<CachedLocalFile>(configuration: config)
         manager = ResourceManager(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue)
     }
+    
     
     /// Helper method to setup ResourceManager without priority queue (normal priority only)
     private func setupManagerWithoutPriorityQueue() async {
@@ -163,6 +164,11 @@ class DownloadPriorityTests: XCTestCase {
         
         print("=== TESTING HIGH PRIORITY DOWNLOADS ===")
         
+        // Check initial metrics
+        let initialMetrics = await manager.metrics
+        let initialPriorityIncreased = await initialMetrics.priorityIncreased
+        print("Initial priority increased: \(initialPriorityIncreased)")
+        
         // First, start some normal priority downloads
         let normalResources = [
             createTestResource(id: "normal-background-1"),
@@ -170,11 +176,13 @@ class DownloadPriorityTests: XCTestCase {
         ]
         
         let normalRequests = await manager.request(resources: normalResources)
+        print("Normal requests count: \(normalRequests.count)")
         await manager.process(requests: normalRequests, priority: .normal)
         
-        // Check initial metrics
+        // Check metrics after normal processing
         let metricsAfterNormal = await manager.metrics
         let priorityIncreasedAfterNormal = await metricsAfterNormal.priorityIncreased
+        print("Priority increased after normal: \(priorityIncreasedAfterNormal)")
         XCTAssertEqual(priorityIncreasedAfterNormal, 0, "Normal priority should not increase priority counter")
         
         // Now add high priority downloads
@@ -184,16 +192,19 @@ class DownloadPriorityTests: XCTestCase {
         ]
         
         let highPriorityRequests = await manager.request(resources: highPriorityResources)
+        print("High priority requests count: \(highPriorityRequests.count)")
         XCTAssertEqual(highPriorityRequests.count, 2, "Should create 2 high priority requests")
         
         // Process with high priority
+        print("Processing high priority requests...")
         await manager.process(requests: highPriorityRequests, priority: .high)
         
         // Check metrics for priority increase
         let metrics = await manager.metrics
         let priorityIncreasedValue = await metrics.priorityIncreased
-        let priorityIncreasedAfterNormalValue = await metricsAfterNormal.priorityIncreased
-        XCTAssertGreaterThan(priorityIncreasedValue, priorityIncreasedAfterNormalValue, "Should have increased priority for high priority downloads")
+        print("Priority increased after high: \(priorityIncreasedValue)")
+        print("Priority increased after normal (captured): \(priorityIncreasedAfterNormal)")
+        XCTAssertGreaterThan(priorityIncreasedValue, priorityIncreasedAfterNormal, "Should have increased priority for high priority downloads")
         
         // Verify downloads are queued appropriately
         let queuedDownloads = await manager.queuedDownloadCount

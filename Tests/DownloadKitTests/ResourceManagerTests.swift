@@ -27,6 +27,8 @@ class ResourceManagerTests: XCTestCase {
         // Synchronous setup - manager will be configured in async test methods
     }
     
+    /// Creates a ResourceManager with standard configuration using async/await patterns
+    /// Uses in-memory Realm configuration to avoid test conflicts
     func setupManager() async {
         let downloadQueue = DownloadQueue()
         await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
@@ -41,6 +43,8 @@ class ResourceManagerTests: XCTestCase {
         manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
     }
     
+    /// Creates a ResourceManager with both normal and priority queues using async/await patterns
+    /// Uses in-memory Realm configuration to avoid test conflicts
     func setupWithPriorityQueue() async {
         let downloadQueue = DownloadQueue()
         await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
