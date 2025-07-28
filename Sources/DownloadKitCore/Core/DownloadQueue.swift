@@ -9,7 +9,7 @@
 import Foundation
 import os.log
 
-public protocol DownloadQueueObserver: Actor {
+public protocol DownloadQueueObserver: AnyObject, Sendable {
     /// Called when download item starts downloading.
     /// - Parameters:
     ///   - queue: queue on which the item was enqueued.
@@ -40,7 +40,7 @@ public protocol DownloadQueueObserver: Actor {
 }
 
 
-public protocol DownloadQueuable : Actor {
+public protocol DownloadQueuable : Sendable {
     var isActive: Bool { get async }
     
     var downloads: [Downloadable] { get async }

@@ -16,7 +16,75 @@ public protocol ResourceManagerObserver: AnyObject, Sendable {
 
 /// ResourceManager manages a set of resources, allowing a user to request downloads from multiple mirrors,
 /// managing caching and retries internally.
-public actor ResourceManager: ResourceRetrievable, DownloadQueuable {
+public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
+    
+    private actor ResourceManagerState {
+        struct Observer {
+            weak var instance: ResourceManagerObserver?
+        }
+        
+        private var currentObservers: [ObjectIdentifier: Observer] = [:]
+        
+        var observers: [ObjectIdentifier: Observer] {
+            get {
+                // Cleanup deallocated observer wrappers automatically
+                for key in currentObservers.compactMap({ $1.instance == nil ? $0 : nil }) {
+                    currentObservers[key] = nil
+                }
+                
+                return currentObservers
+            }
+        }
+        
+        var metrics = ResourceManagerMetrics()
+        
+        /// Used to store callbacks for completion blocks.
+        var resourceCompletions: [String: [@Sendable (Bool, String) -> Void]] = [:]
+        
+        func increaseMetrics(requested: Int = 0,
+                             downloadBegan: Int = 0,
+                             downloadCompleted: Int = 0,
+                             priorityIncreased: Int = 0,
+                             priorityDecreased: Int = 0,
+                             failed: Int = 0,
+                             retried: Int = 0) {
+            metrics.requested += requested
+            metrics.downloadBegan += downloadBegan
+            metrics.downloadCompleted += downloadCompleted
+            metrics.priorityIncreased += priorityIncreased
+            metrics.priorityDecreased += priorityDecreased
+            metrics.failed += failed
+            metrics.retried += retried
+        }
+        
+        func updateDownloadSpeed(with downloadable: Downloadable, isCompleted: Bool = false) async {
+            //await metrics.updateDownloadSpeed(downloadable: downloadable)
+        }
+        
+        func addResourceCompletion(_ resourceKey: String, _ completion: @escaping @Sendable (Bool, String) -> Void) {
+            if resourceCompletions[resourceKey] == nil {
+                resourceCompletions[resourceKey] = [completion]
+            } else {
+                resourceCompletions[resourceKey]?.append(completion)
+            }
+        }
+        
+        func removeResourceCompletions(for id: String) {
+            resourceCompletions[id] = nil
+        }
+        
+        func removeAllResourceCompletions() {
+            resourceCompletions.removeAll()
+        }
+        
+        func addObserver(_ observer: ResourceManagerObserver) {
+            currentObservers[ObjectIdentifier(observer)] = .init(instance: observer)
+        }
+        
+        func removeObserver(_ observer: ResourceManagerObserver) {
+            currentObservers[ObjectIdentifier(observer)] = nil
+        }
+    }
 
     // MARK: - Private Properties
     
@@ -34,17 +102,8 @@ public actor ResourceManager: ResourceRetrievable, DownloadQueuable {
     
     private let log = Logger.logResourceManager
     
-    /// Metrics for resource manager.
-    public private(set) var metrics = ResourceManagerMetrics()
+    private let state = ResourceManagerState()
     
-    /// Used to store callbacks for completion blocks.
-    private var resourceCompletions: [String: [(Bool, String) -> Void]] = [:]
-    
-    private struct Observer {
-        weak var instance: ResourceManagerObserver?
-    }
-    
-    private var observers: [ObjectIdentifier: Observer] = [:]
     
     /// Returns all queues in an array for convenience.
     private var queues: [DownloadQueue] {
@@ -195,12 +254,13 @@ public actor ResourceManager: ResourceRetrievable, DownloadQueuable {
         // Grab resources we need from file manager, filtering out those that are already downloaded.
         let requests = await cache.requestDownloads(resources: uniqueResources, options: options)
         
-        metrics.requested += uniqueResources.count
+        await state.increaseMetrics(requested: uniqueResources.count)
         
         log.info("Requested unique resource count: \(uniqueResources.count) Downloads: \(requests.count)")
         
         guard requests.count > 0 else {
-            log.info("Metrics on no downloads: \(self.metrics.description)")
+            let metrics = await self.state.metrics.description
+            log.info("Metrics on no downloads: \(metrics)")
             return []
         }
         
@@ -220,7 +280,7 @@ public actor ResourceManager: ResourceRetrievable, DownloadQueuable {
                 await reprioritise(priorityQueue: priorityQueue)
             }
             
-            metrics.priorityIncreased += 1
+            await state.increaseMetrics(priorityIncreased: 1)
             
             await priorityQueue.download(request.mirror.downloadable)
             
@@ -240,7 +300,8 @@ public actor ResourceManager: ResourceRetrievable, DownloadQueuable {
         // Add downloads to monitor progresses.
         await progress.add(downloadItem: downloadable)
         
-        log.info("Metrics on request: \(self.metrics.description)")
+        let metrics = await state.metrics.description
+        log.info("Metrics on request: \(metrics)")
     }
     
     public func process(requests: [DownloadRequest], priority: DownloadPriority = .normal) async {
@@ -299,13 +360,13 @@ public actor ResourceManager: ResourceRetrievable, DownloadQueuable {
             await queue.cancelAll()
         }
         
-        for (identifier, completions) in resourceCompletions {
+        for (identifier, completions) in await state.resourceCompletions {
             for completion in completions {
                 completion(false, identifier)
             }
         }
         
-        resourceCompletions.removeAll()
+        await state.removeAllResourceCompletions()
     }
     
     public func cancel(request: DownloadRequest) async {
@@ -323,8 +384,9 @@ public actor ResourceManager: ResourceRetrievable, DownloadQueuable {
         
         // Execute and remove any completion handlers for this resource
         let resourceId = request.resourceId
-        if let completions = resourceCompletions[resourceId] {
-            resourceCompletions[resourceId] = nil
+        if let completions = await state.resourceCompletions[resourceId] {
+            await state.removeResourceCompletions(for: resourceId)
+            
             for completion in completions {
                 completion(false, resourceId)
             }
@@ -339,24 +401,19 @@ public actor ResourceManager: ResourceRetrievable, DownloadQueuable {
         }
     }
     
-    public func add(observer: ResourceManagerObserver) {
-        self.observers[ObjectIdentifier(observer)] = Observer(instance: observer)
+    public func add(observer: ResourceManagerObserver) async {
+        await state.addObserver(observer)
     }
     
-    public func remove(observer: ResourceManagerObserver) {
-        self.observers[ObjectIdentifier(observer)] = nil
+    public func remove(observer: ResourceManagerObserver) async {
+        await state.removeObserver(observer)
     }
     
     private func foreachObserver(action: (ResourceManagerObserver) async -> Void) async {
         
-        for observer in observers {
+        for observer in await state.observers {
             guard let instance = observer.value.instance else { continue }
             await action(instance)
-        }
-        
-        // cleanup deallocated observer wrappers
-        for key in observers.compactMap({ $1.instance == nil ? $0 : nil }) {
-            observers[key] = nil
         }
     }
     
@@ -379,7 +436,7 @@ public actor ResourceManager: ResourceRetrievable, DownloadQueuable {
             await currentPriorityDownload.set(priority: maxDownloadPriority)
         }
         
-        metrics.priorityDecreased += currentPriorityDownloads.count
+        await state.increaseMetrics(priorityDecreased: currentPriorityDownloads.count)
         
         await downloadQueue.download(currentPriorityDownloads)
     }
@@ -393,15 +450,12 @@ extension ResourceManager: DownloadQueueObserver {
             return
         }
         
-        self.metrics.downloadBegan += 1
+        await state.increaseMetrics(downloadBegan: 1)
         await self.foreachObserver { await $0.didStartDownloading(downloadRequest) }
     }
     
     public func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadable: Downloadable, using processor: DownloadProcessor) async {
-        
-        var tempMetrics = self.metrics
-        await tempMetrics.updateDownloadSpeed(downloadable: downloadable)
-        self.metrics = tempMetrics
+        await state.updateDownloadSpeed(with: downloadable)
     }
             
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadable: Downloadable, to location: URL) async {
@@ -409,15 +463,16 @@ extension ResourceManager: DownloadQueueObserver {
         // Store the file to the cache
         do {
             if let downloadRequest = try await self.cache.download(downloadable, didFinishTo: location) {
-                self.metrics.downloadCompleted += 1
+                
+                await state.increaseMetrics(downloadCompleted: 1)
                 let identifier = await downloadable.identifier
-                var tempMetrics = self.metrics
-                await tempMetrics.updateDownloadSpeed(downloadable: downloadable, isCompleted: true)
-                self.metrics = tempMetrics
+                
+                await state.updateDownloadSpeed(with: downloadable, isCompleted: true)
                 
                 log.info("Download finished: \(identifier)")
                 
-                log.info("Metrics on download finished: \(self.metrics.description)")
+                let metrics = await self.state.metrics.description
+                log.info("Metrics on download finished: \(metrics)")
                 
                 await self.completeProgress(downloadRequest, downloadable: downloadable, with: nil)
             }
@@ -437,10 +492,9 @@ extension ResourceManager: DownloadQueueObserver {
         if let retryRequest = retryRequest, let retry = retryRequest.nextMirror {
             let retryDownloadable = await retryRequest.downloadable()
             if let retryDownloadable = retryDownloadable {
-                metrics.retried += 1
-                var tempMetrics = metrics
-                await tempMetrics.updateDownloadSpeed(downloadable: retryDownloadable)
-                metrics = tempMetrics
+                
+                await state.increaseMetrics(retried: 1)
+                await state.updateDownloadSpeed(with: retryDownloadable)
                 
                 await self.foreachObserver { await $0.willRetryFailedDownload(retryRequest.request, mirror: retry, with: error) }
                 
@@ -450,7 +504,7 @@ extension ResourceManager: DownloadQueueObserver {
                 await queue.download([retryDownloadable])
             }
         } else if let retryRequest = retryRequest {
-            metrics.failed += 1
+            await state.increaseMetrics(failed: 1)
             
             let identifier = await downloadable.identifier
             log.error("Download failed, done: \(identifier) Error: \(error.localizedDescription)")
@@ -461,7 +515,8 @@ extension ResourceManager: DownloadQueueObserver {
             log.fault("Download received, but cache knows nothing about this resource, not OK.")
         }
         
-        log.info("Metrics on download failed: \(self.metrics.description)")
+        let metrics = await state.metrics.description
+        log.info("Metrics on download failed: \(metrics)")
     }
 }
 
@@ -475,12 +530,12 @@ extension ResourceManager {
             
             let identifier = downloadRequest.resourceId
             
-            guard let completions = self.resourceCompletions[identifier] else {
+            guard let completions = await self.state.resourceCompletions[identifier] else {
                 return
             }
             
             // Remove the completion from resources
-            self.resourceCompletions[identifier] = nil
+            await state.removeResourceCompletions(for: identifier)
             
             // Execute callbacks
             for completion in completions {
@@ -500,16 +555,11 @@ extension ResourceManager {
         // Check if any of the mirrors have downloadable.
         
         let identifier = resource.id
-             
-        if var completions = resourceCompletions[identifier] {
-            completions.append(completion)
-            resourceCompletions[identifier] = completions
-        } else {
-            resourceCompletions[identifier] = [completion]
-        }
+        
+        await state.addResourceCompletion(identifier, completion)
     }
     
-    public func removeResourceCompletion(for resource: ResourceFile) {
-        resourceCompletions[resource.id] = nil
+    public func removeResourceCompletion(for resource: ResourceFile) async {
+        await state.removeResourceCompletions(for: resource.id)
     }
 }
