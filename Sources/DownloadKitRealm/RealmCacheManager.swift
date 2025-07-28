@@ -12,10 +12,10 @@ import os.log
 
 private actor DownloadRequestMap {
     // Track original download requests, so we can retry.
-    private(set) var requestMap = [String: DownloadRequest]()
+    private(set) var map = [String: DownloadRequest]()
     
     func set(_ request: DownloadRequest?, for key: String) {
-        requestMap[key] = request
+        map[key] = request
     }
 }
 
@@ -134,7 +134,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         // Find original request based on mirror ids.
         let downloadableIdentifier = await downloadable.identifier
         
-        for (_, request) in await requestMap.requestMap {
+        for (_, request) in await requestMap.map {
             if request.resource.mirrorIds.contains(downloadableIdentifier) {
                 return request
             }

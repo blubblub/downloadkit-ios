@@ -5,7 +5,7 @@ import RealmSwift
 class MemoryCacheTests: XCTestCase {
     
     let config = Realm.Configuration(inMemoryIdentifier: "memory-cache-test-\(UUID().uuidString)")
-    var cache: RealmMemoryCache<CachedLocalFile>!
+    var cache: RealmMemoryURLCache<CachedLocalFile>!
     var realm: Realm!
     
     override func setUpWithError() throws {
@@ -15,7 +15,7 @@ class MemoryCacheTests: XCTestCase {
     private func setupCache() async {
         // Create Realm instance and keep it alive during the test
         realm = try! await Realm(configuration: config, actor: MainActor.shared)
-        cache = RealmMemoryCache<CachedLocalFile>(configuration: config)
+        cache = RealmMemoryURLCache<CachedLocalFile>(configuration: config)
     }
 
     override func tearDownWithError() throws {
