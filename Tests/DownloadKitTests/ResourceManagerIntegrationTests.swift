@@ -316,9 +316,11 @@ class ResourceManagerIntegrationTests: XCTestCase {
         let resources = createTestResources(count: resourceCount)
         
         // Verify initial state
-        let initialMetrics = manager.metrics
-        print("Initial metrics: \(initialMetrics.description)")
-        XCTAssertEqual(initialMetrics.requested, 0, "Should start with 0 requested")
+        let initialMetrics = await manager.metrics
+        let description = await initialMetrics.description
+        let requested = await initialMetrics.requested
+        print("Initial metrics: \(description)")
+        XCTAssertEqual(requested, 0, "Should start with 0 requested")
         
         // Request all downloads
         let startTime = Date()
@@ -334,8 +336,10 @@ class ResourceManagerIntegrationTests: XCTestCase {
         
         // Check intermediate metrics
         let afterRequestMetrics = await manager.metrics
-        print("After request metrics: \(afterRequestMetrics.description)")
-        XCTAssertEqual(afterRequestMetrics.requested, resourceCount, "Should have requested all resources")
+        let afterRequestMetricsDescription = await afterRequestMetrics.description
+        let afterRequested = await afterRequestMetrics.requested
+        print("After request metrics: \(afterRequestMetricsDescription)")
+        XCTAssertEqual(afterRequested, resourceCount, "Should have requested all resources")
         
         // Set up completion tracking with thread-safe counters
         let completedCount = ActorCounter()
@@ -370,17 +374,20 @@ class ResourceManagerIntegrationTests: XCTestCase {
         let finalCompletedCount = await completedCount.value
         let finalFailedCount = await failedCount.value
         let finalMetrics = await manager.metrics
+        let finalMetricsDescription = await finalMetrics.description
+        let finalRequested = await finalMetrics.requested
+        let finalDownloadBegan = await finalMetrics.downloadBegan
         
         print("\n=== FINAL RESULTS ===")
         print("Completed: \(finalCompletedCount)")
         print("Failed: \(finalFailedCount)")
         print("Total processed: \(finalCompletedCount + finalFailedCount)")
-        print("Final metrics: \(finalMetrics.description)")
+        print("Final metrics: \(finalMetricsDescription)")
         
         // Core functionality validation
         XCTAssertEqual(finalCompletedCount + finalFailedCount, resourceCount, "All resources should be processed")
-        XCTAssertEqual(finalMetrics.requested, resourceCount, "Metrics should track all requests")
-        XCTAssertGreaterThan(finalMetrics.downloadBegan, 0, "Some downloads should have begun")
+        XCTAssertEqual(finalRequested, resourceCount, "Metrics should track all requests")
+        XCTAssertGreaterThan(finalDownloadBegan, 0, "Some downloads should have begun")
         
         // Test cache functionality for completed downloads
         var cachedCount = 0
@@ -452,13 +459,18 @@ class ResourceManagerIntegrationTests: XCTestCase {
         
         // Get initial metrics
         let initialMetrics = await manager.metrics
-        print("Initial metrics: \(initialMetrics.description)")
+        let initialMetricsDescription = await initialMetrics.description
+        let initialRequested = await initialMetrics.requested
+        let initialDownloadBegan = await initialMetrics.downloadBegan
+        let initialDownloadCompleted = await initialMetrics.downloadCompleted
+        let initialBytesTransferred = await initialMetrics.bytesTransferred
+        print("Initial metrics: \(initialMetricsDescription)")
         
         // Verify initial state
-        XCTAssertEqual(initialMetrics.requested, 0, "Initial requested count should be 0")
-        XCTAssertEqual(initialMetrics.downloadBegan, 0, "Initial download began count should be 0")
-        XCTAssertEqual(initialMetrics.downloadCompleted, 0, "Initial download completed count should be 0")
-        XCTAssertEqual(initialMetrics.bytesTransferred, 0, "Initial bytes transferred should be 0")
+        XCTAssertEqual(initialRequested, 0, "Initial requested count should be 0")
+        XCTAssertEqual(initialDownloadBegan, 0, "Initial download began count should be 0")
+        XCTAssertEqual(initialDownloadCompleted, 0, "Initial download completed count should be 0")
+        XCTAssertEqual(initialBytesTransferred, 0, "Initial bytes transferred should be 0")
         
         // Request downloads
         let requests = await manager.request(resources: resources)
@@ -466,8 +478,10 @@ class ResourceManagerIntegrationTests: XCTestCase {
         
         // Check metrics after request
         let afterRequestMetrics = await manager.metrics
-        print("After request metrics: \(afterRequestMetrics.description)")
-        XCTAssertEqual(afterRequestMetrics.requested, resourceCount, "Requested count should match resource count")
+        let afterRequestMetricsDescription = await afterRequestMetrics.description
+        let afterRequestRequested = await afterRequestMetrics.requested
+        print("After request metrics: \(afterRequestMetricsDescription)")
+        XCTAssertEqual(afterRequestRequested, resourceCount, "Requested count should match resource count")
         
         // Use XCTestExpectation for async completion tracking
         let metricsExpectation = XCTestExpectation(description: "Downloads should complete and update metrics")
@@ -506,28 +520,33 @@ class ResourceManagerIntegrationTests: XCTestCase {
         
         // Get final metrics
         let finalMetrics = await manager.metrics
-        print("Final metrics: \(finalMetrics.description)")
+        let finalMetricsDescription = await finalMetrics.description
+        let finalRequested = await finalMetrics.requested
+        let finalDownloadBegan = await finalMetrics.downloadBegan
+        let finalDownloadCompleted = await finalMetrics.downloadCompleted
+        let finalBytesTransferred = await finalMetrics.bytesTransferred
+        print("Final metrics: \(finalMetricsDescription)")
         
         // Verify metrics were updated correctly
-        XCTAssertEqual(finalMetrics.requested, resourceCount, "Final requested count should match resource count")
-        XCTAssertEqual(finalMetrics.downloadBegan, requests.count, "Download began count should match successful requests")
+        XCTAssertEqual(finalRequested, resourceCount, "Final requested count should match resource count")
+        XCTAssertEqual(finalDownloadBegan, requests.count, "Download began count should match successful requests")
         
         // In test environments, there can be significant timing differences between completion callbacks and metrics updates
         // This is expected behavior in async environments and doesn't indicate a framework issue
         // The key validation is that metrics are being tracked (non-zero values)
-        print("Metrics completed: \(finalMetrics.downloadCompleted), Callback completed: \(completedCount)")
+        print("Metrics completed: \(finalDownloadCompleted), Callback completed: \(completedCount)")
         
         // Verify that metrics are being tracked (the important functionality)
         if completedCount > 0 {
-            XCTAssertGreaterThan(finalMetrics.downloadCompleted, 0, "Metrics should track some completed downloads")
+            XCTAssertGreaterThan(finalDownloadCompleted, 0, "Metrics should track some completed downloads")
         }
         
         // Verify bytes transferred tracking - should be > 0 for successful downloads
         if completedCount > 0 {
-            print("Bytes transferred tracked: \(finalMetrics.bytesTransferred) bytes")
+            print("Bytes transferred tracked: \(finalBytesTransferred) bytes")
             // Note: Since we're downloading small images, we expect some bytes to be transferred
             // but the exact amount can vary based on network conditions and image compression
-            XCTAssertGreaterThanOrEqual(finalMetrics.bytesTransferred, 0, "Should track some bytes transferred for completed downloads")
+            XCTAssertGreaterThanOrEqual(finalBytesTransferred, 0, "Should track some bytes transferred for completed downloads")
         }
         
         // Verify cache contains successful downloads

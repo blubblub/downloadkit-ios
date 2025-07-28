@@ -151,7 +151,8 @@ class DownloadPriorityTests: XCTestCase {
         
         // Verify metrics were updated
         let metrics = await manager.metrics
-        XCTAssertGreaterThan(metrics.downloadBegan, 0, "Should have started some downloads")
+        let downloadBegan = await metrics.downloadBegan
+        XCTAssertGreaterThan(downloadBegan, 0, "Should have started some downloads")
         
         print("✅ Normal priority downloads test completed")
     }
@@ -173,7 +174,8 @@ class DownloadPriorityTests: XCTestCase {
         
         // Check initial metrics
         let metricsAfterNormal = await manager.metrics
-        XCTAssertEqual(metricsAfterNormal.priorityIncreased, 0, "Normal priority should not increase priority counter")
+        let priorityIncreasedAfterNormal = await metricsAfterNormal.priorityIncreased
+        XCTAssertEqual(priorityIncreasedAfterNormal, 0, "Normal priority should not increase priority counter")
         
         // Now add high priority downloads
         let highPriorityResources = [
@@ -189,20 +191,22 @@ class DownloadPriorityTests: XCTestCase {
         
         // Check metrics for priority increase
         let metrics = await manager.metrics
-        XCTAssertGreaterThan(metrics.priorityIncreased, metricsAfterNormal.priorityIncreased, "Should have increased priority for high priority downloads")
+        let priorityIncreasedValue = await metrics.priorityIncreased
+        let priorityIncreasedAfterNormalValue = await metricsAfterNormal.priorityIncreased
+        XCTAssertGreaterThan(priorityIncreasedValue, priorityIncreasedAfterNormalValue, "Should have increased priority for high priority downloads")
         
         // Verify downloads are queued appropriately
         let queuedDownloads = await manager.queuedDownloadCount
         let currentDownloads = await manager.currentDownloadCount
         
         print("Queued downloads: \(queuedDownloads), Current downloads: \(currentDownloads)")
-        print("Priority increased: \(metrics.priorityIncreased)")
+        print("Priority increased: \(priorityIncreasedValue)")
         
         // We should have some downloads active
         XCTAssertGreaterThan(queuedDownloads + currentDownloads, 0, "Should have active downloads")
         
         // Verify priority handling worked
-        XCTAssertGreaterThan(metrics.priorityIncreased, 0, "Should have tracked priority increases")
+        XCTAssertGreaterThan(priorityIncreasedValue, 0, "Should have tracked priority increases")
         
         print("✅ High priority downloads test completed")
     }
@@ -246,12 +250,15 @@ class DownloadPriorityTests: XCTestCase {
         
         // Check metrics for priority changes
         let metricsAfterUrgent = await manager.metrics
-        
-        print("Priority increased: \(metricsAfterUrgent.priorityIncreased)")
-        print("Priority decreased: \(metricsAfterUrgent.priorityDecreased)")
+        let priorityIncreasedAfterUrgent = await metricsAfterUrgent.priorityIncreased
+        let priorityDecreasedAfterUrgent = await metricsAfterUrgent.priorityDecreased
+        print("Priority increased: \(priorityIncreasedAfterUrgent)")
+        print("Priority decreased: \(priorityDecreasedAfterUrgent)")
         
         // Urgent priority should have increased priority counters and potentially decreased others
-        XCTAssertGreaterThan(metricsAfterUrgent.priorityIncreased, metricsAfterHigh.priorityIncreased, 
+        let metricsAfterHighPriorityIncreased = await metricsAfterHigh.priorityIncreased
+        let metricsAfterUrgentPriorityIncreased = await metricsAfterUrgent.priorityIncreased
+        XCTAssertGreaterThan(metricsAfterUrgentPriorityIncreased, metricsAfterHighPriorityIncreased, 
                            "Should have increased priority for urgent downloads")
         
         // Verify downloads are active
@@ -264,7 +271,7 @@ class DownloadPriorityTests: XCTestCase {
         XCTAssertGreaterThan(queuedDownloads + currentDownloads, 0, "Should have active downloads after urgent priority")
         
         // Verify urgent priority handling worked
-        XCTAssertGreaterThan(metricsAfterUrgent.priorityIncreased, 0, "Should have tracked priority increases")
+        XCTAssertGreaterThan(metricsAfterUrgentPriorityIncreased, 0, "Should have tracked priority increases")
         
         print("✅ Urgent priority downloads test completed")
     }
@@ -295,7 +302,8 @@ class DownloadPriorityTests: XCTestCase {
         
         // Metrics should not show priority increases since no priority queue exists
         let metrics = await manager.metrics
-        XCTAssertEqual(metrics.priorityIncreased, 0, "Should not increase priority without priority queue")
+        let priorityIncreased = await metrics.priorityIncreased
+        XCTAssertEqual(priorityIncreased, 0, "Should not increase priority without priority queue")
         
         print("✅ Priority without priority queue test completed")
     }
@@ -329,16 +337,22 @@ class DownloadPriorityTests: XCTestCase {
         }
         
         let finalMetrics = await manager.metrics
+        let finalPriorityIncreased = await finalMetrics.priorityIncreased
+        let normalPriorityIncreased = await metricsAfterNormal.priorityIncreased
+        let highPriorityIncreased = await metricsAfterHigh.priorityIncreased
         
         print("Priority progression:")
-        print("  After normal: \(metricsAfterNormal.priorityIncreased)")
-        print("  After high: \(metricsAfterHigh.priorityIncreased)")
-        print("  After urgent: \(finalMetrics.priorityIncreased)")
+        print("  After normal: \(normalPriorityIncreased)")
+        print("  After high: \(highPriorityIncreased)")
+        print("  After urgent: \(finalPriorityIncreased)")
         
         // Verify metrics tracked the priority changes correctly
-        XCTAssertEqual(metricsAfterNormal.priorityIncreased, 0, "Normal should not increase priority")
-        XCTAssertGreaterThan(metricsAfterHigh.priorityIncreased, metricsAfterNormal.priorityIncreased, "High should increase priority")
-        XCTAssertGreaterThan(finalMetrics.priorityIncreased, metricsAfterHigh.priorityIncreased, "Urgent should further increase priority")
+        let normalPriorityIncreasedValue = await metricsAfterNormal.priorityIncreased
+        let highPriorityIncreasedValue = await metricsAfterHigh.priorityIncreased
+        let finalPriorityIncreasedValue = await finalMetrics.priorityIncreased
+        XCTAssertEqual(normalPriorityIncreasedValue, 0, "Normal should not increase priority")
+        XCTAssertGreaterThan(highPriorityIncreasedValue, normalPriorityIncreasedValue, "High should increase priority")
+        XCTAssertGreaterThan(finalPriorityIncreasedValue, highPriorityIncreasedValue, "Urgent should further increase priority")
         
         // Verify downloads are queued
         let queuedDownloads = await manager.queuedDownloadCount
@@ -358,8 +372,10 @@ class DownloadPriorityTests: XCTestCase {
         
         // Get initial metrics
         let initialMetrics = await manager.metrics
-        XCTAssertEqual(initialMetrics.priorityIncreased, 0, "Should start with 0 priority increases")
-        XCTAssertEqual(initialMetrics.priorityDecreased, 0, "Should start with 0 priority decreases")
+        let initialPriorityIncreased = await initialMetrics.priorityIncreased
+        let initialPriorityDecreased = await initialMetrics.priorityDecreased
+        XCTAssertEqual(initialPriorityIncreased, 0, "Should start with 0 priority increases")
+        XCTAssertEqual(initialPriorityDecreased, 0, "Should start with 0 priority decreases")
         
         // Create test resources
         let normalResources = [createTestResource(id: "metrics-normal-1")]
@@ -371,14 +387,16 @@ class DownloadPriorityTests: XCTestCase {
         await manager.process(requests: normalRequests, priority: .normal)
         
         let afterNormalMetrics = await manager.metrics
-        XCTAssertEqual(afterNormalMetrics.priorityIncreased, 0, "Normal priority should not increase priority counter")
+        let afterNormalPriorityIncreased = await afterNormalMetrics.priorityIncreased
+        XCTAssertEqual(afterNormalPriorityIncreased, 0, "Normal priority should not increase priority counter")
         
         // Process high priority
         let highRequests = await manager.request(resources: highResources)
         await manager.process(requests: highRequests, priority: .high)
         
         let afterHighMetrics = await manager.metrics
-        XCTAssertGreaterThan(afterHighMetrics.priorityIncreased, afterNormalMetrics.priorityIncreased, 
+        let afterHighPriorityIncreased = await afterHighMetrics.priorityIncreased
+        XCTAssertGreaterThan(afterHighPriorityIncreased, afterNormalPriorityIncreased, 
                            "High priority should increase priority counter")
         
         // Process urgent priority
@@ -386,15 +404,19 @@ class DownloadPriorityTests: XCTestCase {
         await manager.process(requests: urgentRequests, priority: .urgent)
         
         let finalMetrics = await manager.metrics
-        XCTAssertGreaterThan(finalMetrics.priorityIncreased, afterHighMetrics.priorityIncreased, 
+        let finalPriorityIncreased = await finalMetrics.priorityIncreased
+        XCTAssertGreaterThan(finalPriorityIncreased, afterHighPriorityIncreased, 
                            "Urgent priority should further increase priority counter")
         
+        let finalPriorityIncreasedValue = await finalMetrics.priorityIncreased
+        let finalPriorityDecreasedValue = await finalMetrics.priorityDecreased
+        
         print("Final priority metrics:")
-        print("  Priority increased: \(finalMetrics.priorityIncreased)")
-        print("  Priority decreased: \(finalMetrics.priorityDecreased)")
+        print("  Priority increased: \(finalPriorityIncreasedValue)")
+        print("  Priority decreased: \(finalPriorityDecreasedValue)")
         
         // Verify we have meaningful priority tracking
-        XCTAssertGreaterThan(finalMetrics.priorityIncreased, 0, "Should have tracked priority increases")
+        XCTAssertGreaterThan(finalPriorityIncreasedValue, 0, "Should have tracked priority increases")
         
         print("✅ Priority metrics test completed")
     }
@@ -432,18 +454,22 @@ class DownloadPriorityTests: XCTestCase {
         await manager.process(requests: thirdUrgentRequests, priority: .urgent)
         
         let finalMetrics = await manager.metrics
+        let initialPriorityIncreased = await initialMetrics.priorityIncreased
+        let firstPriorityIncreased = await metricsAfterFirst.priorityIncreased
+        let secondPriorityIncreased = await metricsAfterSecond.priorityIncreased
+        let finalPriorityIncreased = await finalMetrics.priorityIncreased
         
         print("Priority increases progression:")
-        print("  Initial: \(initialMetrics.priorityIncreased)")
-        print("  After 1st urgent: \(metricsAfterFirst.priorityIncreased)")
-        print("  After 2nd urgent: \(metricsAfterSecond.priorityIncreased)")
-        print("  After 3rd urgent: \(finalMetrics.priorityIncreased)")
+        print("  Initial: \(initialPriorityIncreased)")
+        print("  After 1st urgent: \(firstPriorityIncreased)")
+        print("  After 2nd urgent: \(secondPriorityIncreased)")
+        print("  After 3rd urgent: \(finalPriorityIncreased)")
         
         // Verify metrics tracked multiple priority changes
-        XCTAssertGreaterThan(metricsAfterFirst.priorityIncreased, initialMetrics.priorityIncreased, "First urgent should increase priority")
-        XCTAssertGreaterThan(metricsAfterSecond.priorityIncreased, metricsAfterFirst.priorityIncreased, "Second urgent should increase priority")
-        XCTAssertGreaterThan(finalMetrics.priorityIncreased, metricsAfterSecond.priorityIncreased, "Third urgent should increase priority")
-        XCTAssertGreaterThanOrEqual(finalMetrics.priorityIncreased, 3, "Should have tracked at least 3 priority increases")
+        XCTAssertGreaterThan(firstPriorityIncreased, initialPriorityIncreased, "First urgent should increase priority")
+        XCTAssertGreaterThan(secondPriorityIncreased, firstPriorityIncreased, "Second urgent should increase priority")
+        XCTAssertGreaterThan(finalPriorityIncreased, secondPriorityIncreased, "Third urgent should increase priority")
+        XCTAssertGreaterThanOrEqual(finalPriorityIncreased, 3, "Should have tracked at least 3 priority increases")
         
         // Verify downloads are active
         let queuedDownloads = await manager.queuedDownloadCount
@@ -494,11 +520,13 @@ class DownloadPriorityTests: XCTestCase {
         let afterHighQueuedCount = await manager.queuedDownloadCount
         let afterHighCurrentCount = await manager.currentDownloadCount
         
+        let afterHighPriorityIncreased = await afterHighMetrics.priorityIncreased
         print("After high priority - Queued: \(afterHighQueuedCount), Current: \(afterHighCurrentCount)")
-        print("Priority increases: \(afterHighMetrics.priorityIncreased)")
+        print("Priority increases: \(afterHighPriorityIncreased)")
         
+        let initialPriorityIncreased = await initialMetrics.priorityIncreased
         // High priority should have increased priority metrics
-        XCTAssertGreaterThan(afterHighMetrics.priorityIncreased, initialMetrics.priorityIncreased, 
+        XCTAssertGreaterThan(afterHighPriorityIncreased, initialPriorityIncreased, 
                            "High priority should increase priority counter even with busy normal queue")
         
         // Total download count should increase, because both queues are processing simultaneousl.
@@ -510,7 +538,7 @@ class DownloadPriorityTests: XCTestCase {
         XCTAssertGreaterThan(totalAfterHigh, totalInitial, "Total downloads should increase with high priority additions")
         
         // Verify priority queue behavior - high priority downloads should be in priority queue
-        XCTAssertEqual(afterHighMetrics.priorityIncreased, 3, "Should have 3 priority increases for high priority downloads")
+        XCTAssertEqual(afterHighPriorityIncreased, 3, "Should have 3 priority increases for high priority downloads")
         
         print("✅ High priority bypass busy normal queue test completed")
     }
@@ -550,19 +578,23 @@ class DownloadPriorityTests: XCTestCase {
         let finalCurrentCount = await manager.currentDownloadCount
         let finalDownloadCounts = finalQueuedCount + finalCurrentCount
         
+        let initialPriorityIncreased = await initialMetrics.priorityIncreased
+        let afterBatchHighPriorityIncreased = await afterBatchHighMetrics.priorityIncreased
+        let finalPriorityIncreased = await finalMetrics.priorityIncreased
+        let finalPriorityDecreased = await finalMetrics.priorityDecreased
         print("Priority progression:")
-        print("  Initial: \(initialMetrics.priorityIncreased)")
-        print("  After batch high: \(afterBatchHighMetrics.priorityIncreased)")
-        print("  After batch urgent: \(finalMetrics.priorityIncreased)")
-        print("  Priority decreased: \(finalMetrics.priorityDecreased)")
+        print("  Initial: \(initialPriorityIncreased)")
+        print("  After batch high: \(afterBatchHighPriorityIncreased)")
+        print("  After batch urgent: \(finalPriorityIncreased)")
+        print("  Priority decreased: \(finalPriorityDecreased)")
         
         // Verify batch processing worked correctly
-        XCTAssertEqual(afterBatchHighMetrics.priorityIncreased, 8, "Should have 8 priority increases from high priority batch")
-        XCTAssertEqual(finalMetrics.priorityIncreased, 13, "Should have 13 total priority increases (8 high + 5 urgent)")
+        XCTAssertEqual(afterBatchHighPriorityIncreased, 8, "Should have 8 priority increases from high priority batch")
+        XCTAssertEqual(finalPriorityIncreased, 13, "Should have 13 total priority increases (8 high + 5 urgent)")
         
         // Urgent priority may cause priority decreases (moving items from priority queue to normal queue)
         // This is implementation dependent
-        print("Priority decreased: \(finalMetrics.priorityDecreased) (implementation dependent)")
+        print("Priority decreased: \(finalPriorityDecreased) (implementation dependent)")
         
         // Total downloads should include all batches
         XCTAssertGreaterThan(finalDownloadCounts, initialDownloadCounts, "Total downloads should increase with priority batches")
@@ -588,13 +620,15 @@ class DownloadPriorityTests: XCTestCase {
         
         let metricsAfterHigh = await manager.metrics
         
+        let metricsAfterHighPriorityIncreased = await metricsAfterHigh.priorityIncreased
+        let metricsAfterHighPriorityDecreased = await metricsAfterHigh.priorityDecreased
         print("After filling priority queue:")
-        print("  Priority increased: \(metricsAfterHigh.priorityIncreased)")
-        print("  Priority decreased: \(metricsAfterHigh.priorityDecreased)")
+        print("  Priority increased: \(metricsAfterHighPriorityIncreased)")
+        print("  Priority decreased: \(metricsAfterHighPriorityDecreased)")
         
         // Verify priority queue has items
-        XCTAssertEqual(metricsAfterHigh.priorityIncreased, 8, "Should have 8 items in priority queue")
-        XCTAssertEqual(metricsAfterHigh.priorityDecreased, 0, "No decreases yet")
+        XCTAssertEqual(metricsAfterHighPriorityIncreased, 8, "Should have 8 items in priority queue")
+        XCTAssertEqual(metricsAfterHighPriorityDecreased, 0, "No decreases yet")
         
         // Now add urgent downloads - this should empty the priority queue
         let urgentResources = [
@@ -607,18 +641,20 @@ class DownloadPriorityTests: XCTestCase {
         
         let finalMetrics = await manager.metrics
         
+        let finalPriorityIncreased = await finalMetrics.priorityIncreased
+        let finalPriorityDecreased = await finalMetrics.priorityDecreased
         print("After urgent downloads:")
-        print("  Priority increased: \(finalMetrics.priorityIncreased)")
-        print("  Priority decreased: \(finalMetrics.priorityDecreased)")
+        print("  Priority increased: \(finalPriorityIncreased)")
+        print("  Priority decreased: \(finalPriorityDecreased)")
         
         // Urgent downloads should have:
         // 1. Increased priority for urgent items (2 more)
         // 2. Decreased priority for items moved from priority queue to normal queue (may vary based on implementation)
-        XCTAssertEqual(finalMetrics.priorityIncreased, 10, "Should have 10 total priority increases (8 high + 2 urgent)")
+        XCTAssertEqual(finalPriorityIncreased, 10, "Should have 10 total priority increases (8 high + 2 urgent)")
         
         // Priority decreases may not always occur as expected, depending on implementation details
         // The important thing is that urgent downloads work and don't break the system
-        print("Priority decreased count: \(finalMetrics.priorityDecreased) (implementation dependent)")
+        print("Priority decreased count: \(finalPriorityDecreased) (implementation dependent)")
         
         // Verify downloads are still active
         let finalQueuedCount = await manager.queuedDownloadCount
@@ -651,7 +687,9 @@ class DownloadPriorityTests: XCTestCase {
         await manager.process(requests: highPriorityRequests, priority: .high)
         
         let metricsAfterHigh = await manager.metrics
-        print("After high priority - Increased: \(metricsAfterHigh.priorityIncreased), Decreased: \(metricsAfterHigh.priorityDecreased)")
+        let metricsAfterHighPriorityIncreased = await metricsAfterHigh.priorityIncreased
+        let metricsAfterHighPriorityDecreased = await metricsAfterHigh.priorityDecreased
+        print("After high priority - Increased: \(metricsAfterHighPriorityIncreased), Decreased: \(metricsAfterHighPriorityDecreased)")
         
         // Add urgent downloads (this should move high priority downloads to normal queue)
         let urgentResources = [createTestResource(id: "reprio-urgent-1")]
@@ -659,10 +697,12 @@ class DownloadPriorityTests: XCTestCase {
         await manager.process(requests: urgentRequests, priority: .urgent)
         
         let metricsAfterUrgent = await manager.metrics
-        print("After urgent - Increased: \(metricsAfterUrgent.priorityIncreased), Decreased: \(metricsAfterUrgent.priorityDecreased)")
+        let metricsAfterUrgentPriorityIncreased = await metricsAfterUrgent.priorityIncreased
+        let metricsAfterUrgentPriorityDecreased = await metricsAfterUrgent.priorityDecreased
+        print("After urgent - Increased: \(metricsAfterUrgentPriorityIncreased), Decreased: \(metricsAfterUrgentPriorityDecreased)")
         
         // Verify urgent moved high priority items to normal queue (implementation dependent)
-        print("Priority decreased after urgent: \(metricsAfterUrgent.priorityDecreased)")
+        print("Priority decreased after urgent: \(metricsAfterUrgentPriorityDecreased)")
         // Note: Priority decreases may vary based on implementation details
         
         // Now re-request the same high priority resources with high priority again
@@ -679,12 +719,14 @@ class DownloadPriorityTests: XCTestCase {
             await manager.process(requests: availableForReprioritization, priority: .high)
             
             let metricsAfterReprio = await manager.metrics
-            print("After re-prioritization - Increased: \(metricsAfterReprio.priorityIncreased), Decreased: \(metricsAfterReprio.priorityDecreased)")
+            let metricsAfterReprioPriorityIncreased = await metricsAfterReprio.priorityIncreased
+            let metricsAfterReprioPriorityDecreased = await metricsAfterReprio.priorityDecreased
+            print("After re-prioritization - Increased: \(metricsAfterReprioPriorityIncreased), Decreased: \(metricsAfterReprioPriorityDecreased)")
             
             // Re-prioritization may increase priority count for items moved back to priority queue
             // However, if items are already downloaded or being downloaded, no new priority increases occur
-            print("Re-prioritization result: \(metricsAfterReprio.priorityIncreased) vs \(metricsAfterUrgent.priorityIncreased)")
-            XCTAssertGreaterThanOrEqual(metricsAfterReprio.priorityIncreased, metricsAfterUrgent.priorityIncreased, 
+            print("Re-prioritization result: \(metricsAfterReprioPriorityIncreased) vs \(metricsAfterUrgentPriorityIncreased)")
+            XCTAssertGreaterThanOrEqual(metricsAfterReprioPriorityIncreased, metricsAfterUrgentPriorityIncreased, 
                                "Re-prioritization should not decrease priority count")
         }
         
@@ -694,10 +736,12 @@ class DownloadPriorityTests: XCTestCase {
             await manager.process(requests: reUrgentRequests, priority: .urgent)
             
             let finalMetrics = await manager.metrics
-            print("After urgent re-prioritization - Increased: \(finalMetrics.priorityIncreased), Decreased: \(finalMetrics.priorityDecreased)")
+            let finalPriorityIncreased = await finalMetrics.priorityIncreased
+            let finalPriorityDecreased = await finalMetrics.priorityDecreased
+            print("After urgent re-prioritization - Increased: \(finalPriorityIncreased), Decreased: \(finalPriorityDecreased)")
             
             // Urgent re-prioritization should work correctly
-            XCTAssertGreaterThan(finalMetrics.priorityIncreased, 0, "Should have some priority increases")
+            XCTAssertGreaterThan(finalPriorityIncreased, 0, "Should have some priority increases")
         }
         
         // Verify system state is consistent
@@ -721,7 +765,8 @@ class DownloadPriorityTests: XCTestCase {
         await manager.process(requests: phase1NormalRequests, priority: .normal)
         
         let phase1Metrics = await manager.metrics
-        print("Phase 1 (Normal queue busy) - Increased: \(phase1Metrics.priorityIncreased)")
+        let phase1PriorityIncreased = await phase1Metrics.priorityIncreased
+        print("Phase 1 (Normal queue busy) - Increased: \(phase1PriorityIncreased)")
         
         // Phase 2: Add high priority downloads
         let phase2High = (1...6).map { createTestResource(id: "complex-high-\($0)") }
@@ -729,7 +774,9 @@ class DownloadPriorityTests: XCTestCase {
         await manager.process(requests: phase2HighRequests, priority: .high)
         
         let phase2Metrics = await manager.metrics
-        print("Phase 2 (High priority added) - Increased: \(phase2Metrics.priorityIncreased), Decreased: \(phase2Metrics.priorityDecreased)")
+        let phase2PriorityIncreased = await phase2Metrics.priorityIncreased
+        let phase2PriorityDecreased = await phase2Metrics.priorityDecreased
+        print("Phase 2 (High priority added) - Increased: \(phase2PriorityIncreased), Decreased: \(phase2PriorityDecreased)")
         
         // Phase 3: Add more high priority downloads
         let phase3High = (7...10).map { createTestResource(id: "complex-high-\($0)") }
@@ -737,7 +784,9 @@ class DownloadPriorityTests: XCTestCase {
         await manager.process(requests: phase3HighRequests, priority: .high)
         
         let phase3Metrics = await manager.metrics
-        print("Phase 3 (More high priority) - Increased: \(phase3Metrics.priorityIncreased), Decreased: \(phase3Metrics.priorityDecreased)")
+        let phase3PriorityIncreased = await phase3Metrics.priorityIncreased
+        let phase3PriorityDecreased = await phase3Metrics.priorityDecreased
+        print("Phase 3 (More high priority) - Increased: \(phase3PriorityIncreased), Decreased: \(phase3PriorityDecreased)")
         
         // Phase 4: Add urgent downloads (should empty priority queue)
         let phase4Urgent = (1...3).map { createTestResource(id: "complex-urgent-\($0)") }
@@ -745,7 +794,9 @@ class DownloadPriorityTests: XCTestCase {
         await manager.process(requests: phase4UrgentRequests, priority: .urgent)
         
         let phase4Metrics = await manager.metrics
-        print("Phase 4 (Urgent empties priority queue) - Increased: \(phase4Metrics.priorityIncreased), Decreased: \(phase4Metrics.priorityDecreased)")
+        let phase4PriorityIncreased = await phase4Metrics.priorityIncreased
+        let phase4PriorityDecreased = await phase4Metrics.priorityDecreased
+        print("Phase 4 (Urgent empties priority queue) - Increased: \(phase4PriorityIncreased), Decreased: \(phase4PriorityDecreased)")
         
         // Phase 5: Add more urgent downloads
         let phase5Urgent = [createTestResource(id: "complex-urgent-4")]
@@ -753,17 +804,19 @@ class DownloadPriorityTests: XCTestCase {
         await manager.process(requests: phase5UrgentRequests, priority: .urgent)
         
         let finalMetrics = await manager.metrics
-        print("Phase 5 (More urgent) - Increased: \(finalMetrics.priorityIncreased), Decreased: \(finalMetrics.priorityDecreased)")
+        let finalPriorityIncreased = await finalMetrics.priorityIncreased
+        let finalPriorityDecreased = await finalMetrics.priorityDecreased
+        print("Phase 5 (More urgent) - Increased: \(finalPriorityIncreased), Decreased: \(finalPriorityDecreased)")
         
         // Verify complex interactions worked correctly
         let expectedPriorityIncreases = 6 + 4 + 3 + 1 // high(6) + high(4) + urgent(3) + urgent(1)
         
-        XCTAssertEqual(finalMetrics.priorityIncreased, expectedPriorityIncreases, 
+        XCTAssertEqual(finalPriorityIncreased, expectedPriorityIncreases, 
                       "Should have \(expectedPriorityIncreases) total priority increases")
         
         // Priority decreases are implementation dependent
-        print("Priority decreased in complex test: \(finalMetrics.priorityDecreased)")
-        XCTAssertGreaterThanOrEqual(finalMetrics.priorityDecreased, 0, "Priority decreases should be non-negative")
+        print("Priority decreased in complex test: \(finalPriorityDecreased)")
+        XCTAssertGreaterThanOrEqual(finalPriorityDecreased, 0, "Priority decreases should be non-negative")
         
         // Verify all downloads are accounted for
         let totalExpectedDownloads = 12 + 6 + 4 + 3 + 1 // normal + high + high + urgent + urgent
