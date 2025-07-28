@@ -57,8 +57,8 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
                 return image
             }
         }
-        catch {
-            
+        catch let error {        
+            log.error("Error reading file id: \(resourceId): \(error)")
         }
         
         return nil
