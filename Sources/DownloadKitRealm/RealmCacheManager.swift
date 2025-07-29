@@ -14,8 +14,24 @@ private actor DownloadRequestMap {
     // Track original download requests, so we can retry.
     private(set) var map = [String: DownloadRequest]()
     
-    func set(_ request: DownloadRequest?, for key: String) {
-        map[key] = request
+    func set(_ request: DownloadRequest, for key: String) {
+        let identifier = request.resourceId
+        map[identifier] = request
+    }
+    
+    func remove(for identifier: String) {
+        map[identifier] = nil
+    }
+    
+    func remove(_ request: DownloadRequest) {
+        remove(for: request.resourceId)
+    }
+    
+    func update(request: DownloadRequest, with mirrorSelection: ResourceMirrorSelection) {
+        let identifier = request.resourceId
+        
+        let updatedRequest = DownloadRequest(resource: request.resource, options: request.options, mirror: mirrorSelection)
+        map[identifier] = updatedRequest
     }
 }
 
@@ -164,10 +180,10 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             // Update Memory Cache with resource.
             memoryCache?.update(fileURL: localObject.fileURL, for: localObject.id)
             await request.complete()
-            await requestMap.set(nil, for: request.resourceId)
+            await requestMap.remove(for: request.resourceId)
         }
         catch {
-            await requestMap.set(nil, for: request.resourceId)
+            await requestMap.remove(for: request.resourceId)
             await request.complete(with: error)
             throw error
         }
@@ -198,11 +214,14 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             // Clear download selection for the identifier.
             await request.complete(with: error)
             
-            await requestMap.set(nil, for: identifier)
+            await requestMap.remove(for: identifier)
             return RetryDownloadRequest(request: request)
         }
         
         let mirrorDownloadableIdentifier = await mirrorSelection.downloadable.identifier
+        
+        // Update requestMap with new mirror selection.
+        await requestMap.update(request: request, with: mirrorSelection)
         
         log.error("Retrying download of: \(identifier) with: \(mirrorDownloadableIdentifier)")
         

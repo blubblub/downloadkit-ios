@@ -76,10 +76,6 @@ public struct DownloadRequest: Sendable, Equatable {
     }
     
     public func complete(with error: Error? = nil) async {
-        if resource.id == "cancelled-download-test" {
-            print("COMPLETING: \(resource.id)")
-        }
-        
         await state.markComplete(with: error)
     }
         
