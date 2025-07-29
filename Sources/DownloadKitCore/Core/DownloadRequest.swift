@@ -48,7 +48,7 @@ private actor DownloadRequestState {
 }
 
 /// Hold references to downloads, so they can be properly handled.
-public struct DownloadRequest: Sendable, Equatable {
+public final class DownloadRequest: Sendable, Equatable {
     
     private let state: DownloadRequestState
     
