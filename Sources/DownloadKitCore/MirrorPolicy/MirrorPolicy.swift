@@ -48,8 +48,6 @@ extension ResourceMirrorSelection {
 /// - Certain Mirror Policies can have specific retry logic.
 public protocol MirrorPolicy : Actor {
     
-    var delegate: MirrorPolicyDelegate? { get set }
-    
     /// This method will be called on Mirror policy when a transfer from a mirror fails.
     /// Method should return a retry configuration, if file should be retried.
     /// - Parameters:

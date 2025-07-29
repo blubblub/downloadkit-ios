@@ -17,7 +17,7 @@ public actor WeightedMirrorPolicy: MirrorPolicy {
     
     private let log = Logger.logWeightedMirrorPolicy
     
-    public var delegate: MirrorPolicyDelegate?
+    public private(set) weak var delegate: MirrorPolicyDelegate?
     
     public func setDelegate(_ delegate: MirrorPolicyDelegate?) {
         self.delegate = delegate

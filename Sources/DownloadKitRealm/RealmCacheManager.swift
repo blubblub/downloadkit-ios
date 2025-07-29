@@ -30,7 +30,7 @@ private actor DownloadRequestMap {
     func update(request: DownloadRequest, with mirrorSelection: ResourceMirrorSelection) {
         let identifier = request.resourceId
         
-        let updatedRequest = DownloadRequest(resource: request.resource, options: request.options, mirror: mirrorSelection)
+        let updatedRequest = DownloadRequest(request, mirror: mirrorSelection)
         map[identifier] = updatedRequest
     }
 }

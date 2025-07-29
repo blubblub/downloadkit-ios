@@ -50,14 +50,21 @@ private actor DownloadRequestState {
 /// Hold references to downloads, so they can be properly handled.
 public struct DownloadRequest: Sendable, Equatable {
     
-    private let state = DownloadRequestState()
+    private let state: DownloadRequestState
     
     public let resource: ResourceFile
     public let options: RequestOptions
     public let mirror: ResourceMirrorSelection
     
+    public init(_ request: DownloadRequest, mirror: ResourceMirrorSelection) {
+        self.state = request.state
+        self.resource = request.resource
+        self.options = request.options
+        self.mirror = mirror
+    }
     
     public init(resource: ResourceFile, options: RequestOptions, mirror: ResourceMirrorSelection) {
+        self.state = DownloadRequestState()
         self.resource = resource
         self.options = options
         self.mirror = mirror
