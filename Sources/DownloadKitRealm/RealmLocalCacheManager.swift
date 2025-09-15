@@ -52,16 +52,22 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
     /// - Parameter resourceId: resource id to fetch URL for
     /// - Returns: URL if exists.
     public func fileURL(for resourceId: String) -> URL? {
-        let realm = try? self.realm
+        return fileURL(for: resourceId, realm: nil)
+    }
+    
+    /// Returns fileURL to resource id, if available.
+    /// - Parameter resourceId: resource id to fetch URL for
+    /// - Returns: URL if exists.
+    private func fileURL(for resourceId: String, realm: Realm?) -> URL? {
+        let currentRealm = realm ?? (try? self.realm)
         
-        guard let localResource = realm?.object(ofType: L.self, forPrimaryKey: resourceId) else {
+        guard let localResource = currentRealm?.object(ofType: L.self, forPrimaryKey: resourceId) else {
             return nil
         }
         
         if file.fileExists(atPath: localResource.fileURL.path) {
             return localResource.fileURL
         }
-        
         
         // If it does not exist, we handle case of moving the sandbox then.
         let updatedURL = replaceSandboxURL(in: localResource.fileURL, for: localResource.storage)
@@ -72,6 +78,7 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
         
         return nil
     }
+    
     
     private func replaceSandboxURL(in url: URL, for storage: StoragePriority) -> URL {
         let baseURL: URL
@@ -157,9 +164,7 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
             
             for resource in resources {
                 if var localResource = realm.object(ofType: L.self, forPrimaryKey: resource.id) {
-                    
-                    let localURL = localResource.fileURL
-                    guard file.fileExists(atPath: localURL.path) else {
+                    guard let localURL = fileURL(for: resource.id, realm: realm) else {
                         try realm.write {
                             realm.delete(localResource)
                         }
@@ -359,7 +364,7 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
         let localResources = resources.compactMap { realm.object(ofType: L.self, forPrimaryKey: $0.id) }
         do {
             try realm.write {
-                for resource in localResources where !resourceExistsLocally(resource: resource) {
+                for resource in localResources where !resourceExistsLocally(resource: resource, realm: realm) {
                     realm.delete(resource)
                 }
             }
@@ -368,10 +373,8 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
         }
     }
     
-    private func resourceExistsLocally(resource: L) -> Bool {
-        let url = resource.fileURL
-        
-        return file.fileExists(atPath: url.path)
+    private func resourceExistsLocally(resource: L, realm: Realm?) -> Bool {
+        return fileURL(for: resource.id, realm: realm) != nil
     }
     
     /// Creates a LocalResource record with file path at URL.
