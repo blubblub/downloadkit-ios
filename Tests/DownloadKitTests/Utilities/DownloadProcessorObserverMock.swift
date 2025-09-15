@@ -15,23 +15,23 @@ actor DownloadProcessorObserverMock: DownloadProcessorObserver {
     var finishTransferCallback: ((URL) -> Void)?
     var finishCallback: (() -> Void)?
     
-    func setBeginCallback(_ callback: @escaping () -> Void) {
+    func setBeginCallback(_ callback: @Sendable @escaping () -> Void) {
         beginCallback = callback
     }
     
-    func setStartTransferCallback(_ callback: @escaping () -> Void) {
+    func setStartTransferCallback(_ callback: @Sendable @escaping () -> Void) {
         startTransferCallback = callback
     }
     
-    func setErrorCallback(_ callback: @escaping (Error) -> Void) {
+    func setErrorCallback(_ callback: @Sendable @escaping (Error) -> Void) {
         errorCallback = callback
     }
     
-    func setFinishTransferCallback(_ callback: @escaping (URL) -> Void) {
+    func setFinishTransferCallback(_ callback: @Sendable @escaping (URL) -> Void) {
         finishTransferCallback = callback
     }
     
-    func setFinishCallback(_ callback: @escaping () -> Void) {
+    func setFinishCallback(_ callback: @Sendable @escaping () -> Void) {
         finishCallback = callback
     }
     
