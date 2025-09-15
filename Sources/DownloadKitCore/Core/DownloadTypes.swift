@@ -12,7 +12,6 @@ extension NSImage: @retroactive @unchecked Sendable {}
 #elseif canImport(UIKit)
 import UIKit
 public typealias LocalImage = UIImage
-extension UIImage: @retroactive @unchecked Sendable {}
 #else
 public typealias LocalImage = Never
 #endif

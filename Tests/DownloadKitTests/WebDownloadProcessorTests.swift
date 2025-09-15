@@ -119,12 +119,13 @@ class WebDownloadProcessorTests: XCTestCase {
         
         let expectation = XCTestExpectation(description: "Enqueue function should execute delegate's beginCallback.")
         
-        var executed = 0
+        let executedCounter = ActorCounter()
         await observer.setBeginCallback {
             // test is successful if we're getting called
-            executed += 1
-            
-            expectation.fulfill()
+            Task {
+                await executedCounter.increment()
+                expectation.fulfill()
+            }            
         }
         
         await processor.process(WebDownload.createSample())
@@ -134,6 +135,7 @@ class WebDownloadProcessorTests: XCTestCase {
         
         await fulfillment(of: [expectation], timeout: 10)
         
+        let executed = await executedCounter.value
         XCTAssertEqual(executed, 3, "Begin callback should be called on processor because we had pending items.")
     }
     
