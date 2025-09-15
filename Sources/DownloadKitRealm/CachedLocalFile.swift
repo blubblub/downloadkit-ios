@@ -3,18 +3,12 @@ import RealmSwift
 import DownloadKitCore
 
 public final class CachedLocalFile: Object, LocalResourceFile, @unchecked Sendable {
-    
-    
-    @Persisted public var identifier: String?
-    @Persisted public var mirrorIdentifier: String?
+
+    @Persisted(primaryKey: true) public var identifier: String?
+    @Persisted(indexed: true) public var mirrorIdentifier: String?
     @Persisted public var createdDate: Date?
     @Persisted public var url: String?
     @Persisted public var storagePriority: String = StoragePriority.cached.rawValue
-    
-    
-    public override static func primaryKey() -> String? {
-        return "identifier"
-    }
         
     public static func targetUrl(for resource: ResourceFile, mirror: ResourceFileMirror, at url: URL, storagePriority: StoragePriority, file: FileManager) -> URL {
         // Select directory based on state. Use is cached, everything else is stored in support.
