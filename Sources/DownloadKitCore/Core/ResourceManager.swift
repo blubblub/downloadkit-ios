@@ -147,12 +147,25 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         }
     }
     
-    public static func create(cache: any ResourceCachable) async -> ResourceManager {
+    public static func create(cache: any ResourceCachable, sessionConfiguration: URLSessionConfiguration? = nil, priorityConfiguration: URLSessionConfiguration? = nil) async -> ResourceManager {
         let downloadQueue = DownloadQueue()
-        await downloadQueue.add(processor: WebDownloadProcessor())
-        
         let priorityQueue = DownloadQueue()
-        await priorityQueue.add(processor: WebDownloadProcessor.priorityProcessor())
+        
+        if let sessionConfiguration {
+            await downloadQueue.add(processor: WebDownloadProcessor(configuration: sessionConfiguration))
+        }
+        else {
+            await downloadQueue.add(processor: WebDownloadProcessor())
+        }
+        
+        if let priorityConfiguration {
+            await priorityQueue.add(processor: WebDownloadProcessor(configuration: priorityConfiguration))
+        }
+        else {
+            
+            await priorityQueue.add(processor: WebDownloadProcessor.priorityProcessor())
+        }
+        
         await priorityQueue.set(simultaneousDownloads: 30)
         
         return ResourceManager(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue)
