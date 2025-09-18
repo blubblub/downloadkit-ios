@@ -511,7 +511,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         await manager.process(requests: requests)
         
         // Wait for downloads to complete
-        await fulfillment(of: [metricsExpectation], timeout: 3000)
+        await fulfillment(of: [metricsExpectation], timeout: 300)
         
         let completedCount = await completionCount.value
         let failedCount = await failureCount.value
