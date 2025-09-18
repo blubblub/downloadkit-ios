@@ -72,7 +72,7 @@ jobs:
       matrix:
         simulator:
           - name: "iPhone 16"
-            os: "18.0"
+            os: "18.5"
     
     steps:
     - name: Checkout code
