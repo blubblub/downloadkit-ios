@@ -25,6 +25,8 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         
         private var currentObservers: [ObjectIdentifier: Observer] = [:]
         
+        private var requests: [DownloadRequest] = []
+        
         var observers: [ObjectIdentifier: Observer] {
             get {
                 // Cleanup deallocated observer wrappers automatically
@@ -265,7 +267,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
     public func process(request: DownloadRequest, priority: DownloadPriority = .normal) async {
         await ensureObserverSetup()
         
-        let resourceId = request.resourceId
+        let requestId = request.id
         let downloadable = request.mirror.downloadable
         
         if let priorityQueue = priorityQueue, priority.rawValue > 0 {
@@ -286,11 +288,14 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
                 await downloadQueue.cancel(with: downloadableIdentifier)
             }
             
-            log.info("Reprioritising resource: \(resourceId)")
+            log.info("Reprioritising resource: \(requestId)")
         }
         else {
             await downloadQueue.download(request.mirror.downloadable)
         }
+        
+        // Tell cache it needs to track the request, as it will be processed.
+        await cache.processDownload(request)
         
         // Add downloads to monitor progresses.
         await progress.add(downloadItem: downloadable)
@@ -371,14 +376,15 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         await downloadQueue.cancel(with: downloadableIdentifier)
         await priorityQueue?.cancel(with: downloadableIdentifier)
         
+        _ = await cache.download(request.mirror.downloadable, didFailWith: DownloadKitError.networkError(.cancelled))
+        
         // Complete the request with cancellation
-        await request.complete(with: DownloadKitError.networkError(.cancelled))
         
         // Remove progress tracking
         await progress.complete(identifier: downloadableIdentifier, with: DownloadKitError.networkError(.cancelled))
         
         // Execute and remove any completion handlers for this resource
-        let resourceId = request.resourceId
+        let resourceId = request.id
         if let completions = await state.resourceCompletions[resourceId] {
             await state.removeResourceCompletions(for: resourceId)
             
@@ -441,7 +447,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
 
 extension ResourceManager: DownloadQueueObserver {
     public func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadable: Downloadable, with processor: DownloadProcessor) async {
-        guard let downloadRequest = await cache.downloadRequest(for: downloadable) else {
+        guard let downloadRequest = await cache.downloadRequests(for: downloadable).first else {
             return
         }
         
@@ -523,7 +529,7 @@ extension ResourceManager {
         let downloadableIdentifier = await downloadable.identifier
         await self.progress.complete(identifier: downloadableIdentifier, with: error)
         
-        let identifier = downloadRequest.resourceId
+        let identifier = downloadRequest.resource.id
         
         guard let completions = await self.state.resourceCompletions[identifier] else {
             return

@@ -12,11 +12,20 @@ import os.log
 
 private actor DownloadRequestMap {
     // Track original download requests, so we can retry.
-    private(set) var map = [String: DownloadRequest]()
+    private(set) var map = [String: [DownloadRequest]]()
     
-    func set(_ request: DownloadRequest, for key: String) {
-        let identifier = request.resourceId
-        map[identifier] = request
+    func add(_ request: DownloadRequest, for key: String) {
+        let identifier = request.id
+        
+        var existingRequests = map[identifier] ?? []
+        
+        // If it is the same instance, do not add.
+        if existingRequests.contains(where: { $0 === request }) {
+            return
+        }
+        existingRequests.append(request)
+        
+        map[identifier] = existingRequests
     }
     
     func remove(for identifier: String) {
@@ -24,14 +33,14 @@ private actor DownloadRequestMap {
     }
     
     func remove(_ request: DownloadRequest) {
-        remove(for: request.resourceId)
+        remove(for: request.id)
     }
     
     func update(request: DownloadRequest, with mirrorSelection: ResourceMirrorSelection) {
-        let identifier = request.resourceId
+        let identifier = request.id
         
         let updatedRequest = DownloadRequest(request, mirror: mirrorSelection)
-        map[identifier] = updatedRequest
+        add(updatedRequest, for: identifier)
     }
 }
 
@@ -140,36 +149,46 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             downloadRequests.append(DownloadRequest(resource: resource, options: options, mirror: mirrorSelection))
         }
         
-        for request in downloadRequests {
-            let identifier = request.resourceId
-            await requestMap.set(request, for: identifier)
-        }
-        
         return downloadRequests
     }
-    
-    public func downloadRequest(for downloadable: any Downloadable) async -> DownloadRequest? {
+        
+    public func downloadRequests(for downloadable: any Downloadable) async -> [DownloadRequest] {
         // Find original request based on mirror ids.
         let downloadableIdentifier = await downloadable.identifier
+        let currentRequestMap = await requestMap.map
         
-        for (_, request) in await requestMap.map {
-            if request.resource.mirrorIds.contains(downloadableIdentifier) {
-                return request
+        var originalRequests: [DownloadRequest] = []
+        
+        for (_, requests) in currentRequestMap {
+            for request in requests where request.resource.mirrorIds.contains(downloadableIdentifier) {
+                // Append the whole array only once.
+                originalRequests.append(contentsOf: requests)
+                break
             }
         }
         
-        return nil
+        return originalRequests
+    }
+    
+    public func processDownload(_ request: DownloadRequest) async {
+        log.info("Download is will be processed \(request.id)")
+        
+        let identifier = request.id
+        await requestMap.add(request, for: identifier)
     }
     
     public func download(_ downloadable: any Downloadable, didFinishTo location: URL) async throws -> DownloadRequest? {
         let downloadableIdentifier = await downloadable.identifier
         
         log.debug("Downloadable finished: \(downloadableIdentifier) to: \(location)")
+        let requests = await downloadRequests(for: downloadable)
         
-        guard let request = await downloadRequest(for: downloadable) else {
+        guard requests.count > 0 else {
             log.fault("NO-OP: Received a downloadable without resource information: \(downloadableIdentifier)")
             return nil
         }
+        
+        let request = requests.first!
         
         do {
             let localObject = try localCache.store(resource: request.resource,
@@ -179,12 +198,19 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             
             // Update Memory Cache with resource.
             memoryCache?.update(fileURL: localObject.fileURL, for: localObject.id)
-            await request.complete()
-            await requestMap.remove(for: request.resourceId)
+            
+            for otherRequest in requests {
+                await otherRequest.complete()
+            }
+            
+            await requestMap.remove(for: request.id)
         }
         catch {
-            await requestMap.remove(for: request.resourceId)
-            await request.complete(with: error)
+            await requestMap.remove(for: request.id)
+            
+            for otherRequest in requests {
+                await otherRequest.complete(with: error)
+            }
             throw error
         }
         
@@ -199,12 +225,16 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         
         log.debug("Downloadable failed: \(downloadableIdentifier) Error: \(error.localizedDescription)")
         
-        guard let request = await downloadRequest(for: downloadable) else {
+        let requests = await downloadRequests(for: downloadable)
+        
+        guard requests.count > 0 else {
             log.fault("NO-OP: Received a downloadable without resource information: \(downloadableIdentifier)")
             return nil
         }
         
-        let identifier = request.resourceId
+        let request = requests.first!
+        
+        let identifier = request.id
         
         guard let mirrorSelection = await mirrorPolicy.mirror(for: request.resource,
                                                         lastMirrorSelection: request.mirror,
@@ -212,7 +242,10 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             log.error("Download failed: \(identifier) Error: \(error.localizedDescription)")
             
             // Clear download selection for the identifier.
-            await request.complete(with: error)
+            
+            for otherRequest in requests {
+                await otherRequest.complete(with: error)
+            }
             
             await requestMap.remove(for: identifier)
             return RetryDownloadRequest(request: request)

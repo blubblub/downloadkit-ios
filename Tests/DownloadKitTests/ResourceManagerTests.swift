@@ -420,7 +420,6 @@ class ResourceManagerTests: XCTestCase {
         // Then - verify all transfers are created successfully
         XCTAssertEqual(requests.count, amount, "Should create \(amount) requests")
         
-        
         // Transfer them all concurrently
         await withTaskGroup(of: Void.self) { group in
             for (index, request) in requests.enumerated() {

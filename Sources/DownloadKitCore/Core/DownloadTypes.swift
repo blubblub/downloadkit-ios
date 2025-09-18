@@ -60,9 +60,3 @@ public protocol ResourceImageRetrievable : Sendable {
 public protocol ResourceRetrievable : ResourceFileRetrievable, ResourceDataRetrievable, ResourceImageRetrievable {
     
 }
-
-public extension DownloadRequest {
-    var resourceId : String {
-        return resource.id
-    }
-}
