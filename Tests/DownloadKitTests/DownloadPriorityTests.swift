@@ -40,7 +40,7 @@ class DownloadPriorityTests: XCTestCase {
         
         // Create priority queue for high and urgent priority downloads
         let priorityQueue = DownloadQueue()
-        await priorityQueue.add(processor: WebDownloadProcessor.priorityProcessor(with: .default))
+        await priorityQueue.add(processor: WebDownloadProcessor(configuration: WebDownloadProcessor.priorityConfiguration(configuration: .default)))
         
         // Use in-memory Realm configuration
         let config = Realm.Configuration(

@@ -59,7 +59,7 @@ private func createTestResource(id: String, size: Int) -> Resource {
 private func downloadAndWaitForCompletion(resource: Resource) async throws {
     // Create a ResourceManager with default cache implementation
     let cache = RealmCacheManager<CachedLocalFile>(configuration: Realm.Configuration(inMemoryIdentifier: "memory-identifier-123"))
-    let manager = await ResourceManager.create(cache: cache)
+    let manager = ResourceManager.create(cache: cache)
     
     let requests = await manager.request(resources: [resource])
     
