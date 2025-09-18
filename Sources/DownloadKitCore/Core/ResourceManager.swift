@@ -147,26 +147,29 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         }
     }
     
-    public static func create(cache: any ResourceCachable, sessionConfiguration: URLSessionConfiguration? = nil, priorityConfiguration: URLSessionConfiguration? = nil) async -> ResourceManager {
-        let downloadQueue = DownloadQueue()
-        let priorityQueue = DownloadQueue()
+    public static func create(cache: any ResourceCachable, sessionConfiguration: URLSessionConfiguration? = nil, prioritySessionConfiguration: URLSessionConfiguration? = nil) -> ResourceManager {
+        
+        let downloadProcessor : WebDownloadProcessor
         
         if let sessionConfiguration {
-            await downloadQueue.add(processor: WebDownloadProcessor(configuration: sessionConfiguration))
+            downloadProcessor = WebDownloadProcessor(configuration: sessionConfiguration)
         }
         else {
-            await downloadQueue.add(processor: WebDownloadProcessor())
+            downloadProcessor = WebDownloadProcessor()
         }
         
-        if let priorityConfiguration {
-            await priorityQueue.add(processor: WebDownloadProcessor(configuration: priorityConfiguration))
+        let priorityDownloadProcessor: WebDownloadProcessor
+        
+        if let prioritySessionConfiguration {
+            priorityDownloadProcessor = WebDownloadProcessor(configuration: prioritySessionConfiguration)
         }
         else {
             
-            await priorityQueue.add(processor: WebDownloadProcessor.priorityProcessor())
+            priorityDownloadProcessor = WebDownloadProcessor.priorityProcessor()
         }
-        
-        await priorityQueue.set(simultaneousDownloads: 30)
+                
+        let downloadQueue = DownloadQueue(processors: [ downloadProcessor ])
+        let priorityQueue = DownloadQueue(processors: [ priorityDownloadProcessor ], simultaneousDownloads: 30)
         
         return ResourceManager(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue)
     }

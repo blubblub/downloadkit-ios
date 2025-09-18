@@ -161,20 +161,23 @@ public actor DownloadQueue: DownloadQueuable {
         
     // MARK: - Iniitialization
     
-    public init() {
+    public init(processors: [DownloadProcessor] = [], simultaneousDownloads: Int = 20) {
         downloadQueue.order = { await $0.priority > $1.priority }
+        self.simultaneousDownloads = max(1, simultaneousDownloads)
+        downloadProcessors.append(contentsOf: processors)
     }
         
     // MARK: - Public Methods
     
     public func enqueuePending() async {
         for downloadProcessor in downloadProcessors {
+            await assignObserverIfNeeded(processor: downloadProcessor)
             await downloadProcessor.enqueuePending()
         }
     }
     
     public func add(processor: DownloadProcessor) async {
-        await processor.set(observer: self)
+        await assignObserverIfNeeded(processor: processor)
         downloadProcessors.append(processor)
     }
     
@@ -317,6 +320,7 @@ public actor DownloadQueue: DownloadQueuable {
         
         // Find a processor that will take care of the item.
         if let processor = await findProcessor(for: downloadable) {
+            await assignObserverIfNeeded(processor: processor)
             
             self.progressDownloadMap[identifier] = downloadable
             await processor.process(downloadable)
@@ -351,6 +355,12 @@ public actor DownloadQueue: DownloadQueuable {
         }
         
         return nil
+    }
+    
+    private func assignObserverIfNeeded(processor: DownloadProcessor) async {
+        if await processor.observer !== self {
+            await processor.set(observer: self)
+        }
     }
 }
 

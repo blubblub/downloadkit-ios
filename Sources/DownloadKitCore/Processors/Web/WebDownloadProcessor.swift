@@ -42,23 +42,23 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
     
     // MARK: - Initialization
     
-    public init(identifier: String = "org.blubblub.downloadkit.websession") {
+    public init(identifier: String = "org.blubblub.downloadkit.websession", observer: DownloadProcessorObserver? = nil) {
         let sessionConfiguration = URLSessionConfiguration.background(withIdentifier: identifier)
         
         sessionConfiguration.waitsForConnectivity = true
         sessionConfiguration.allowsConstrainedNetworkAccess = true
         sessionConfiguration.allowsCellularAccess = true
         
-        self.init(configuration: sessionConfiguration)
+        self.init(configuration: sessionConfiguration, observer: observer)
     }
     
-    public init(configuration: URLSessionConfiguration) {
+    public init(configuration: URLSessionConfiguration, observer: DownloadProcessorObserver? = nil) {
         super.init()
         
         // For all sessions, we need to set ourselves as the delegate
         // This enables proper handling of delegate callbacks and routing to WebDownload instances
         self.session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
-        
+        self.observer = observer
     }
     
     // MARK: - DownloadProcessor

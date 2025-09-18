@@ -10,6 +10,7 @@ import Foundation
 public protocol DownloadProcessor: Actor {
     var isActive: Bool { get }
     
+    var observer: DownloadProcessorObserver? { get }
     func set(observer: DownloadProcessorObserver?)
 
     func canProcess(downloadable: Downloadable) -> Bool
