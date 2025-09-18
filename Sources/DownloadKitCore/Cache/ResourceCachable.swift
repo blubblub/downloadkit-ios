@@ -16,16 +16,25 @@ public protocol ResourceCachable: Sendable, ResourceRetrievable {
     /// Mirror policy.
     var mirrorPolicy: MirrorPolicy { get }
     
+    // MARK: - Methods without any side effects.
+    
     /// Returns downloadable items, that are not stored locally.
     /// - Parameters:
     ///   - resources: resources we're interested in.
     ///   - options: request options.
     func requestDownloads(resources: [ResourceFile], options: RequestOptions) async -> [DownloadRequest]
     
-    /// Returns download request for certain downloadable, if cache created it.
+    /// Returns download requests for certain downloadable, if cache is processing it.
     /// - Parameter downloadable: item that we need request for.
     /// - Returns: original request object.
-    func downloadRequest(for downloadable: Downloadable) async -> DownloadRequest?
+    func downloadRequests(for downloadable: Downloadable) async -> [DownloadRequest]
+    
+    // MARK: - Methods that perform actions
+    
+    /// Download request will be processed.
+    /// - Parameters:
+    ///   - request: download request returned from requestDownloads method.
+    func processDownload(_ request: DownloadRequest) async
     
     /// Called after the download finishes successfully.
     /// - Parameters:

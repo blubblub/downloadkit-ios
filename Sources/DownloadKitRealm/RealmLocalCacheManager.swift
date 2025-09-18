@@ -10,6 +10,7 @@ import DownloadKitCore
 import RealmSwift
 import os.log
 
+
 public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, Sendable where L: LocalResourceFile {
     public let log = Logger(subsystem: "org.blubblub.downloadkit.realm.cache.local", category: "Cache")
     
@@ -47,7 +48,6 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
         self.shouldDownload = shouldDownload
     }
     
-    
     /// Returns fileURL to resource id, if available.
     /// - Parameter resourceId: resource id to fetch URL for
     /// - Returns: URL if exists.
@@ -78,7 +78,6 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
         
         return nil
     }
-    
     
     private func replaceSandboxURL(in url: URL, for storage: StoragePriority) -> URL {
         let baseURL: URL
