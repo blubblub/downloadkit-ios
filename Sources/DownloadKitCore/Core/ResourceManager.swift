@@ -270,6 +270,12 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         let requestId = request.id
         let downloadable = request.mirror.downloadable
         
+        // Tell cache it needs to track the request, as it will be processed.
+        await cache.processDownload(request)
+
+        // Add downloads to monitor progresses.
+        await progress.add(downloadItem: downloadable)
+        
         if let priorityQueue = priorityQueue, priority.rawValue > 0 {
             
             // Handle urgent priority downloads
@@ -293,12 +299,6 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         else {
             await downloadQueue.download(request.mirror.downloadable)
         }
-        
-        // Tell cache it needs to track the request, as it will be processed.
-        await cache.processDownload(request)
-        
-        // Add downloads to monitor progresses.
-        await progress.add(downloadItem: downloadable)
         
         let metrics = await metrics.description
         log.info("Metrics on request: \(metrics)")
@@ -448,6 +448,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
 extension ResourceManager: DownloadQueueObserver {
     public func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadable: Downloadable, with processor: DownloadProcessor) async {
         guard let downloadRequest = await cache.downloadRequests(for: downloadable).first else {
+            log.error("NO-OP: Download did start, but no download request found in cache. Inconsistent state.")
             return
         }
         

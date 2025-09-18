@@ -171,7 +171,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
     }
     
     public func processDownload(_ request: DownloadRequest) async {
-        log.info("Download is will be processed \(request.id)")
+        log.info("Download will be processed \(request.id)")
         
         let identifier = request.id
         await requestMap.add(request, for: identifier)

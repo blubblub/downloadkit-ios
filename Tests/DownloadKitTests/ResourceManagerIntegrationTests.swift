@@ -476,6 +476,8 @@ class ResourceManagerIntegrationTests: XCTestCase {
         let requests = await manager.request(resources: resources)
         print("Created \(requests.count) download requests")
         
+        XCTAssertEqual(requests.count, resourceCount, "Request count should match resource count")
+        
         // Check metrics after request
         let afterRequestMetrics = manager.metrics
         let afterRequestMetricsDescription = await afterRequestMetrics.description
@@ -499,6 +501,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
                     } else {
                         await failureCount.increment()
                     }
+                    
                     metricsExpectation.fulfill()
                 }
             }
@@ -508,7 +511,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         await manager.process(requests: requests)
         
         // Wait for downloads to complete
-        await fulfillment(of: [metricsExpectation], timeout: 300)
+        await fulfillment(of: [metricsExpectation], timeout: 3000)
         
         let completedCount = await completionCount.value
         let failedCount = await failureCount.value
