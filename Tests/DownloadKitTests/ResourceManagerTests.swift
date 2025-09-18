@@ -396,6 +396,52 @@ class ResourceManagerTests: XCTestCase {
         XCTAssertFalse(hasDownloadable, "Download should be removed from both queues after cancellation")
     }
     
+    /// Test concurrent transfers with same content ID to ensure thread safety
+    func testConcurrentTransfersForSameContent() async throws {
+        await setupManager()
+        
+        let manager = self.manager!
+        
+        let resource = Resource(id: "resource-id",
+                                 main: FileMirror(id: "resource-id", location: "https://picsum.photos/4000", info: [:]),
+                                 fileURL: nil)
+        
+        // Create download requests
+        let amount = 5
+        var requests = [DownloadRequest]()
+        
+        for _ in 0..<amount {
+            // Create download request for the resource.
+            if let request = await manager.request(resource: resource) {
+                requests.append(request)
+            }
+        }
+                
+        // Then - verify all transfers are created successfully
+        XCTAssertEqual(requests.count, amount, "Should create \(amount) requests")
+        
+        
+        // Transfer them all concurrently
+        await withTaskGroup(of: Void.self) { group in
+            for (index, request) in requests.enumerated() {
+                group.addTask { @Sendable in
+                    do {
+                        await manager.process(request: request)
+                        
+                        try await request.waitTillComplete()
+                        print("Concurrent transfer \(index) successful")
+                    } catch {
+                        print("Concurrent transfer \(index) failed: \(error)")
+                    }
+                }
+            }
+        }
+        
+        // Verify all transfers report ready state
+        let newRequest = await manager.request(resource: resource)
+        XCTAssertNil(newRequest, "All requests should be nil completion")
+    }
+    
     func testSingleRequestCancellationProgressTracking() async {
         await setupManager()
         
