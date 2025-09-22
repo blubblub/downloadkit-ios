@@ -538,6 +538,11 @@ extension ResourceManager {
         let identifier = downloadRequest.resource.id
         
         guard let completions = await self.state.resourceCompletions[identifier] else {
+            // Even if there's no resource completions, still let observers know.
+            await self.foreachObserver {
+                await $0.didFinishDownload(downloadRequest, with: error)
+            }
+            
             return
         }
         
