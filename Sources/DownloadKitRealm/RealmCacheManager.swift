@@ -118,24 +118,13 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
     }
     
     public func isAvailable(resource: ResourceFile) -> Bool {
-        // Check if resource is available in local cache
-        // If downloads() returns empty, it means the resource is already available
-        return localCache.downloads(from: [resource], options: RequestOptions()).isEmpty
+        return fileURL(for: resource.id) != nil
     }
     
     public func requestDownloads(resources: [ResourceFile], options: RequestOptions) async -> [DownloadRequest] {
-        // Update storage for resources that exists.
-        let changedResources = localCache.updateStorage(resources: resources, to: options.storagePriority)
-        
-        if let memoryCache {
-            for changedResource in changedResources {
-                // Update the memory cache if needed.
-                memoryCache.update(fileURL: changedResource.fileURL, for: changedResource.id)
-            }
-        }
-
+    
         // Filter out binary and existing resources in local cache.
-        let downloadableResources = localCache.downloads(from: resources, options: options)
+        let downloadableResources = localCache.downloads(from: resources)
         
         log.info("Downloading from cache resource count: \(downloadableResources.count)")
         
@@ -170,9 +159,20 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         return originalRequests
     }
     
-    public func processDownload(_ request: DownloadRequest) async {
-        log.info("Download will be processed \(request.id)")
+    public func updateStorage(resources: [any ResourceFile], storage: StoragePriority) {
+        log.info("Updating storage for: \(resources.map(\.id)) to: \(storage.rawValue)")
+        // Update storage for resources that exists.
+        let changedResources = localCache.updateStorage(resources: resources, to: storage)
         
+        if let memoryCache {
+            for changedResource in changedResources {
+                // Update the memory cache if needed.
+                memoryCache.update(fileURL: changedResource.fileURL, for: changedResource.id)
+            }
+        }
+    }
+    
+    public func download(startProcessing request: DownloadRequest) async {
         let identifier = request.id
         await requestMap.add(request, for: identifier)
     }

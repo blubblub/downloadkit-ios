@@ -52,7 +52,7 @@ class LocalCacheManagerTests: XCTestCase {
             let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
             return Resource(id: UUID().uuidString, main: sampleMain)
         })
-        let requests = manager.downloads(from: resources, options: cachedOptions)
+        let requests = manager.downloads(from: resources)
         
         XCTAssertEqual(5, requests.count, "Manager should return 5 resources that need to be downloaded.")
     }
@@ -69,7 +69,7 @@ class LocalCacheManagerTests: XCTestCase {
         let _ = try manager.store(resource: first, mirror: first.main, at: url, options: cachedOptions)
         
         // request downloads should only return 4 resources since the first one is saved
-        let requests = manager.downloads(from: resources, options: cachedOptions)
+        let requests = manager.downloads(from: resources)
         
         XCTAssertEqual(4, requests.count, "Manager should return only 4 resources that need to be downloaded.")
     }
@@ -89,7 +89,7 @@ class LocalCacheManagerTests: XCTestCase {
         // update stored resources and move them to permanent storage
         let _ = manager.updateStorage(resources: resources, to: .permanent)
         
-        let requests = manager.downloads(from: resources, options: permanentOptions)
+        let requests = manager.downloads(from: resources)
         XCTAssertEqual(requests.count, 0, "All resources should be stored locally in permanent storage")
     }
     
@@ -108,7 +108,7 @@ class LocalCacheManagerTests: XCTestCase {
         // reset local cache
         try manager.reset()
         
-        let requests = manager.downloads(from: resources, options: permanentOptions)
+        let requests = manager.downloads(from: resources)
         XCTAssertEqual(requests.count, 5, "Manager should return 5 requests, since everything was removed.")
     }
     
@@ -126,7 +126,7 @@ class LocalCacheManagerTests: XCTestCase {
         
         // clean up everything except the first resource
         try manager.cleanup(excluding: Set([localResources.first!.id]))
-        let requested = manager.downloads(from: resources, options: permanentOptions)
+        let requested = manager.downloads(from: resources)
         
         XCTAssertEqual(requested.count, 4)
     }

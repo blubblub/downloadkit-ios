@@ -271,7 +271,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         let downloadable = request.mirror.downloadable
         
         // Tell cache it needs to track the request, as it will be processed.
-        await cache.processDownload(request)
+        await cache.download(startProcessing: request)
 
         // Add downloads to monitor progresses.
         await progress.add(downloadItem: downloadable)

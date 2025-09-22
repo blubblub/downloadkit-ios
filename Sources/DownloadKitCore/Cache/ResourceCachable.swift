@@ -29,12 +29,17 @@ public protocol ResourceCachable: Sendable, ResourceRetrievable {
     /// - Returns: original request object.
     func downloadRequests(for downloadable: Downloadable) async -> [DownloadRequest]
     
+    /// Update storage location for files in cache.
+    /// - Parameter resources: items that we adjust storage for
+    /// - Parameter storage: desired storage priority
+    func updateStorage(resources: [ResourceFile], storage: StoragePriority)
+    
     // MARK: - Methods that perform actions
     
     /// Download request will be processed.
     /// - Parameters:
     ///   - request: download request returned from requestDownloads method.
-    func processDownload(_ request: DownloadRequest) async
+    func download(startProcessing request: DownloadRequest) async
     
     /// Called after the download finishes successfully.
     /// - Parameters:

@@ -13,13 +13,18 @@ public final class MemoryCache : @unchecked Sendable, ResourceFileRetrievable, R
     
     private let imageCache = NSCache<NSString, LocalImage>()
     
+    private let files = FileManager.default
+    
     public init() {
         
     }
         
     public func fileURL(for id: String) -> URL? {
         if let url = urlCache.object(forKey: id as NSString) {
-            return url as URL
+            let finalUrl = url as URL
+            
+            // If file was removed while in memory, this ensures it is checked that it actually exists.
+            return files.fileExists(atPath: finalUrl.path) ? finalUrl : nil
         }
         
         return nil
