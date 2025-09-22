@@ -120,27 +120,15 @@ class StorageDownloadTests: XCTestCase {
         print("\n--- Phase 2: Re-download with PERMANENT storage ---")
         
         let permanentOptions = RequestOptions(storagePriority: .permanent)
+        
+        manager.updateStorage(for: [resource], storage: permanentOptions.storagePriority)
+        
         let permanentRequests = await manager.request(resources: [resource], options: permanentOptions)
         
         // This should trigger a storage update when requesting with different priority
         print("Permanent requests count: \(permanentRequests.count)")
         
-        // Process any requests to complete the storage update
-        if permanentRequests.count > 0 {
-            print("⚠️ New download request created for storage update - this suggests move operation may have failed")
-            let permanentUpdateExpectation = XCTestExpectation(description: "Storage update should complete")
-            
-            await manager.addResourceCompletion(for: resource) { @Sendable (success, resourceID) in
-                permanentUpdateExpectation.fulfill()
-            }
-            
-            await manager.process(requests: permanentRequests)
-            await fulfillment(of: [permanentUpdateExpectation], timeout: 60)
-        } else {
-            print("✅ No new download requests - storage update should have happened during request phase")
-            // If no requests, storage update should happen during request phase
-            try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second for storage update
-        }
+        XCTAssertTrue(permanentRequests.count == 0, "Should have 0 permanent requests.")
         
         // Verify file has been moved to permanent location
         guard let permanentURL = cache.fileURL(for: resource.id) else {
@@ -391,23 +379,9 @@ class StorageDownloadTests: XCTestCase {
         
         print("Storage update requests: \(permanentUpdateRequests.count)")
         
-        // Process any update requests
-        if permanentUpdateRequests.count > 0 {
-            let updateExpectation = XCTestExpectation(description: "Storage updates should complete")
-            updateExpectation.expectedFulfillmentCount = permanentUpdateRequests.count
-            
-            for resource in resources {
-                await manager.addResourceCompletion(for: resource) { @Sendable (success, resourceID) in
-                    updateExpectation.fulfill()
-                }
-            }
-            
-            await manager.process(requests: permanentUpdateRequests)
-            await fulfillment(of: [updateExpectation], timeout: 60)
-        } else {
-            // If no requests, storage update should happen during request phase
-            try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds for storage update
-        }
+        XCTAssertTrue(permanentUpdateRequests.count == 0, "Should not create any additional requests")
+        
+        manager.updateStorage(for: resources, storage: .permanent)
         
         // Verify all files have been moved to permanent storage
         var movedCount = 0
@@ -435,7 +409,7 @@ class StorageDownloadTests: XCTestCase {
         
         // Verify files are accessible and in correct locations
         print("Storage verification completed for \(movedCount) moved files")
-        XCTAssertGreaterThan(movedCount, 0, "At least some files should be moved to permanent storage")
+        XCTAssertTrue(movedCount == resources.count, "At least some files should be moved to permanent storage")
         
         print("=== BATCH STORAGE UPDATES TEST SUCCESSFUL ===\n")
         print("Summary: \(movedCount) files successfully transitioned from cached to permanent storage")

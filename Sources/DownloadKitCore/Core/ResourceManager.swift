@@ -264,6 +264,10 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         return requests
     }
     
+    public func updateStorage(for resources: [ResourceFile], storage: StoragePriority) {
+        cache.updateStorage(resources: resources, storage: storage)
+    }
+    
     public func process(request: DownloadRequest, priority: DownloadPriority = .normal) async {
         await ensureObserverSetup()
         
