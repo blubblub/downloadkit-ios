@@ -571,4 +571,215 @@ class ResourceManagerIntegrationTests: XCTestCase {
         // Second request should require fewer downloads due to caching
         XCTAssertLessThanOrEqual(secondRequests.count, requests.count, "Second request should need fewer downloads due to caching")
     }
+
+    /// Test that duplicate resources with the same ID in a single batch are coalesced into a single download request
+    func testDuplicateRequestsForSameResourceAreCoalesced() async throws {
+        await setupManager()
+
+        let resource = Resource(
+            id: "duplicate-resource",
+            main: FileMirror(
+                id: "duplicate-mirror",
+                location: "https://picsum.photos/120/120.jpg",
+                info: [:]
+            ),
+            alternatives: [],
+            fileURL: nil
+        )
+
+        // Create multiple entries of the same logical resource (same id)
+        let duplicates = Array(repeating: resource, count: 10)
+
+        let requests = await manager.request(resources: duplicates)
+        print("Duplicate batch created: \(duplicates.count) items, requests returned: \(requests.count)")
+
+        // Expect only one actual request to be returned for the same id
+        XCTAssertEqual(requests.count, 1, "Manager should create 1 download requests for the resource")
+
+        let allHandlersCalled = XCTestExpectation(description: "All completion handlers should be called for the same resource")
+        allHandlersCalled.expectedFulfillmentCount = duplicates.count
+
+        // Register a completion handler for each occurrence to ensure all are notified once the single download completes
+        for _ in duplicates {
+            await manager.addResourceCompletion(for: resource) { @Sendable (_, _) in
+                allHandlersCalled.fulfill()
+            }
+        }
+
+        await manager.process(requests: requests)
+
+        await fulfillment(of: [allHandlersCalled], timeout: 120)
+
+        // Verify cache if available
+        if let url = cache.fileURL(for: resource.id) {
+            XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+        }
+    }
+
+    /// Test that parallel duplicate requests made from concurrent tasks still result in a single download
+    func testParallelDuplicateRequestsForSameResource() async throws {
+        await setupManager()
+
+        let resource = Resource(
+            id: "parallel-duplicate-resource",
+            main: FileMirror(
+                id: "pdr-mirror",
+                location: "https://picsum.photos/2000/2000.jpg",
+                info: [:]
+            ),
+            alternatives: [],
+            fileURL: nil
+        )
+
+        let parallelTasks = 10
+        let handlersExpectation = XCTestExpectation(description: "All parallel completion handlers should be called")
+        handlersExpectation.expectedFulfillmentCount = parallelTasks
+
+        // Register all handlers up front so any single completion notifies all of them
+        for _ in 0..<parallelTasks {
+            await manager.addResourceCompletion(for: resource) { @Sendable (_, _) in
+                handlersExpectation.fulfill()
+            }
+        }
+        
+        let manager = self.manager!
+
+        // Launch several concurrent tasks that each try to request the same resource
+        await withTaskGroup(of: Void.self) { group in
+            for _ in 0..<parallelTasks {
+                group.addTask {
+                    let reqs = await manager.request(resources: [resource])
+                    // Process if there is anything new to do; typically only the first few will see 1 request
+                    if !reqs.isEmpty {
+                        await manager.process(requests: reqs)
+                    }
+                }
+            }
+            await group.waitForAll()
+        }
+
+        await fulfillment(of: [handlersExpectation], timeout: 180)
+
+        // After completion, further requests should be 0 due to caching
+        let second = await manager.request(resources: [resource])
+        XCTAssertEqual(second.count, 0, "After completion, the resource should be cached and not requested again")
+    }
+
+    /// Test staggered duplicate requests with delays: before start, during in-flight, and after completion
+    func testStaggeredDuplicateRequestsWithDelays() async throws {
+        await setupManager()
+
+        let resource = Resource(
+            id: "staggered-duplicate-resource",
+            main: FileMirror(
+                id: "sdr-mirror",
+                location: "https://picsum.photos/2000/2000.jpg",
+                info: [:]
+            ),
+            alternatives: [],
+            fileURL: nil
+        )
+        
+        let manager = self.manager!
+                
+        // Given - batch of content IDs from Unity preload request
+        let batchResources = Array(repeating: resource, count: 5)
+        
+        var operations: [@Sendable () async throws -> (id: String, ready: Bool)] = batchResources.map { res in
+            return { @Sendable () async throws -> (String, Bool) in
+                // No request
+                guard let request = await manager.request(resource: res) else {
+                    return (res.id, false)
+                }
+                
+                await manager.process(request: request)
+                do {
+                    print("Parallel batch content \(res.id) Starting transfer")
+                    
+                    try await request.waitTillComplete()
+                    
+                    print("Parallel batch content \(res.id) Transfer finished")
+                    
+                    let requestAgain = await manager.request(resource: res)
+                    
+                    return (id: res.id, ready: requestAgain == nil ? true : false)
+                } catch {
+                    print("Parallel batch transfer failed for \(res.id): \(error)")
+                    return (id: res.id, ready: false)
+                }
+            }
+        }
+        
+        let batchDelayedResources = Array(repeating: resource, count: 2)
+        
+        let additionalOperations: [@Sendable () async throws -> (id: String, ready: Bool)] = batchDelayedResources.map { res in
+            return { @Sendable () async throws -> (String, Bool) in
+                // No request
+                guard let request = await manager.request(resource: res) else {
+                    return (res.id, false)
+                }
+                
+                if #available(iOS 16.0, *) {
+                    try await Task.sleep(for: .seconds(0.1))
+                } else {
+                }
+                
+                await manager.process(request: request)
+                do {
+                    print("Parallel delay batch content \(res.id) Starting transfer")
+                    
+                    try await request.waitTillComplete()
+                    
+                    print("Parallel delay batch content \(res.id) Transfer finished")
+                    
+                    let requestAgain = await manager.request(resource: res)
+                    
+                    return (id: res.id, ready: requestAgain == nil ? true : false)
+                } catch {
+                    print("Parallel delay batch transfer failed for \(res.id): \(error)")
+                    return (id: res.id, ready: false)
+                }
+            }
+        }
+        
+        operations = operations + additionalOperations
+        
+        // When - perform all transfers in parallel using helper
+        let results: [(id: String, ready: Bool)] = try await runInParallel(operations)
+        
+        print("Parallel batch transfer complete.")
+        
+        // Then - at least some transfers should succeed
+        let successCount = results.filter { $0.ready }.count
+        XCTAssertEqual(successCount, batchResources.count + batchDelayedResources.count, "All parallel batch transfers should succeed")
+    }
+    
+    func runInParallel<T : Sendable>(
+        _ tasks: [@Sendable () async throws -> T]
+    ) async throws -> [T] {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            for task in tasks {
+                group.addTask {
+                    try await task()
+                }
+            }
+
+            var results: [T] = []
+            for try await result in group {
+                results.append(result)
+            }
+            return results
+        }
+    }
+    
+    func runInParallelVoid(
+        _ tasks: [@Sendable () async throws -> Void]
+    ) async throws {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for task in tasks {
+                group.addTask { try await task() }
+            }
+            for try await _ in group { /* drain */ }
+        }
+    }
 }
