@@ -199,6 +199,8 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             // Update Memory Cache with resource.
             memoryCache?.update(fileURL: localObject.fileURL, for: localObject.id)
             
+            log.debug("Cache stored downloaded file request: \(request.id) count: \(requests.count)")
+            
             for otherRequest in requests {
                 await otherRequest.complete()
             }
@@ -206,6 +208,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             await requestMap.remove(for: request.id)
         }
         catch {
+            log.fault("Error storing downloaded file: \(error.localizedDescription) request: \(request.id) count: \(requests.count)")
             await requestMap.remove(for: request.id)
             
             for otherRequest in requests {

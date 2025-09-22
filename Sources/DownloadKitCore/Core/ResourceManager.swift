@@ -464,19 +464,24 @@ extension ResourceManager: DownloadQueueObserver {
  
         // Store the file to the cache
         do {
+            
+            let identifier = await downloadable.identifier
+            
             if let downloadRequest = try await self.cache.download(downloadable, didFinishTo: location) {
                 
                 await metrics.increase(downloadCompleted: 1)
-                let identifier = await downloadable.identifier
                 
                 await metrics.updateDownloadSpeed(downloadable: downloadable, isCompleted: true)
                 
-                log.info("Download finished: \(identifier)")
+                log.info("Download finished: \(identifier) request: \(downloadRequest.id)")
                 
                 let metrics = await self.metrics.description
                 log.info("Metrics on download finished: \(metrics)")
                 
                 await self.completeProgress(downloadRequest, downloadable: downloadable, with: nil)
+            }
+            else {
+                log.fault("NO-OP: Download did finish: \(identifier), request not found.")
             }
         }
         catch let error {
