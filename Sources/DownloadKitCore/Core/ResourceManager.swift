@@ -308,15 +308,15 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         
         // We need to filter the downloads that are in progress, since there's not much we will do
         // in that case. For those that are in queue, we might move them to a higher priority queue.
-        let finalRequests = await requests.filterAsync { download in
-            let identifier = await download.downloadableIdentifier()
-            let isDownloading = await self.isDownloading(for: identifier)
-            return !isDownloading
-        }
-                
-        if requests.count != finalRequests.count {
-            log.error("Final downloads mismatch: \(requests.count) \(finalRequests.count)")
-        }
+//        let finalRequests = await requests.filterAsync { download in
+//            let identifier = await download.downloadableIdentifier()
+//            let isDownloading = await self.isDownloading(for: identifier)
+//            return !isDownloading
+//        }
+//                
+//        if requests.count != finalRequests.count {
+//            log.error("Final downloads mismatch: \(requests.count) \(finalRequests.count)")
+//        }
         
         var finalPriority = priority
         
@@ -341,7 +341,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         }
         
         // Process the requests.
-        for request in finalRequests {
+        for request in requests {
             await process(request: request, priority: finalPriority)
         }
     }
