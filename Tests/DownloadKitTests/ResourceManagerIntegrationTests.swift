@@ -334,13 +334,6 @@ class ResourceManagerIntegrationTests: XCTestCase {
         let isActive = await manager.isActive
         XCTAssertTrue(isActive, "Manager should be active")
         
-        // Check intermediate metrics
-        let afterRequestMetrics = manager.metrics
-        let afterRequestMetricsDescription = await afterRequestMetrics.description
-        let afterRequested = await afterRequestMetrics.requested
-        print("After request metrics: \(afterRequestMetricsDescription)")
-        XCTAssertEqual(afterRequested, resourceCount, "Should have requested all resources")
-        
         // Set up completion tracking with thread-safe counters
         let completedCount = ActorCounter()
         let failedCount = ActorCounter()
@@ -366,6 +359,13 @@ class ResourceManagerIntegrationTests: XCTestCase {
         
         // Process the downloads after setting up completion handlers
         await manager.process(requests: requests)
+        
+        // Check intermediate metrics
+        let afterProcessMetrics = manager.metrics
+        let afterProcessMetricsDescription = await afterProcessMetrics.description
+        let afterProcessRequested = await afterProcessMetrics.requested
+        print("After request metrics: \(afterProcessMetricsDescription)")
+        XCTAssertEqual(afterProcessRequested, resourceCount, "Should have requested all resources")
         
         // Wait for all download attempts to complete
         await fulfillment(of: [batchExpectation], timeout: 60) // 30 seconds timeout
@@ -478,13 +478,6 @@ class ResourceManagerIntegrationTests: XCTestCase {
         
         XCTAssertEqual(requests.count, resourceCount, "Request count should match resource count")
         
-        // Check metrics after request
-        let afterRequestMetrics = manager.metrics
-        let afterRequestMetricsDescription = await afterRequestMetrics.description
-        let afterRequestRequested = await afterRequestMetrics.requested
-        print("After request metrics: \(afterRequestMetricsDescription)")
-        XCTAssertEqual(afterRequestRequested, resourceCount, "Requested count should match resource count")
-        
         // Use XCTestExpectation for async completion tracking
         let metricsExpectation = XCTestExpectation(description: "Downloads should complete and update metrics")
         metricsExpectation.expectedFulfillmentCount = requests.count
@@ -509,6 +502,13 @@ class ResourceManagerIntegrationTests: XCTestCase {
         
         print("Waiting for batch downloads to complete...")
         await manager.process(requests: requests)
+        
+        // Check metrics after request
+        let afterProcessMetrics = manager.metrics
+        let afterProcessMetricsDescription = await afterProcessMetrics.description
+        let afterProcessRequested = await afterProcessMetrics.requested
+        print("After request metrics: \(afterProcessMetricsDescription)")
+        XCTAssertEqual(afterProcessRequested, resourceCount, "Requested count should match resource count")
         
         // Wait for downloads to complete
         await fulfillment(of: [metricsExpectation], timeout: 300)

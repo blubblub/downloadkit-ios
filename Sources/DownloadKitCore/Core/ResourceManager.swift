@@ -278,6 +278,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         
         if !shouldDownload {
             log.info("Requested a download that already exists: \(requestId)")
+            await completeProgress(request, downloadable: downloadable, with: nil)
             return
         }
 
@@ -313,18 +314,6 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
     }
     
     public func process(requests: [DownloadRequest], priority: DownloadPriority = .normal) async {
-        
-        // We need to filter the downloads that are in progress, since there's not much we will do
-        // in that case. For those that are in queue, we might move them to a higher priority queue.
-//        let finalRequests = await requests.filterAsync { download in
-//            let identifier = await download.downloadableIdentifier()
-//            let isDownloading = await self.isDownloading(for: identifier)
-//            return !isDownloading
-//        }
-//                
-//        if requests.count != finalRequests.count {
-//            log.error("Final downloads mismatch: \(requests.count) \(finalRequests.count)")
-//        }
         
         var finalPriority = priority
         
