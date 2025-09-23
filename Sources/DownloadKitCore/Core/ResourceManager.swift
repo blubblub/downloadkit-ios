@@ -25,8 +25,6 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         
         private var currentObservers: [ObjectIdentifier: Observer] = [:]
         
-        private var requests: [DownloadRequest] = []
-        
         var observers: [ObjectIdentifier: Observer] {
             get {
                 // Cleanup deallocated observer wrappers automatically
