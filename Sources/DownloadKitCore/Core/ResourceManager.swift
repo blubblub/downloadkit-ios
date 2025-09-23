@@ -250,9 +250,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         
         // Grab resources we need from file manager, filtering out those that are already downloaded.
         let requests = await cache.requestDownloads(resources: uniqueResources, options: options)
-        
-        await metrics.increase(requested: uniqueResources.count)
-        
+                
         log.info("Requested unique resource count: \(uniqueResources.count) Downloads: \(requests.count)")
         
         guard requests.count > 0 else {
@@ -273,6 +271,8 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         
         let requestId = request.id
         let downloadable = request.mirror.downloadable
+        
+        await metrics.increase(requested: 1)
         
         // Tell cache it needs to track the request, as it will be processed.
         await cache.download(startProcessing: request)
