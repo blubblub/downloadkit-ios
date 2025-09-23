@@ -274,8 +274,14 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         
         await metrics.increase(requested: 1)
         
-        // Tell cache it needs to track the request, as it will be processed.
-        await cache.download(startProcessing: request)
+        // Tell cache it needs to track the request, as it will be processed. If cache says NO, it means
+        // it already has the file.
+        let shouldDownload = await cache.download(startProcessing: request)
+        
+        if !shouldDownload {
+            log.info("Requested a download that already exists: \(requestId)")
+            return
+        }
 
         // Add downloads to monitor progresses.
         await progress.add(downloadItem: downloadable)

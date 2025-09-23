@@ -172,9 +172,17 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         }
     }
     
-    public func download(startProcessing request: DownloadRequest) async {
+    public func download(startProcessing request: DownloadRequest) async -> Bool {
+        // Check if resource is available. Request could have been created earlier.
+        if isAvailable(resource: request.resource) {
+            await request.complete()
+            return false
+        }
+        
         let identifier = request.id
         await requestMap.add(request, for: identifier)
+        
+        return true
     }
     
     public func download(_ downloadable: any Downloadable, didFinishTo location: URL) async throws -> DownloadRequest? {
