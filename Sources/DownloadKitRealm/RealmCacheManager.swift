@@ -183,13 +183,11 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         log.debug("Downloadable finished: \(downloadableIdentifier) to: \(location)")
         let requests = await downloadRequests(for: downloadable)
         
-        guard requests.count > 0 else {
+        guard let request = requests.first else {
             log.fault("NO-OP: Received a downloadable without resource information: \(downloadableIdentifier)")
             return nil
         }
-        
-        let request = requests.first!
-        
+                
         do {
             let localObject = try localCache.store(resource: request.resource,
                                                   mirror: request.mirror.mirror,
@@ -201,7 +199,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             
             log.debug("Cache stored downloaded file request: \(request.id) count: \(requests.count)")
             
-            for otherRequest in requests {
+            for otherRequest in await downloadRequests(for: downloadable) {
                 await otherRequest.complete()
             }
             
@@ -209,11 +207,12 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         }
         catch {
             log.fault("Error storing downloaded file: \(error.localizedDescription) request: \(request.id) count: \(requests.count)")
-            await requestMap.remove(for: request.id)
             
-            for otherRequest in requests {
+            for otherRequest in await downloadRequests(for: downloadable) {
                 await otherRequest.complete(with: error)
             }
+            await requestMap.remove(for: request.id)
+            
             throw error
         }
         
