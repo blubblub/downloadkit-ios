@@ -5,6 +5,7 @@
 //
 
 import Foundation
+import os.log
 
 private actor DownloadRequestState {
     private var continuation: CheckedContinuation<Void, Error>?
@@ -56,6 +57,8 @@ public final class DownloadRequest: Sendable, Equatable {
     public let options: RequestOptions
     public let mirror: ResourceMirrorSelection
     
+    public let log = Logger(subsystem: "org.blubblub.downloadkit.request", category: "DownloadRequest")
+    
     public init(_ request: DownloadRequest, mirror: ResourceMirrorSelection) {
         self.state = request.state
         self.resource = request.resource
@@ -77,16 +80,22 @@ public final class DownloadRequest: Sendable, Equatable {
     public var id: String {
         return resource.id
     }
+    
+    public var instanceId: String {
+        return "\(ObjectIdentifier(self))"
+    }
         
     public func downloadableIdentifier() async -> String {
         return await mirror.downloadable.identifier
     }
     
     public func complete(with error: Error? = nil) async {
+        log.debug("Completing download: \(self.id) (\(self.instanceId)")
         await state.markComplete(with: error)
     }
         
     public func waitTillComplete() async throws {
+        log.debug("Waiting for download completion: \(self.id) (\(self.instanceId)")
         try await state.wait()
     }
 }
