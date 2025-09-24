@@ -181,7 +181,9 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         let isInRequestMap = await requestMap.contains(request.id)
         
         if isInRequestMap {
-            log.debug("Request already exists in map, will take no action: \(request.id)")
+            log.debug("Request already exists in map, logging request, but denying download: \(request.id)")
+            
+            await requestMap.add(request, for: request.id)
             return false
         }
         
