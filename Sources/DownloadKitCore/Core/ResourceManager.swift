@@ -270,6 +270,8 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         let requestId = request.id
         let downloadable = request.mirror.downloadable
         
+        log.info("Start processing: \(requestId)")
+        
         await metrics.increase(requested: 1)
         
         // Tell cache it needs to track the request, as it will be processed. If cache says NO, it means

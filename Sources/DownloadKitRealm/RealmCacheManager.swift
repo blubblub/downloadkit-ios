@@ -28,12 +28,16 @@ private actor DownloadRequestMap {
         map[identifier] = existingRequests
     }
     
-    func remove(for identifier: String) {
+    func contains(_ identifier: String) -> Bool {
+        return map[identifier] != nil
+    }
+    
+    func removeAll(for identifier: String) {
         map[identifier] = nil
     }
     
-    func remove(_ request: DownloadRequest) {
-        remove(for: request.id)
+    func removeAll(_ request: DownloadRequest) {
+        removeAll(for: request.id)
     }
     
     func update(request: DownloadRequest, with mirrorSelection: ResourceMirrorSelection) {
@@ -174,7 +178,17 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
     
     public func download(startProcessing request: DownloadRequest) async -> Bool {
         // Check if resource is available. Request could have been created earlier.
+        let isInRequestMap = await requestMap.contains(request.id)
+        
+        if isInRequestMap {
+            log.debug("Request already exists in map, will take no action: \(request.id)")
+            return false
+        }
+        
+        
         if isAvailable(resource: request.resource) {
+            log.debug("Request is already available, will complete the request: \(request.id)")
+            
             await request.complete()
             return false
         }
@@ -211,7 +225,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
                 await otherRequest.complete()
             }
             
-            await requestMap.remove(for: request.id)
+            await requestMap.removeAll(for: request.id)
         }
         catch {
             log.fault("Error storing downloaded file: \(error.localizedDescription) request: \(request.id) count: \(requests.count)")
@@ -219,7 +233,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             for otherRequest in await downloadRequests(for: downloadable) {
                 await otherRequest.complete(with: error)
             }
-            await requestMap.remove(for: request.id)
+            await requestMap.removeAll(for: request.id)
             
             throw error
         }
@@ -257,7 +271,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
                 await otherRequest.complete(with: error)
             }
             
-            await requestMap.remove(for: identifier)
+            await requestMap.removeAll(for: identifier)
             return RetryDownloadRequest(request: request)
         }
         
