@@ -9,22 +9,7 @@
 import XCTest
 @testable import DownloadKit
 
-public extension FileMirror {
-    static func random(weight: Int) -> FileMirror {
-        FileMirror(id: UUID().uuidString,
-                   location: "https://example.com/file",
-                   info: [WeightedMirrorPolicy.weightKey: weight])
-    }
-}
-
-public extension Resource {
-    static func sample(mirrorCount: Int) -> Resource {
-        return Resource(id: "sample-id",
-                        main: FileMirror.random(weight: 0),
-                        alternatives: (1...mirrorCount).map { FileMirror.random(weight: $0) },
-                        fileURL: nil)
-    }
-}
+// NOTE: FileMirror and Resource extensions have been moved to TestMocksAndHelpers.swift
 
 class WeightedMirrorPolicyTests: XCTestCase {
     
@@ -106,35 +91,4 @@ class WeightedMirrorPolicyTests: XCTestCase {
     
 }
 
-class MockPolicyDelegate: MirrorPolicyDelegate, @unchecked Sendable {
-    
-    private var _exhaustedAllMirrors = false
-    private var _failedToGenerateDownloadable = false
-    private let lock = NSLock()
-    
-    var exhaustedAllMirrors: Bool {
-        get {
-            lock.withLock { _exhaustedAllMirrors }
-        }
-        set {
-            lock.withLock { _exhaustedAllMirrors = newValue }
-        }
-    }
-    
-    var failedToGenerateDownloadable: Bool {
-        get {
-            lock.withLock { _failedToGenerateDownloadable }
-        }
-        set {
-            lock.withLock { _failedToGenerateDownloadable = newValue }
-        }
-    }
-    
-    func mirrorPolicy(_ mirrorPolicy: MirrorPolicy, didExhaustMirrorsIn file: ResourceFile) {
-        exhaustedAllMirrors = true
-    }
-    
-    func mirrorPolicy(_ mirrorPolicy: MirrorPolicy, didFailToGenerateDownloadableIn file: ResourceFile, for mirror: ResourceFileMirror) {
-        failedToGenerateDownloadable = true
-    }
-}
+// NOTE: MockPolicyDelegate has been moved to TestMocksAndHelpers.swift

@@ -283,30 +283,4 @@ class DownloadQueueAdvancedTests: XCTestCase, @unchecked Sendable {
 }
 
 // MARK: - Mock Download Queue Delegate
-
-actor DownloadQueueObserverMock: DownloadQueueObserver {
-    var didStartCallback: ((Downloadable, DownloadProcessor) -> Void)?
-    var didTransferDataCallback: ((Downloadable, DownloadProcessor) -> Void)?
-    var didFinishCallback: ((Downloadable, URL) -> Void)?
-    var didFailCallback: ((Downloadable, Error) -> Void)?
-    
-    func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadable: Downloadable, with processor: DownloadProcessor) async {
-        didStartCallback?(downloadable, processor)
-    }
-    
-    func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadable: Downloadable, using processor: DownloadProcessor) async {
-        didTransferDataCallback?(downloadable, processor)
-    }
-    
-    func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadable: Downloadable, to location: URL) async throws {
-        didFinishCallback?(downloadable, location)
-    }
-    
-    func downloadQueue(_ queue: DownloadQueue, downloadDidFail downloadable: Downloadable, with error: Error) async {
-        didFailCallback?(downloadable, error)
-    }
-    
-    func setDidFailCallback(_ callback: @escaping (Downloadable, Error) -> Void) {
-        didFailCallback = callback
-    }
-}
+// NOTE: DownloadQueueObserverMock has been moved to TestMocksAndHelpers.swift

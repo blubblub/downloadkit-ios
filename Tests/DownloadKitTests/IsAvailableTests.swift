@@ -39,19 +39,7 @@ class IsAvailableTests: XCTestCase {
         cache = RealmCacheManager<CachedLocalFile>(configuration: config)
     }
     
-    /// Creates a test resource for testing
-    private func createTestResource(id: String) -> Resource {
-        return Resource(
-            id: id,
-            main: FileMirror(
-                id: "mirror-\(id)",
-                location: "https://example.com/test.jpg",
-                info: [:]
-            ),
-            alternatives: [],
-            fileURL: nil
-        )
-    }
+    // Helper methods are available from TestMocksAndHelpers.swift
     
     /// Creates a temporary file for testing
     private func createTemporaryFile() throws -> URL {

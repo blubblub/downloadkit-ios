@@ -32,60 +32,19 @@ class DownloadPriorityTests: XCTestCase {
         realmFileURL = nil
     }
     
-/// Helper method to setup ResourceManager with priority queue for priority tests
+    // Helper setup methods are available from TestMocksAndHelpers.swift as global functions
     private func setupManagerWithPriorityQueue() async {
-        let downloadQueue = DownloadQueue()
-        await downloadQueue.set(simultaneousDownloads: 4)
-        await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
-        
-        // Create priority queue for high and urgent priority downloads
-        let priorityQueue = DownloadQueue()
-        await priorityQueue.add(processor: WebDownloadProcessor(configuration: WebDownloadProcessor.priorityConfiguration(configuration: .default)))
-        
-        // Use in-memory Realm configuration
-        let config = Realm.Configuration(
-            inMemoryIdentifier: "priority_test_realm_\(UUID().uuidString)",
-            deleteRealmIfMigrationNeeded: true
-        )
-        
-        // Create Realm instance and keep it alive during the test
-        realm = try! await Realm(configuration: config, actor: MainActor.shared)
-        
-        cache = RealmCacheManager<CachedLocalFile>(configuration: config)
-        manager = ResourceManager(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue)
+        let result = await DownloadKitTests.setupManagerWithPriorityQueue()
+        manager = result.0
+        cache = result.1
+        realm = result.2
     }
     
-    
-    /// Helper method to setup ResourceManager without priority queue (normal priority only)
     private func setupManagerWithoutPriorityQueue() async {
-        let downloadQueue = DownloadQueue()
-        await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
-        
-        // Use in-memory Realm configuration
-        let config = Realm.Configuration(
-            inMemoryIdentifier: "normal_test_realm_\(UUID().uuidString)",
-            deleteRealmIfMigrationNeeded: true
-        )
-        
-        // Create Realm instance and keep it alive during the test
-        realm = try! await Realm(configuration: config, actor: MainActor.shared)
-        
-        cache = RealmCacheManager<CachedLocalFile>(configuration: config)
-        manager = ResourceManager(cache: cache, downloadQueue: downloadQueue) // No priority queue
-    }
-    
-    /// Creates a test resource for priority testing
-    private func createTestResource(id: String, size: Int = 100) -> Resource {
-        return Resource(
-            id: id,
-            main: FileMirror(
-                id: "mirror-\(id)",
-                location: "https://picsum.photos/\(size)/\(size).jpg", // Small image for faster tests
-                info: [:]
-            ),
-            alternatives: [],
-            fileURL: nil
-        )
+        let result = await DownloadKitTests.setupManagerWithoutPriorityQueue()
+        manager = result.0
+        cache = result.1
+        realm = result.2
     }
     
     /// Test that normal priority downloads work correctly
