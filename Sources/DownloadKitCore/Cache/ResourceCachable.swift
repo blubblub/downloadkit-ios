@@ -8,6 +8,20 @@
 import Foundation
 import os.log
 
+public struct DownloadProcessingState : Sendable {
+    public init(isFinished: Bool, isDownloading: Bool) {
+        self.isFinished = isFinished
+        self.isDownloading = isDownloading
+    }
+    
+    let isFinished: Bool
+    let isDownloading: Bool
+    
+    public var shouldDownload: Bool {
+        return !(isFinished || isDownloading)
+    }
+}
+
 public protocol ResourceCachable: Sendable, ResourceRetrievable {
 
     /// Returns true, if actual file is available in the cache.
@@ -40,7 +54,7 @@ public protocol ResourceCachable: Sendable, ResourceRetrievable {
     /// - Parameters:
     ///   - request: download request returned from requestDownloads method.
     /// - Returns: true, if download is not cached yet.
-    func download(startProcessing request: DownloadRequest) async -> Bool
+    func download(startProcessing request: DownloadRequest) async -> DownloadProcessingState
     
     /// Called after the download finishes successfully.
     /// - Parameters:

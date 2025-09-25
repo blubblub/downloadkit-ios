@@ -149,18 +149,22 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         // Find original request based on mirror ids.
         let downloadableIdentifier = await downloadable.identifier
         let currentRequestMap = await requestMap.map
-        
-        var originalRequests: [DownloadRequest] = []
-        
+                
         for (_, requests) in currentRequestMap {
+            var found = false
+            
             for request in requests where request.resource.mirrorIds.contains(downloadableIdentifier) {
                 // Append the whole array only once.
-                originalRequests.append(contentsOf: requests)
+                found = true
                 break
+            }
+            
+            if found {
+                return requests
             }
         }
         
-        return originalRequests
+        return []
     }
     
     public func updateStorage(resources: [any ResourceFile], storage: StoragePriority) {
@@ -176,7 +180,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         }
     }
     
-    public func download(startProcessing request: DownloadRequest) async -> Bool {
+    public func download(startProcessing request: DownloadRequest) async -> DownloadProcessingState {
         // Check if resource is available. Request could have been created earlier.
         let isInRequestMap = await requestMap.contains(request.id)
         
@@ -184,21 +188,20 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             log.debug("Request already exists in map, logging request, but denying download: \(request.id)")
             
             await requestMap.add(request, for: request.id)
-            return false
+            return DownloadProcessingState(isFinished: false, isDownloading: true)
         }
-        
         
         if isAvailable(resource: request.resource) {
             log.debug("Request is already available, will complete the request: \(request.id)")
             
             await request.complete()
-            return false
+            return DownloadProcessingState(isFinished: true, isDownloading: false)
         }
         
         let identifier = request.id
         await requestMap.add(request, for: identifier)
         
-        return true
+        return DownloadProcessingState(isFinished: false, isDownloading: false)
     }
     
     public func download(_ downloadable: any Downloadable, didFinishTo location: URL) async throws -> DownloadRequest? {

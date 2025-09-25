@@ -276,11 +276,15 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         
         // Tell cache it needs to track the request, as it will be processed. If cache says NO, it means
         // it already has the file.
-        let shouldDownload = await cache.download(startProcessing: request)
+        let downloadProcessingState = await cache.download(startProcessing: request)
         
-        if !shouldDownload {
-            log.info("Requested a download that already exists: \(requestId)")
-            await completeProgress(request, downloadable: downloadable, with: nil)
+        if !downloadProcessingState.shouldDownload {
+            log.info("Processed a download that already exists: \(requestId)")
+            
+            if downloadProcessingState.isFinished {
+                log.debug("Download is already finished, completing progress: \(requestId)")
+                await completeProgress(request, downloadable: downloadable, with: nil)
+            }
             return
         }
 
