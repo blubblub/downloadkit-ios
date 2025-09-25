@@ -11,9 +11,17 @@ private actor DownloadRequestState {
     private var continuation: CheckedContinuation<Void, Error>?
     private var isComplete = false
     private var error: Error?
+    
+    private let log = Logger(subsystem: "org.blubblub.downloadkit.request", category: "DownloadState")
+    
+    public var instanceId: String {
+        return "\(ObjectIdentifier(self))"
+    }
 
     fileprivate func wait() async throws {
         if isComplete {
+            log.debug("Waiting, but the download is already complete: \(self.instanceId)")
+            
             // Throw error on wait, if completed.
             if let error = error {
                 throw error
@@ -22,6 +30,8 @@ private actor DownloadRequestState {
             return
         }
         
+        log.debug("Waiting on continuation for download completion: \(self.instanceId)")
+        
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             self.continuation = continuation
         }
@@ -29,10 +39,13 @@ private actor DownloadRequestState {
 
     fileprivate func markComplete(with error: Error? = nil) {
         if isComplete {
+            log.warning("Completing a completed download: \(self.instanceId)")
             // To prevent multiple continuation calls.
             // This happens when a download in-flight is cancelled, as URLSession will call the delegate again.
             return
         }
+        
+        log.debug("Marking completion of download: \(self.instanceId)")
         
         isComplete = true
         self.error = error
@@ -45,6 +58,8 @@ private actor DownloadRequestState {
         }
         
         continuation = nil
+        
+        log.debug("Marked download as complete: \(self.instanceId)")
     }
 }
 
@@ -57,7 +72,7 @@ public final class DownloadRequest: Sendable, Equatable {
     public let options: RequestOptions
     public let mirror: ResourceMirrorSelection
     
-    public let log = Logger(subsystem: "org.blubblub.downloadkit.request", category: "DownloadRequest")
+    private let log = Logger(subsystem: "org.blubblub.downloadkit.request", category: "DownloadRequest")
     
     public init(_ request: DownloadRequest, mirror: ResourceMirrorSelection) {
         self.state = request.state
@@ -90,12 +105,15 @@ public final class DownloadRequest: Sendable, Equatable {
     }
     
     public func complete(with error: Error? = nil) async {
-        log.debug("Completing download: \(self.id) (\(self.instanceId)")
+        let stateId = "\(ObjectIdentifier(state))"
+        log.debug("Completing download: \(self.id) (\(self.instanceId)-\(stateId)")
         await state.markComplete(with: error)
     }
         
     public func waitTillComplete() async throws {
-        log.debug("Waiting for download completion: \(self.id) (\(self.instanceId)")
+        let stateId = "\(ObjectIdentifier(state))"
+        
+        log.debug("Waiting for download completion: \(self.id) (\(self.instanceId)-\(stateId)")
         try await state.wait()
     }
 }
