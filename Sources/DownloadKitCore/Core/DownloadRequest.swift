@@ -35,6 +35,8 @@ private actor DownloadRequestState {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             self.continuation = continuation
         }
+        
+        log.debug("End of waiting for download completion: \(self.instanceId)")
     }
 
     fileprivate func markComplete(with error: Error? = nil) {

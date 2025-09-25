@@ -265,6 +265,7 @@ public actor DownloadQueue: DownloadQueuable {
         // If item is in incomplete state
         // If the item is already in progress, do nothing.
         guard self.progressDownloadMap[identifier] == nil else {
+            await self.process()
             return
         }
         

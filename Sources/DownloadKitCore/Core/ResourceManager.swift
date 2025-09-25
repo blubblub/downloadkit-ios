@@ -270,7 +270,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         let requestId = request.id
         let downloadable = request.mirror.downloadable
         
-        log.info("Start processing: \(requestId)")
+        log.info("Start processing requested: \(requestId)")
         
         await metrics.increase(requested: 1)
         
@@ -287,6 +287,8 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
             }
             return
         }
+        
+        log.debug("Processing started for request: \(requestId)")
 
         // Add downloads to monitor progresses.
         await progress.add(downloadItem: downloadable)
