@@ -288,6 +288,8 @@ public actor DownloadQueue: DownloadQueuable {
         var downloadQueueCopy = self.downloadQueue
         await downloadQueueCopy.enqueue(downloadable)
         self.downloadQueue = downloadQueueCopy
+        
+        log.debug("Download queue enqueued: \(identifier)")
                 
         self.queuedDownloadMap[identifier] = downloadable
         await self.process()
@@ -300,7 +302,7 @@ public actor DownloadQueue: DownloadQueuable {
             return
         }
         
-        log.debug("DownloadQueue - Started processing, item count: \(self.progressDownloadMap.count)")
+        log.debug("DownloadQueue - Started processing, item count: \(self.progressDownloadMap.count) Queue: \(self.queuedDownloadMap.count)/\(self.downloadQueue.count)")
                 
         // Process up to X simultaneous downloads.
         while self.progressDownloadMap.count < self.simultaneousDownloads {
@@ -308,12 +310,12 @@ public actor DownloadQueue: DownloadQueuable {
                 await process(downloadable: item)
             }
             else {
-                log.debug("DownloadQueue - Empty queue, stopping processing.")
+                log.debug("DownloadQueue - Empty queue, stopping processing: Queue: \(self.queuedDownloadMap.count)/\(self.downloadQueue.count)")
                 break
             }
         }
         
-        log.debug("DownloadQueue - Finished processing, item count: \(self.progressDownloadMap.count)")
+        log.debug("DownloadQueue - Finished processing, item count: \(self.progressDownloadMap.count) Queue: \(self.queuedDownloadMap.count)/\(self.downloadQueue.count)")
     }
     
     /// Process one specific item, will update internal state.
