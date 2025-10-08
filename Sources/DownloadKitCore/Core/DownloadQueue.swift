@@ -265,6 +265,7 @@ public actor DownloadQueue: DownloadQueuable {
         // If item is in incomplete state
         // If the item is already in progress, do nothing.
         guard self.progressDownloadMap[identifier] == nil else {
+            log.debug("DownloadQueue - Already being downloaded: \(identifier). Ignoring.")
             await self.process()
             return
         }
@@ -289,7 +290,7 @@ public actor DownloadQueue: DownloadQueuable {
         await downloadQueueCopy.enqueue(downloadable)
         self.downloadQueue = downloadQueueCopy
         
-        log.debug("Download queue enqueued: \(identifier)")
+        log.debug("DownloadQueue - Enqueued: \(identifier)")
                 
         self.queuedDownloadMap[identifier] = downloadable
         await self.process()
@@ -302,7 +303,7 @@ public actor DownloadQueue: DownloadQueuable {
             return
         }
         
-        log.debug("DownloadQueue - Started processing, item count: \(self.progressDownloadMap.count) Queue: \(self.queuedDownloadMap.count)/\(self.downloadQueue.count)")
+        log.debug("DownloadQueue - Started processing, item count: \(self.progressDownloadMap.count) Queue: \(self.debugQueueState())")
                 
         // Process up to X simultaneous downloads.
         while self.progressDownloadMap.count < self.simultaneousDownloads {
@@ -310,12 +311,25 @@ public actor DownloadQueue: DownloadQueuable {
                 await process(downloadable: item)
             }
             else {
-                log.debug("DownloadQueue - Empty queue, stopping processing: Queue: \(self.queuedDownloadMap.count)/\(self.downloadQueue.count)")
+                log.debug("DownloadQueue - Empty queue, stopping processing: Queue: \(self.debugQueueState())")
                 break
             }
         }
         
-        log.debug("DownloadQueue - Finished processing, item count: \(self.progressDownloadMap.count) Queue: \(self.queuedDownloadMap.count)/\(self.downloadQueue.count)")
+        log.debug("DownloadQueue - Finished processing, item count: \(self.progressDownloadMap.count) Queue: \(self.debugQueueState())")
+    }
+    
+    private func debugQueueState() -> String {
+        let mapCount = self.queuedDownloadMap.count
+        let queueCount = self.downloadQueue.count
+        var state = "\(mapCount)/\(queueCount)"
+        
+        if mapCount != queueCount && mapCount == 1 {
+            let identifier = self.queuedDownloadMap.first!.key
+            state += " Missing Id: \(identifier)"
+        }
+        
+        return state
     }
     
     /// Process one specific item, will update internal state.
