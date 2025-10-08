@@ -299,6 +299,8 @@ public actor DownloadQueue: DownloadQueuable {
         guard isActive else {
             return
         }
+        
+        log.debug("DownloadQueue - Started processing, item count: \(self.progressDownloadMap.count)")
                 
         // Process up to X simultaneous downloads.
         while self.progressDownloadMap.count < self.simultaneousDownloads {
@@ -306,9 +308,12 @@ public actor DownloadQueue: DownloadQueuable {
                 await process(downloadable: item)
             }
             else {
+                log.debug("DownloadQueue - Empty queue, stopping processing.")
                 break
             }
         }
+        
+        log.debug("DownloadQueue - Finished processing, item count: \(self.progressDownloadMap.count)")
     }
     
     /// Process one specific item, will update internal state.
@@ -405,13 +410,14 @@ extension DownloadQueue: DownloadProcessorObserver {
         Task {
             let identifier = await downloadable.identifier
             do {
-                try await observer?.downloadQueue(self, downloadDidFinish: downloadable, to: url)
-                notificationCenter.post(name: DownloadQueue.downloadDidFinishNotification, object: downloadable)
+                self.progressDownloadMap[identifier] = nil
                 
                 self.metrics.processed += 1
                 self.metrics.completed += 1
                 
-                self.progressDownloadMap[identifier] = nil
+                try await observer?.downloadQueue(self, downloadDidFinish: downloadable, to: url)
+                notificationCenter.post(name: DownloadQueue.downloadDidFinishNotification, object: downloadable)
+                
                 
                 // Continue processing downloads.
                 // I'd do this in defer, if it supported async.
