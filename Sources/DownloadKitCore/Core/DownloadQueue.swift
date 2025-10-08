@@ -316,6 +316,8 @@ public actor DownloadQueue: DownloadQueuable {
     private func process(downloadable: Downloadable) async {
         let identifier = await downloadable.identifier
         
+        log.debug("DownloadQueue - started processing item: \(identifier)")
+        
         // Remove item from queued downloads map.
         self.queuedDownloadMap[identifier] = nil
         
@@ -323,13 +325,12 @@ public actor DownloadQueue: DownloadQueuable {
         if let processor = await findProcessor(for: downloadable) {
             await assignObserverIfNeeded(processor: processor)
             
+            log.debug("DownloadQueue - processor will start processing item: \(identifier)")
+            
             self.progressDownloadMap[identifier] = downloadable
             await processor.process(downloadable)
             
-            Task {
-                await self.observer?.downloadQueue(self, downloadDidStart: downloadable, with: processor)
-            }
-            
+            await self.observer?.downloadQueue(self, downloadDidStart: downloadable, with: processor)
             self.notificationCenter.post(name: DownloadQueue.downloadDidStartNotification, object: downloadable)
         }
         else {
@@ -338,10 +339,7 @@ public actor DownloadQueue: DownloadQueuable {
             
             let error = DownloadKitError.downloadQueue(.noProcessorAvailable(identifier))
             
-            Task {
-                await self.observer?.downloadQueue(self, downloadDidFail: downloadable, with: error)
-            }
-            
+            await self.observer?.downloadQueue(self, downloadDidFail: downloadable, with: error)
             self.notificationCenter.post(name: DownloadQueue.downloadErrorNotification, object: error, userInfo: [ "downloadItem": downloadable])
         }
         

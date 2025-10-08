@@ -83,14 +83,14 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
         let webDownloadIdentifier = await webDownload.identifier
         
         guard await self.downloadable(for: webDownloadIdentifier) == nil else {
+            log.error("Already processing a downloadable with same identifier: \(webDownloadIdentifier).")
             return
         }
         
-        await prepare(downloadable: webDownload)
-        
-        await webDownload.start(with: [DownloadParameter.urlSession: session])
-        
         self.downloadables.append(webDownload)
+        
+        await prepare(downloadable: webDownload)
+        await webDownload.start(with: [DownloadParameter.urlSession: session])
         
         await self.observer?.downloadDidBegin(self, downloadable: webDownload)
     }
