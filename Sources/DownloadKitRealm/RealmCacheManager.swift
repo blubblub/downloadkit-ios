@@ -13,8 +13,32 @@ import os.log
 private actor DownloadRequestMap {
     // Track original download requests, so we can retry.
     private(set) var map = [String: [DownloadRequest]]()
+        
+    func addIfNeeded(_ request: DownloadRequest) -> Bool {
+        let isInMap = contains(request.id)
+        add(request)
+        
+        return isInMap
+    }
     
-    func add(_ request: DownloadRequest, for key: String) {
+    func completeAll(for identifier: String, error: Error? = nil) async {
+        for otherRequest in map[identifier] ?? [] {
+            await otherRequest.complete(with: error)
+        }
+        
+        map[identifier] = nil
+    }
+    
+    func update(request: DownloadRequest, with mirrorSelection: ResourceMirrorSelection) {
+        let updatedRequest = DownloadRequest(request, mirror: mirrorSelection)
+        add(updatedRequest)
+    }
+    
+    private func contains(_ identifier: String) -> Bool {
+        return map[identifier] != nil
+    }
+    
+    private func add(_ request: DownloadRequest) {
         let identifier = request.id
         
         var existingRequests = map[identifier] ?? []
@@ -26,25 +50,6 @@ private actor DownloadRequestMap {
         existingRequests.append(request)
         
         map[identifier] = existingRequests
-    }
-    
-    func contains(_ identifier: String) -> Bool {
-        return map[identifier] != nil
-    }
-    
-    func removeAll(for identifier: String) {
-        map[identifier] = nil
-    }
-    
-    func removeAll(_ request: DownloadRequest) {
-        removeAll(for: request.id)
-    }
-    
-    func update(request: DownloadRequest, with mirrorSelection: ResourceMirrorSelection) {
-        let identifier = request.id
-        
-        let updatedRequest = DownloadRequest(request, mirror: mirrorSelection)
-        add(updatedRequest, for: identifier)
     }
 }
 
@@ -181,16 +186,6 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
     }
     
     public func download(startProcessing request: DownloadRequest) async -> DownloadProcessingState {
-        // Check if resource is available. Request could have been created earlier.
-        let isInRequestMap = await requestMap.contains(request.id)
-        
-        if isInRequestMap {
-            log.debug("Request already exists in map, logging request, but denying download: \(request.id)")
-            
-            await requestMap.add(request, for: request.id)
-            return DownloadProcessingState(isFinished: false, isDownloading: true)
-        }
-        
         if isAvailable(resource: request.resource) {
             log.debug("Request is already available, will complete the request: \(request.id)")
             
@@ -198,10 +193,14 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             return DownloadProcessingState(isFinished: true, isDownloading: false)
         }
         
-        let identifier = request.id
-        await requestMap.add(request, for: identifier)
+        // Check if resource is available. Request could have been created earlier.
+        let isInRequestMap = await requestMap.addIfNeeded(request)
         
-        return DownloadProcessingState(isFinished: false, isDownloading: false)
+        if isInRequestMap {
+            log.debug("Request already exists in map, logging request, but denying download: \(request.id)")
+        }
+        
+        return DownloadProcessingState(isFinished: false, isDownloading: isInRequestMap)
     }
     
     public func download(_ downloadable: any Downloadable, didFinishTo location: URL) async throws -> DownloadRequest? {
@@ -210,7 +209,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         log.debug("Downloadable finished: \(downloadableIdentifier) to: \(location)")
         let requests = await downloadRequests(for: downloadable)
         
-        guard let request = requests.first else {
+        guard let request = requests.last else {
             log.fault("NO-OP: Received a downloadable without resource information: \(downloadableIdentifier)")
             return nil
         }
@@ -226,19 +225,12 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             
             log.debug("Cache stored downloaded file request: \(request.id) count: \(requests.count)")
             
-            for otherRequest in await downloadRequests(for: downloadable) {
-                await otherRequest.complete()
-            }
-            
-            await requestMap.removeAll(for: request.id)
+            await requestMap.completeAll(for: request.id)
         }
         catch {
             log.fault("Error storing downloaded file: \(error.localizedDescription) request: \(request.id) count: \(requests.count)")
             
-            for otherRequest in await downloadRequests(for: downloadable) {
-                await otherRequest.complete(with: error)
-            }
-            await requestMap.removeAll(for: request.id)
+            await requestMap.completeAll(for: request.id, error: error)
             
             throw error
         }
@@ -261,7 +253,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             return nil
         }
         
-        let request = requests.first!
+        let request = requests.last!
         
         let identifier = request.id
         
@@ -272,11 +264,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             
             // Clear download selection for the identifier.
             
-            for otherRequest in requests {
-                await otherRequest.complete(with: error)
-            }
-            
-            await requestMap.removeAll(for: identifier)
+            await requestMap.completeAll(for: identifier, error: error)
             return RetryDownloadRequest(request: request)
         }
         
