@@ -5,7 +5,7 @@
 //  Created by Dal Rupnik on 27.06.2025.
 //
 
-public struct AsyncPriorityQueue<T : Sendable> : Sendable {
+public final class AsyncPriorityQueue<T : Sendable> : Sendable {
     
     fileprivate var heap = [T]()
     var order: (@Sendable (T, T) async -> Bool)?
@@ -32,7 +32,7 @@ public struct AsyncPriorityQueue<T : Sendable> : Sendable {
     /// Add a new element onto the Priority Queue. O(logn)
     ///
     /// - parameter element: The element to be inserted into the Priority Queue.
-    public mutating func enqueue(_ element: T) async {
+    public func enqueue(_ element: T) async {
         assert(order != nil, "PriorityQueue must be initialized with an ordering")
         
         let index = await heap.insertionIndex { return await order!(element, $0) }
@@ -42,7 +42,7 @@ public struct AsyncPriorityQueue<T : Sendable> : Sendable {
     /// Remove and return the element with the highest priority (or lowest if ascending). O(lg n)
     ///
     /// - returns: The element with the highest priority in the Priority Queue, or nil if the PriorityQueue is empty.
-    public mutating func dequeue() -> T? {
+    public func dequeue() -> T? {
         
         if heap.isEmpty { return nil }
         
@@ -58,7 +58,7 @@ public struct AsyncPriorityQueue<T : Sendable> : Sendable {
     
     /// Removes all elements matching condition
     /// - Parameter condition: to match
-    public mutating func remove(where condition: @escaping (T) async -> Bool) async {
+    public func remove(where condition: @escaping (T) async -> Bool) async {
         var newHeap: [T] = []
 
         for element in heap {
@@ -71,7 +71,7 @@ public struct AsyncPriorityQueue<T : Sendable> : Sendable {
     }
     
     /// Eliminate all of the elements from the Priority Queue.
-    public mutating func clear() {
+    public func clear() {
         heap.removeAll(keepingCapacity: false)
     }
 }
@@ -81,7 +81,7 @@ extension AsyncPriorityQueue where T: Equatable {
     /// Silently exits if no occurrence found.
     ///
     /// - parameter item: The item to remove the first occurrence of.
-    public mutating func remove(_ item: T) {
+    public func remove(_ item: T) {
         if let index = heap.firstIndex(of: item) {
             heap.remove(at: index)
         }
@@ -91,7 +91,7 @@ extension AsyncPriorityQueue where T: Equatable {
     /// Silently exits if no occurrence found.
     ///
     /// - parameter item: The item to remove.
-    public mutating func removeAll(_ item: T) {
+    public func removeAll(_ item: T) {
         while let index = heap.firstIndex(of: item) {
             heap.remove(at: index)
         }
@@ -102,7 +102,7 @@ extension AsyncPriorityQueue where T: Equatable {
 extension AsyncPriorityQueue: IteratorProtocol {
     
     public typealias Element = T
-    mutating public func next() -> Element? { return dequeue() }
+    public func next() -> Element? { return dequeue() }
 }
 
 // MARK: - SequenceType

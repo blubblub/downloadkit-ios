@@ -288,14 +288,7 @@ public actor DownloadQueue: DownloadQueuable {
         
         log.debug("DownloadQueue - Start Enqueue: \(identifier)")
         
-        // FIXME: Problem is below with overwriting queues and items are lost.
-        // Creates a copy of the download queue.
-        var downloadQueueCopy = self.downloadQueue
-        // Function suspends here, if at the same time, download is called again from another thread, it makes another copy of the queue
-        await downloadQueueCopy.enqueue(downloadable)
-        // Queue is written back twice, which is correct, but since function suspended it, enqueue is called on two different copies,
-        // so one item of the two (or more) is lost when writing back the queue.
-        self.downloadQueue = downloadQueueCopy
+        await self.downloadQueue.enqueue(downloadable)
         
         log.debug("DownloadQueue - Finished Enqueued: \(identifier)")
                 
