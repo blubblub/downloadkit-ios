@@ -53,28 +53,24 @@ private actor DownloadTaskMap {
 }
 
 public final class RealmCacheManager<L: Object>: ResourceCachable where L: LocalResourceFile {
+
+    
     public let log = Logger(subsystem: "org.blubblub.downloadkit.realm.cache.manager", category: "Cache")
     
     public let memoryCache: MemoryCache?
     public let localCache: RealmLocalCacheManager<L>
     
-    public let mirrorPolicy: MirrorPolicy
-    
     private let taskMap = DownloadTaskMap()
     
-    public init(configuration: Realm.Configuration,
-                mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()) {
+    public init(configuration: Realm.Configuration) {
         self.memoryCache = MemoryCache()
         self.localCache = RealmLocalCacheManager<L>(configuration: configuration)
-        self.mirrorPolicy = mirrorPolicy
     }
     
     public init(memoryCache: MemoryCache?,
-                localCache: RealmLocalCacheManager<L>,
-                mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()) {
+                localCache: RealmLocalCacheManager<L>) {
         self.memoryCache = memoryCache
         self.localCache = localCache
-        self.mirrorPolicy = mirrorPolicy
     }
     
     // MARK: - ResourceCachable
@@ -181,16 +177,13 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         return DownloadProcessingState(isFinished: false, isDownloading: isInRequestMap)
     }
     
-    public func download(_ downloadTask: DownloadTask, didFinishTo location: URL) async throws {
+    public func download(_ downloadTask: DownloadTask, downloadable: Downloadable, didFinishTo location: URL) async throws {
         
         log.debug("Download task finished: \(downloadTask.id) to: \(location)")
         let downloads = await downloads(for: downloadTask)
         
         do {
-            let localObject = try localCache.store(resource: downloadTask.request.resource,
-                                                  mirror: request.mirror.mirror,
-                                                  at: location,
-                                                  options: request.options)
+            let localObject = try localCache.store(resource: downloadTask.request.resource, mirrorId: await downloadable.identifier, at: location, options: downloadTask.request.options)
             
             // Update Memory Cache with resource.
             memoryCache?.update(fileURL: localObject.fileURL, for: localObject.id)
@@ -200,56 +193,21 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             await taskMap.completeAll(for: downloadTask.id)
         }
         catch {
-            log.fault("Error storing downloaded file: \(error.localizedDescription) request: \(request.id) count: \(requests.count)")
+            log.error("Error storing downloaded file: \(error.localizedDescription) request: \(downloadTask.id) count: \(downloads.count)")
             
-            await taskMap.completeAll(for: request.id, error: error)
+            await taskMap.completeAll(for: downloadTask.id, error: error)
             
             throw error
         }
-        
-        // Let mirror policy know that the download completed, so it can clean up after itself.
-        await mirrorPolicy.downloadComplete(for: request.resource)
-                
-        return request
     }
     
-    public func download(_ downloadable: any Downloadable, didFailWith error: Error) async -> RetryDownloadRequest? {
-        let downloadableIdentifier = await downloadable.identifier
+    public func download(_ downloadTask: DownloadTask, didFailWith error: any Error) async {
+        log.error("Download task failed: \(downloadTask.id) error: \(error)")
+        let downloads = await downloads(for: downloadTask)
         
-        log.debug("Downloadable failed: \(downloadableIdentifier) Error: \(error.localizedDescription)")
-        
-        let requests = await downloadRequests(for: downloadable)
-        
-        guard requests.count > 0 else {
-            log.fault("NO-OP: Received a downloadable without resource information: \(downloadableIdentifier)")
-            return nil
-        }
-        
-        let request = requests.last!
-        
-        let identifier = request.id
-        
-        guard let mirrorSelection = await mirrorPolicy.mirror(for: request.resource,
-                                                        lastMirrorSelection: request.mirror,
-                                                        error: error) else {
-            log.error("Download failed: \(identifier) Error: \(error.localizedDescription)")
-            
-            // Clear download selection for the identifier.
-            
-            await requestMap.completeAll(for: identifier, error: error)
-            return RetryDownloadRequest(request: request)
-        }
-        
-        let mirrorDownloadableIdentifier = await mirrorSelection.downloadable.identifier
-        
-        // Update requestMap with new mirror selection.
-        await requestMap.update(request: request, with: mirrorSelection)
-        
-        log.error("Retrying download of: \(identifier) with: \(mirrorDownloadableIdentifier)")
-        
-        return RetryDownloadRequest(request: request, nextMirror: mirrorSelection)
+        await taskMap.completeAll(for: downloadTask.id, error: error)
     }
-    
+        
     public func cleanup(excluding ids: Set<String>) {
         do {
             try localCache.cleanup(excluding: ids)

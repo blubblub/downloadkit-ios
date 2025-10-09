@@ -136,12 +136,12 @@ public final class DownloadTask: Sendable, Equatable {
     // MARK: - Internal Functions
     
     // Do not call these functions outside of DownloadKit
-    func complete(with error: Error? = nil) async {
+    public func complete(with error: Error? = nil) async {
         let stateId = "\(ObjectIdentifier(state))"
         log.debug("Completing download: \(self.id) (\(self.instanceId)-\(stateId)")
         await state.markComplete(with: error)
     }
-    func cancel() async {
+    public func cancel() async {
         await state.cancel()
     }
 }

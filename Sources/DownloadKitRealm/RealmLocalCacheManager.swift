@@ -112,8 +112,8 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
     ///   - options: request options.
     /// - Throws: in case the file already exists at the target url.
     /// - Returns: local resource.
-    public func store(resource: ResourceFile, mirror: ResourceFileMirror, at url: URL, options: RequestOptions) throws -> L {
-        let targetUrl = L.targetUrl(for: resource, mirror: mirror, at: url, storagePriority: options.storagePriority, file: file)
+    public func store(resource: ResourceFile, mirrorId: String, at url: URL, options: RequestOptions) throws -> L {
+        let targetUrl = L.targetUrl(for: resource, at: url, storagePriority: options.storagePriority, file: file)
         
         let directoryUrl = targetUrl.deletingLastPathComponent()
         
@@ -138,7 +138,7 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
         try finalFileUrl.setResourceValues(resourceValues)
         
         // Store file into Realm
-        let localResource = self.createLocalResource(for: resource, mirror: mirror, url: finalFileUrl)
+        let localResource = self.createLocalResource(for: resource, mirrorId: mirrorId, url: finalFileUrl)
         let realm = try self.realm
         
         try realm.write {
@@ -172,9 +172,8 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
                     // if priorities are the same, skip moving files
                     if localResource.storage == priority { continue }
                     
-                    let targetURL = L.targetUrl(for: resource, mirror: resource.main, // main mirror here?
-                                                at: localURL,
-                                                storagePriority: priority, file: file)
+                    let targetURL = L.targetUrl(for: resource, at: localURL, storagePriority: priority, file: file)
+                    
                     let directoryURL = targetURL.deletingLastPathComponent()
                                             
                     do {
@@ -381,10 +380,10 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
     ///   - resource: resource to create record for
     ///   - url: url where file is located
     /// - Returns: local resource
-    private func createLocalResource(for resource: ResourceFile, mirror: ResourceFileMirror, url: URL) -> L {
+    private func createLocalResource(for resource: ResourceFile, mirrorId: String, url: URL) -> L {
         var localResource = L()
         localResource.id = resource.id
-        localResource.mirrorId = mirror.id
+        localResource.mirrorId = mirrorId
         localResource.fileURL = url
         localResource.createdAt = resource.createdAt ?? Date()
         

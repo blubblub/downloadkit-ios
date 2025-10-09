@@ -51,13 +51,13 @@ public protocol ResourceCachable: Sendable, ResourceRetrievable {
     /// - Parameters:
     ///   - request: download request returned from requestDownloads method.
     /// - Returns: true, if download is not cached yet.
-    func download(startProcessing request: DownloadRequest) async -> DownloadProcessingState
+    func download(startProcessing request: DownloadTask) async -> DownloadProcessingState
     
     /// Called after the download finishes successfully.
     /// - Parameters:
     ///   - downloadable: item that finished downloading.
     ///   - location: where the item was stored.
-    func download(_ downloadTask: DownloadTask, didFinishTo location: URL) async throws
+    func download(_ downloadTask: DownloadTask, downloadable: Downloadable, didFinishTo location: URL) async throws
     
     /// Called if download fails. Return new `Downloadable` item to retry download
     /// - Parameters:
