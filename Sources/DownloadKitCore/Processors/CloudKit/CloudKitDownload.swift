@@ -15,11 +15,6 @@ public actor CloudKitDownload: Downloadable {
     /// Identifier of the download, usually an id
     public var identifier: String { return data.identifier }
     
-    /// Task priority in download queue (if needed), higher number means higher priority.
-    public var priority: Int {
-        return data.priority
-    }
-    
     public func set(priority: Int) {
         data.priority = priority
     }

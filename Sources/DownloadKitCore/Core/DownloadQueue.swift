@@ -102,7 +102,7 @@ public actor DownloadQueue: DownloadQueuable {
     private let log = Logger.logDownloadQueue
     
     /// Holds pending downloads.
-    private var downloadQueue = AsyncPriorityQueue<Downloadable>()
+    private var downloadQueue = [Downloadable]()
     
     public private(set) var downloadProcessors: [DownloadProcessor] = []
     
@@ -152,17 +152,10 @@ public actor DownloadQueue: DownloadQueuable {
     public var queuedDownloads: [Downloadable] {
         return Array(downloadQueue)
     }
-    
-    public var currentMaximumPriority : Int {
-        get async {
-            return await downloadQueue.first?.priority ?? 0
-        }
-    }
-        
+            
     // MARK: - Iniitialization
     
     public init(processors: [DownloadProcessor] = [], simultaneousDownloads: Int = 20) {
-        downloadQueue.order = { await $0.priority > $1.priority }
         self.simultaneousDownloads = max(1, simultaneousDownloads)
         downloadProcessors.append(contentsOf: processors)
     }
@@ -198,7 +191,7 @@ public actor DownloadQueue: DownloadQueuable {
             await item.cancel()
         }
         
-        self.downloadQueue.clear()
+        self.downloadQueue.removeAll()
         self.queuedDownloadMap = [:]
     }
     
@@ -214,15 +207,16 @@ public actor DownloadQueue: DownloadQueuable {
             self.progressDownloadMap[identifier] = nil
         }
         else {
+            let queuedDownloadable = self.queuedDownloadMap[identifier]
+            
+            if let index = downloadQueue.firstIndex(where: { $0 === queuedDownloadable }) {
+                downloadQueue.remove(at: index)
+            }
+            else {
+                log.fault("DownloadQueue - Error removing downloadable, inconsistent state: \(identifier)")
+            }
+            
             self.queuedDownloadMap[identifier] = nil
-            
-            var downloadQueueCopy = self.downloadQueue
-            
-            await downloadQueueCopy.remove(where: { downloadable in
-                return await downloadable.identifier == identifier
-            })
-            
-            self.downloadQueue = downloadQueueCopy
         }
     }
     
@@ -271,16 +265,7 @@ public actor DownloadQueue: DownloadQueuable {
         }
         
         let previousItem = self.queuedDownloadMap[identifier]
-        if let previousItem = previousItem, await downloadable.priority > previousItem.priority {
-            // If current item priority is higher, remove it and enqueue it again, which will place it higher.
-            var downloadQueueCopy = self.downloadQueue
-            
-            await downloadQueueCopy.remove(where: { item in
-                return await item.isEqual(to: previousItem)
-            })
-            
-            self.downloadQueue = downloadQueueCopy
-        } else if previousItem != nil {
+        if previousItem != nil {
             // item is already queued and priorities are the same, do nothing
             await self.process()
             return
@@ -288,7 +273,7 @@ public actor DownloadQueue: DownloadQueuable {
         
         log.debug("DownloadQueue - Start Enqueue: \(identifier)")
         
-        await self.downloadQueue.enqueue(downloadable)
+        downloadQueue.append(downloadable)
         
         log.debug("DownloadQueue - Finished Enqueued: \(identifier)")
                 
@@ -307,7 +292,8 @@ public actor DownloadQueue: DownloadQueuable {
                 
         // Process up to X simultaneous downloads.
         while self.progressDownloadMap.count < self.simultaneousDownloads {
-            if let item = self.downloadQueue.dequeue() {
+            if let item = self.downloadQueue.first {
+                _ = self.downloadQueue.removeFirst()
                 await process(downloadable: item)
             }
             else {

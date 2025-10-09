@@ -29,19 +29,12 @@ public actor WebDownload : NSObject, Downloadable {
         return data.url
     }
     
+    private let isHighPriority: Bool
+    
     // MARK: - Downloadable
     
     /// Identifier of the download, usually an id
     public var identifier: String { return data.identifier }
-    
-    /// Task priority in download queue (if needed), higher number means higher priority.
-    public var priority: Int {
-        return data.priority
-    }
-    
-    public func set(priority: Int) {
-        data.priority = priority
-    }
     
     /// Total bytes reported by download agent
     public var totalBytes: Int64 { return data.totalBytes }
@@ -79,9 +72,9 @@ public actor WebDownload : NSObject, Downloadable {
     
     // MARK: - Constructors
         
-    public init(identifier: String, url: URL, priority: Int = 0, completion: (@Sendable (Result<URL, Error>) -> Void)? = nil, progressUpdate: (@Sendable (Int64, Int64) -> Void)? = nil) {
+    public init(identifier: String, url: URL, isHighPriority: Bool = false, completion: (@Sendable (Result<URL, Error>) -> Void)? = nil, progressUpdate: (@Sendable (Int64, Int64) -> Void)? = nil) {
         self.data = .init(url: url, identifier: identifier)
-        self.data.priority = priority
+        self.isHighPriority = isHighPriority
         
         if let progressUpdate {
             self.progressUpdates.append(progressUpdate)
@@ -101,6 +94,7 @@ public actor WebDownload : NSObject, Downloadable {
             return nil
         }
         
+        self.isHighPriority = task.priority == URLSessionDownloadTask.highPriority
         self.data = item
         self.task = task
         
@@ -184,7 +178,7 @@ public actor WebDownload : NSObject, Downloadable {
         
         let task = session.downloadTask(with: URLRequest(url: url))
         
-        if priority > 0 {
+        if isHighPriority {
             task.priority = URLSessionDownloadTask.highPriority
         }
         
