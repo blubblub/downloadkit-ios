@@ -5,8 +5,11 @@
 //  Created by Dal Rupnik on 27.06.2025.
 //
 
+import Dispatch
+
 public final class AsyncPriorityQueue<T : Sendable> : @unchecked Sendable {
     
+    private let queue = DispatchQueue(label: "com.downloadkit.asyncpriorityqueue")
     fileprivate var heap = [T]()
     var order: (@Sendable (T, T) async -> Bool)?
     
@@ -24,10 +27,14 @@ public final class AsyncPriorityQueue<T : Sendable> : @unchecked Sendable {
     }
     
     /// How many elements the Priority Queue stores
-    public var count: Int { return heap.count }
+    public var count: Int { 
+        return queue.sync { heap.count }
+    }
     
     /// true if and only if the Priority Queue is empty
-    public var isEmpty: Bool { return heap.isEmpty }
+    public var isEmpty: Bool { 
+        return queue.sync { heap.isEmpty }
+    }
     
     /// Add a new element onto the Priority Queue. O(logn)
     ///
@@ -35,44 +42,52 @@ public final class AsyncPriorityQueue<T : Sendable> : @unchecked Sendable {
     public func enqueue(_ element: T) async {
         assert(order != nil, "PriorityQueue must be initialized with an ordering")
         
-        let index = await heap.insertionIndex { return await order!(element, $0) }
-        heap.insert(element, at: index)
+        let index = await queue.sync { heap }.insertionIndex { return await order!(element, $0) }
+        queue.sync {
+            heap.insert(element, at: index)
+        }
     }
     
     /// Remove and return the element with the highest priority (or lowest if ascending). O(lg n)
     ///
     /// - returns: The element with the highest priority in the Priority Queue, or nil if the PriorityQueue is empty.
     public func dequeue() -> T? {
-        
-        if heap.isEmpty { return nil }
-        
-        return heap.removeLast()
+        return queue.sync { () -> T? in
+            if heap.isEmpty { return nil }
+            
+            return heap.removeLast()
+        }
     }
     
     /// Get a look at the current highest priority item, without removing it. O(1)
     ///
     /// - returns: The element with the highest priority in the PriorityQueue, or nil if the PriorityQueue is empty.
     public func peek() -> T? {
-        return heap.last
+        return queue.sync { heap.last }
     }
     
     /// Removes all elements matching condition
     /// - Parameter condition: to match
     public func remove(where condition: @escaping (T) async -> Bool) async {
+        let currentHeap = queue.sync { heap }
         var newHeap: [T] = []
 
-        for element in heap {
+        for element in currentHeap {
             if await condition(element) == false {
                 newHeap.append(element)
             }
         }
 
-        heap = newHeap
+        queue.sync {
+            heap = newHeap
+        }
     }
     
     /// Eliminate all of the elements from the Priority Queue.
     public func clear() {
-        heap.removeAll(keepingCapacity: false)
+        queue.sync {
+            heap.removeAll(keepingCapacity: false)
+        }
     }
 }
 
@@ -82,8 +97,10 @@ extension AsyncPriorityQueue where T: Equatable {
     ///
     /// - parameter item: The item to remove the first occurrence of.
     public func remove(_ item: T) {
-        if let index = heap.firstIndex(of: item) {
-            heap.remove(at: index)
+        queue.sync {
+            if let index = heap.firstIndex(of: item) {
+                heap.remove(at: index)
+            }
         }
     }
     
@@ -92,8 +109,10 @@ extension AsyncPriorityQueue where T: Equatable {
     ///
     /// - parameter item: The item to remove.
     public func removeAll(_ item: T) {
-        while let index = heap.firstIndex(of: item) {
-            heap.remove(at: index)
+        queue.sync {
+            while let index = heap.firstIndex(of: item) {
+                heap.remove(at: index)
+            }
         }
     }
 }
@@ -117,20 +136,30 @@ extension AsyncPriorityQueue: Collection {
     
     public typealias Index = Int
     
-    public var startIndex: Int { return heap.startIndex }
-    public var endIndex: Int { return heap.endIndex }
+    public var startIndex: Int { 
+        return queue.sync { heap.startIndex }
+    }
+    public var endIndex: Int { 
+        return queue.sync { heap.endIndex }
+    }
     
-    public subscript(i: Int) -> T { return heap[i] }
+    public subscript(i: Int) -> T { 
+        return queue.sync { heap[i] }
+    }
     
     public func index(after i: AsyncPriorityQueue.Index) -> AsyncPriorityQueue.Index {
-        return heap.index(after: i)
+        return queue.sync { heap.index(after: i) }
     }
 }
 
 // MARK: - CustomStringConvertible, CustomDebugStringConvertible
 extension AsyncPriorityQueue: CustomStringConvertible, CustomDebugStringConvertible {
-    public var description: String { return heap.description }
-    public var debugDescription: String { return heap.debugDescription }
+    public var description: String { 
+        return queue.sync { heap.description }
+    }
+    public var debugDescription: String { 
+        return queue.sync { heap.debugDescription }
+    }
 }
 
 extension RandomAccessCollection {
