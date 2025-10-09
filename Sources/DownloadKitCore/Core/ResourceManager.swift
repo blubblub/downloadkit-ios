@@ -439,12 +439,6 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         let currentPriorityDownloads = await priorityQueue.queuedDownloads
         await priorityQueue.cancel(items: currentPriorityDownloads)
         
-        let maxDownloadPriority = await downloadQueue.currentMaximumPriority + 1
-        
-        for currentPriorityDownload in currentPriorityDownloads {
-            await currentPriorityDownload.set(priority: maxDownloadPriority)
-        }
-        
         await metrics.increase(priorityDecreased: currentPriorityDownloads.count)
         
         await downloadQueue.download(currentPriorityDownloads)

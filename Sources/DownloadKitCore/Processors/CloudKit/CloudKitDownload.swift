@@ -15,10 +15,6 @@ public actor CloudKitDownload: Downloadable {
     /// Identifier of the download, usually an id
     public var identifier: String { return data.identifier }
     
-    public func set(priority: Int) {
-        data.priority = priority
-    }
-    
     /// Total bytes reported by download agent
     public var totalBytes: Int64 { return data.totalBytes }
     
@@ -52,7 +48,6 @@ public actor CloudKitDownload: Downloadable {
     
     public init(identifier: String, url: URL, priority: Int = 0) {
         self.data = .init(url: url, identifier: identifier)
-        self.data.priority = priority
     }
     
     private var itemProgress: Foundation.Progress?

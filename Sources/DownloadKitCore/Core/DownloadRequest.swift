@@ -138,13 +138,7 @@ public struct RetryDownloadRequest: Identifiable, Sendable {
     public func downloadable() async -> Downloadable? {
         
         let nextDownloadable = nextMirror?.downloadable
-        
-        // Increase priority after download fails, so the next attempt is prioritized higher and
-        // not placed at the end of the download queue. We likely want this retry immediately.
-        if let currentPriority = await nextDownloadable?.priority {
-            await nextDownloadable?.set(priority: currentPriority + 10000)
-        }
-        
+
         return nextDownloadable
     }
 }
