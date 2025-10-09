@@ -5,7 +5,7 @@
 //  Created by Dal Rupnik on 27.06.2025.
 //
 
-public final class AsyncPriorityQueue<T : Sendable> : Sendable {
+public final class AsyncPriorityQueue<T : Sendable> : @unchecked Sendable {
     
     fileprivate var heap = [T]()
     var order: (@Sendable (T, T) async -> Bool)?
