@@ -42,9 +42,16 @@ public final class AsyncPriorityQueue<T : Sendable> : @unchecked Sendable {
     public func enqueue(_ element: T) async {
         assert(order != nil, "PriorityQueue must be initialized with an ordering")
         
-        let index = await queue.sync { heap }.insertionIndex { return await order!(element, $0) }
+        // Get a snapshot for async comparison. The heap might change between
+        // snapshot and insertion, so we clamp the index to valid range.
+        // This trades perfect ordering for thread-safety in concurrent scenarios.
+        let snapshot = queue.sync { heap }
+        let index = await snapshot.insertionIndex { return await order!(element, $0) }
+        
         queue.sync {
-            heap.insert(element, at: index)
+            // Clamp index to valid range - heap may have changed
+            let safeIndex = Swift.min(index, heap.count)
+            heap.insert(element, at: safeIndex)
         }
     }
     
