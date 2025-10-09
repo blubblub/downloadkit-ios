@@ -51,14 +51,9 @@ public protocol MirrorPolicy : Actor {
     /// This method will be called on Mirror policy when a transfer from a mirror fails.
     /// Method should return a retry configuration, if file should be retried.
     /// - Parameters:
-    ///   - resource: resource to download.
     ///   - mirror: mirror that the transfer failed.
     ///   - error: error that might have appeared.
-    func mirror(for resource: ResourceFile, lastMirrorSelection: ResourceMirrorSelection?, error: Error?) -> ResourceMirrorSelection?
-    
-    /// Call this method on MirrorPolicy to let it know the file is ready.
-    /// - Parameter resources: resources
-    func downloadComplete(for resource: ResourceFile)
+    func downloadable(for resource: ResourceFile, lastDownloadableIdentifier: String?, error: Error?) -> Downloadable?
 }
 
 public protocol MirrorPolicyDelegate: AnyObject, Sendable {

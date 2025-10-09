@@ -52,12 +52,12 @@ public actor ResourceManagerMetrics {
     /// - Parameters:
     ///   - downloadable: downloadable to update metrics for
     ///   - isCompleted: whether the download is completed (for final byte tracking)
-    public func updateDownloadSpeed(downloadable: Downloadable? = nil, isCompleted: Bool = false) async {
-        guard let identifier = await downloadable?.identifier else {
+    public func updateDownloadSpeed(for download: DownloadTask? = nil, isCompleted: Bool = false) async {
+        guard let identifier = download?.id else {
             return
         }
         
-        if let downloadable = downloadable {
+        if let downloadable = await download?.downloadable(with: nil, error: nil) {
             let currentTransferredBytes = await downloadable.transferredBytes
             
             if self.startBytesMap[identifier] == nil {

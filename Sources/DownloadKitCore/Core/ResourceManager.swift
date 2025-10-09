@@ -9,9 +9,9 @@ import Foundation
 import os
 
 public protocol ResourceManagerObserver: AnyObject, Sendable {
-    func didStartDownloading(_ downloadRequest: DownloadRequest) async
-    func willRetryFailedDownload(_ downloadRequest: DownloadRequest, mirror: ResourceMirrorSelection, with error: Error) async
-    func didFinishDownload(_ downloadRequest: DownloadRequest, with error: Error?) async
+    func didStartDownloading(_ downloadTask: DownloadTask) async
+    func willRetryFailedDownload(_ downloadTask: DownloadTask, with error: Error) async
+    func didFinishDownload(_ downloadTask: DownloadTask, with error: Error?) async
 }
 
 /// ResourceManager manages a set of resources, allowing a user to request downloads from multiple mirrors,
@@ -91,9 +91,9 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
     
     // MARK: - Public Properties
     
-    public var downloads: [Downloadable] {
+    public var downloads: [DownloadTask] {
         get async {
-            var downloads: [Downloadable] = []
+            var downloads: [DownloadTask] = []
             for queue in queues {
                 downloads += await queue.downloads
             }
@@ -101,9 +101,9 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         }
     }
     
-    public var currentDownloads: [Downloadable] {
+    public var currentDownloads: [DownloadTask] {
         get async {
-            var downloads: [Downloadable] = []
+            var downloads: [DownloadTask] = []
             for queue in queues {
                 downloads += await queue.currentDownloads
             }
@@ -111,9 +111,9 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         }
     }
     
-    public var queuedDownloads: [Downloadable] {
+    public var queuedDownloads: [DownloadTask] {
         get async {
-            var downloads: [Downloadable] = []
+            var downloads: [DownloadTask] = []
             for queue in queues {
                 downloads += await queue.queuedDownloads
             }
@@ -205,16 +205,16 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
     
     public func hasDownloadable(with identifier: String) async -> Bool {
         for queue in queues {
-            if await queue.hasDownloadable(with: identifier) {
+            if await queue.hasDownload(for: identifier) {
                 return true
             }
         }
         return false
     }
     
-    public func downloadable(for identifier: String) async -> Downloadable? {
+    public func downloadable(for identifier: String) async -> DownloadTask? {
         for queue in queues {
-            if let downloadable = await queue.downloadable(for: identifier) {
+            if let downloadable = await queue.download(for: identifier) {
                 return downloadable
             }
         }
@@ -271,6 +271,8 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         let downloadable = request.mirror.downloadable
         let downloadableIdentifier = await downloadable.identifier
         
+        let task = DownloadTask(request: request, mirrorPolicy: mi)
+        
         log.info("Start processing requested: \(requestId)")
         
         await metrics.increase(requested: 1)
@@ -303,12 +305,11 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
             
             await metrics.increase(priorityIncreased: 1)
             
-            await priorityQueue.download(request.mirror.downloadable)
+            await priorityQueue.download(task)
             
             // If download is on previous queue, we need to cancel, so we do not download it twice.
             
-            
-            if await downloadQueue.hasDownloadable(with: downloadableIdentifier) {
+            if await downloadQueue.hasDownload(for: downloadableIdentifier) {
                 await downloadQueue.cancel(with: downloadableIdentifier)
             }
             
@@ -317,7 +318,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         else {
             
             log.debug("Enqueueing - \(requestId) - downloadableId: \(downloadableIdentifier)")
-            await downloadQueue.download(downloadable)
+            await downloadQueue.download(task)
         }
         
         let metrics = await metrics.description
@@ -377,7 +378,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         await state.removeAllResourceCompletions()
     }
     
-    public func cancel(request: DownloadRequest) async {
+    public func cancel(task: DownloadTask) async {
         let downloadableIdentifier = await request.downloadableIdentifier()
         
         // Cancel the download from both queues - it will only exist in one of them
@@ -448,8 +449,8 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
 // MARK: - DownloadQueueObserver
 
 extension ResourceManager: DownloadQueueObserver {
-    public func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadable: Downloadable, with processor: DownloadProcessor) async {
-        guard let downloadRequest = await cache.downloadRequests(for: downloadable).first else {
+    public func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadTask: DownloadTask, with processor: DownloadProcessor) async {
+        guard let downloadRequest = await cache.downloadRequests(for: downloadTask).first else {
             log.error("NO-OP: Download did start, but no download request found in cache. Inconsistent state.")
             return
         }
@@ -458,11 +459,11 @@ extension ResourceManager: DownloadQueueObserver {
         await self.foreachObserver { await $0.didStartDownloading(downloadRequest) }
     }
     
-    public func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadable: Downloadable, using processor: DownloadProcessor) async {
-        await metrics.updateDownloadSpeed(downloadable: downloadable)
+    public func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadTask: DownloadTask, using processor: DownloadProcessor) async {
+        await metrics.updateDownloadSpeed(for: downloadTask)
     }
             
-    public func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadable: Downloadable, to location: URL) async {
+    public func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadable: DownloadTask, to location: URL) async {
  
         // Store the file to the cache
         do {
@@ -492,8 +493,13 @@ extension ResourceManager: DownloadQueueObserver {
         }
     }
     
+    public func downloadQueue(_ queue: DownloadQueue, downloadWillRetry downloadTask: DownloadTask, with error: any Error) async {
+        await metrics.increase(retried: 1)
+        await metrics.updateDownloadSpeed(for: downloadTask)
+    }
+    
     // Called when download had failed for any reason, including sessions being invalidated.
-    public func downloadQueue(_ queue: DownloadQueue, downloadDidFail downloadable: Downloadable, with error: Error) async {
+    public func downloadQueue(_ queue: DownloadQueue, downloadDidFail downloadTask: DownloadTask, with error: Error) async {
         let retryRequest = await self.cache.download(downloadable, didFailWith: error)
         
         // Check if we should retry, cache will tell us based on it's internal mirror policy.
@@ -502,7 +508,7 @@ extension ResourceManager: DownloadQueueObserver {
             let retryDownloadable = await retryRequest.downloadable()
             if let retryDownloadable = retryDownloadable {
                 
-                await metrics.increase(retried: 1)
+                
                 await metrics.updateDownloadSpeed(downloadable: retryDownloadable)
                 
                 await self.foreachObserver { await $0.willRetryFailedDownload(retryRequest.request, mirror: retry, with: error) }

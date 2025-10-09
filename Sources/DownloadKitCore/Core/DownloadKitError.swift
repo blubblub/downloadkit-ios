@@ -79,6 +79,7 @@ public enum DownloadQueueError: Error, LocalizedError, Equatable {
     case downloadableNotSupported(String)
     case queueInactive
     case invalidDownloadable(String)
+    case mirrorsExhausted
     
     public var errorDescription: String? {
         switch self {
@@ -90,6 +91,8 @@ public enum DownloadQueueError: Error, LocalizedError, Equatable {
             return "Download queue is inactive"
         case .invalidDownloadable(let reason):
             return "Invalid downloadable: \(reason)"
+        case .mirrorsExhausted:
+            return "Mirrors exhausted, no downloadable available"
         }
     }
     
@@ -103,6 +106,8 @@ public enum DownloadQueueError: Error, LocalizedError, Equatable {
             return "The download queue has been paused or deactivated"
         case .invalidDownloadable:
             return "The downloadable object is in an invalid state"
+        case .mirrorsExhausted:
+            return "All available mirrors have been exhausted and retried by mirror policy"
         }
     }
     
@@ -116,6 +121,8 @@ public enum DownloadQueueError: Error, LocalizedError, Equatable {
             return "Resume the download queue before attempting downloads"
         case .invalidDownloadable:
             return "Verify the downloadable object is properly configured"
+        case .mirrorsExhausted:
+            return "Add more mirrors or ensure downloadables are available"
         }
     }
 }

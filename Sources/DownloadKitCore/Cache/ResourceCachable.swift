@@ -27,9 +27,6 @@ public protocol ResourceCachable: Sendable, ResourceRetrievable {
     /// Returns true, if actual file is available in the cache.
     func isAvailable(resource: ResourceFile) -> Bool
     
-    /// Mirror policy.
-    var mirrorPolicy: MirrorPolicy { get }
-    
     // MARK: - Methods without any side effects.
     
     /// Returns downloadable items, that are not stored locally.
@@ -41,7 +38,7 @@ public protocol ResourceCachable: Sendable, ResourceRetrievable {
     /// Returns download requests for certain downloadable, if cache is processing it.
     /// - Parameter downloadable: item that we need request for.
     /// - Returns: original request object.
-    func downloadRequests(for downloadable: Downloadable) async -> [DownloadRequest]
+    func downloads(for downloadTask: DownloadTask) async -> [DownloadTask]
     
     /// Update storage location for files in cache.
     /// - Parameter resources: items that we adjust storage for
@@ -60,7 +57,7 @@ public protocol ResourceCachable: Sendable, ResourceRetrievable {
     /// - Parameters:
     ///   - downloadable: item that finished downloading.
     ///   - location: where the item was stored.
-    func download(_ downloadable: Downloadable, didFinishTo location: URL) async throws -> DownloadRequest?
+    func download(_ downloadTask: DownloadTask, didFinishTo location: URL) async throws
     
     /// Called if download fails. Return new `Downloadable` item to retry download
     /// - Parameters:
@@ -69,7 +66,7 @@ public protocol ResourceCachable: Sendable, ResourceRetrievable {
     /// - Returns:
     ///   - RetryDownloadRequest: If cache has no info about this request, it will return nil.
     ///                           Otherwise object will be present with it's original download req.
-    func download(_ downloadable: Downloadable, didFailWith error: Error) async -> RetryDownloadRequest?
+    func download(_ downloadTask: DownloadTask, didFailWith error: Error) async
     
     /// Cleans up cache.
     /// - Parameter urls: urls to ignore while clean up process.

@@ -10,46 +10,45 @@ import DownloadKitCore
 import RealmSwift
 import os.log
 
-private actor DownloadRequestMap {
+private actor DownloadTaskMap {
     // Track original download requests, so we can retry.
-    private(set) var map = [String: [DownloadRequest]]()
+    private var map = [String: [DownloadTask]]()
         
-    func addIfNeeded(_ request: DownloadRequest) -> Bool {
-        let isInMap = contains(request.id)
-        add(request)
+    func addIfNeeded(_ task: DownloadTask) -> Bool {
+        let isInMap = contains(task.id)
+        add(task)
         
         return isInMap
     }
     
+    func tasks(for identifier: String) -> [DownloadTask] {
+        return map[identifier] ?? []
+    }
+    
     func completeAll(for identifier: String, error: Error? = nil) async {
-        for otherRequest in map[identifier] ?? [] {
-            await otherRequest.complete(with: error)
+        for other in map[identifier] ?? [] {
+            await other.complete(with: error)
         }
         
         map[identifier] = nil
     }
-    
-    func update(request: DownloadRequest, with mirrorSelection: ResourceMirrorSelection) {
-        let updatedRequest = DownloadRequest(request, mirror: mirrorSelection)
-        add(updatedRequest)
-    }
-    
+        
     private func contains(_ identifier: String) -> Bool {
         return map[identifier] != nil
     }
     
-    private func add(_ request: DownloadRequest) {
-        let identifier = request.id
+    private func add(_ task: DownloadTask) {
+        let identifier = task.id
         
-        var existingRequests = map[identifier] ?? []
+        var existingTasks = map[identifier] ?? []
         
         // If it is the same instance, do not add.
-        if existingRequests.contains(where: { $0 === request }) {
+        if existingTasks.contains(where: { $0 === task }) {
             return
         }
-        existingRequests.append(request)
+        existingTasks.append(task)
         
-        map[identifier] = existingRequests
+        map[identifier] = existingTasks
     }
 }
 
@@ -61,7 +60,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
     
     public let mirrorPolicy: MirrorPolicy
     
-    private let requestMap = DownloadRequestMap()
+    private let taskMap = DownloadTaskMap()
     
     public init(configuration: Realm.Configuration,
                 mirrorPolicy: MirrorPolicy = WeightedMirrorPolicy()) {
@@ -140,36 +139,15 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         var downloadRequests: [DownloadRequest] = []
         
         for resource in downloadableResources {
-            guard let mirrorSelection = await mirrorPolicy.mirror(for: resource, lastMirrorSelection: nil, error: nil) else {
-                continue
-            }
-            
-            downloadRequests.append(DownloadRequest(resource: resource, options: options, mirror: mirrorSelection))
+            downloadRequests.append(DownloadRequest(resource: resource, options: options))
         }
         
         return downloadRequests
     }
         
-    public func downloadRequests(for downloadable: any Downloadable) async -> [DownloadRequest] {
+    public func downloads(for downloadTask: DownloadTask) async -> [DownloadTask] {
         // Find original request based on mirror ids.
-        let downloadableIdentifier = await downloadable.identifier
-        let currentRequestMap = await requestMap.map
-                
-        for (_, requests) in currentRequestMap {
-            var found = false
-            
-            for request in requests where request.resource.mirrorIds.contains(downloadableIdentifier) {
-                // Append the whole array only once.
-                found = true
-                break
-            }
-            
-            if found {
-                return requests
-            }
-        }
-        
-        return []
+        return await taskMap.tasks(for: downloadTask.id)
     }
     
     public func updateStorage(resources: [any ResourceFile], storage: StoragePriority) {
@@ -185,37 +163,31 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
         }
     }
     
-    public func download(startProcessing request: DownloadRequest) async -> DownloadProcessingState {
-        if isAvailable(resource: request.resource) {
-            log.debug("Request is already available, will complete the request: \(request.id)")
+    public func download(startProcessing downloadTask: DownloadTask) async -> DownloadProcessingState {
+        if isAvailable(resource: downloadTask.request.resource) {
+            log.debug("Request is already available, will complete the request: \(downloadTask.id)")
             
-            await request.complete()
+            await downloadTask.complete()
             return DownloadProcessingState(isFinished: true, isDownloading: false)
         }
         
         // Check if resource is available. Request could have been created earlier.
-        let isInRequestMap = await requestMap.addIfNeeded(request)
+        let isInRequestMap = await taskMap.addIfNeeded(downloadTask)
         
         if isInRequestMap {
-            log.debug("Request already exists in map, logging request, but denying download: \(request.id)")
+            log.debug("Request already exists in map, logging request, but denying download: \(downloadTask.id)")
         }
         
         return DownloadProcessingState(isFinished: false, isDownloading: isInRequestMap)
     }
     
-    public func download(_ downloadable: any Downloadable, didFinishTo location: URL) async throws -> DownloadRequest? {
-        let downloadableIdentifier = await downloadable.identifier
+    public func download(_ downloadTask: DownloadTask, didFinishTo location: URL) async throws {
         
-        log.debug("Downloadable finished: \(downloadableIdentifier) to: \(location)")
-        let requests = await downloadRequests(for: downloadable)
+        log.debug("Download task finished: \(downloadTask.id) to: \(location)")
+        let downloads = await downloads(for: downloadTask)
         
-        guard let request = requests.last else {
-            log.fault("NO-OP: Received a downloadable without resource information: \(downloadableIdentifier)")
-            return nil
-        }
-                
         do {
-            let localObject = try localCache.store(resource: request.resource,
+            let localObject = try localCache.store(resource: downloadTask.request.resource,
                                                   mirror: request.mirror.mirror,
                                                   at: location,
                                                   options: request.options)
@@ -223,14 +195,14 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
             // Update Memory Cache with resource.
             memoryCache?.update(fileURL: localObject.fileURL, for: localObject.id)
             
-            log.debug("Cache stored downloaded file request: \(request.id) count: \(requests.count)")
+            log.debug("Cache stored downloaded file request: \(downloadTask.id) count: \(downloads.count)")
             
-            await requestMap.completeAll(for: request.id)
+            await taskMap.completeAll(for: downloadTask.id)
         }
         catch {
             log.fault("Error storing downloaded file: \(error.localizedDescription) request: \(request.id) count: \(requests.count)")
             
-            await requestMap.completeAll(for: request.id, error: error)
+            await taskMap.completeAll(for: request.id, error: error)
             
             throw error
         }

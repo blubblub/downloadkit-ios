@@ -10,49 +10,54 @@ import Foundation
 import os.log
 
 public protocol DownloadQueueObserver: AnyObject, Sendable {
-    /// Called when download item starts downloading.
+    /// Called when download task starts downloading.
     /// - Parameters:
-    ///   - queue: queue on which the item was enqueued.
-    ///   - item: item that started downloading.
+    ///   - queue: queue on which the task was enqueued.
+    ///   - downloadTask: task that started downloading.
     ///   - processor: processor that is processing download.
-    func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadable: Downloadable, with processor: DownloadProcessor) async
+    func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadTask: DownloadTask, with processor: DownloadProcessor) async
     
-    /// Called when download item transfers data.
+    /// Called when download task transfers data.
     /// - Parameters:
-    ///   - queue: queue on which the item was enqueued.
-    ///   - item: item that transferred data.
+    ///   - queue: queue on which the task was enqueued.
+    ///   - downloadTask: task that transferred data.
     ///   - processor: processor that is processing download.
-    func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadable: Downloadable, using processor: DownloadProcessor) async
+    func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadTask: DownloadTask, using processor: DownloadProcessor) async
     
-    /// Called when the download item finishes downloading. URL is provided as a parameter.
+    /// Called when the download task finishes downloading. URL is provided as a parameter.
     /// - Parameters:
-    ///   - queue: queue on which the item was downloaded.
-    ///   - item: item that finished downloading.
+    ///   - queue: queue on which the task was downloaded.
+    ///   - downloadTask: task that finished downloading.
     ///   - location: where on the filesystem the file was stored.
-    func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadable: Downloadable, to location: URL) async throws
+    func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadTask: DownloadTask, to location: URL) async throws
     
-    /// Called when download had failed for any reason, including sessions being invalidated.
+    /// Called when download had failed for any reason, but will still retry due to MirrorPolicy providing another downloadable.
+    /// - Parameters:
+    ///   - queue: queue on which the task was downloaded.
+    func downloadQueue(_ queue: DownloadQueue, downloadWillRetry downloadTask: DownloadTask, with error: Error) async
+    
+    /// Called when download had actually failed for any reason, including sessions being invalidated. No more retries happen after this call.
     /// - Parameters:
     ///   - queue: queue on which the item was downloaded.
-    ///   - item: item that failed to download.
+    ///   - downloadTask: task that failed to download.
     ///   - error: error describing the failure.
-    func downloadQueue(_ queue: DownloadQueue, downloadDidFail downloadable: Downloadable, with error: Error) async
+    func downloadQueue(_ queue: DownloadQueue, downloadDidFail downloadTask: DownloadTask, with error: Error) async
 }
 
 
 public protocol DownloadQueuable : Sendable {
     var isActive: Bool { get async }
     
-    var downloads: [Downloadable] { get async }
-    var currentDownloads: [Downloadable] { get async }
-    var queuedDownloads: [Downloadable] { get async }
+    var downloads: [DownloadTask] { get async }
+    var currentDownloads: [DownloadTask] { get async }
+    var queuedDownloads: [DownloadTask] { get async }
     
     var currentDownloadCount: Int { get async }
     var queuedDownloadCount: Int { get async }
     
-    func hasDownloadable(with identifier: String) async -> Bool
+    func hasDownload(for identifier: String) async -> Bool
     
-    func downloadable(for identifier: String) async -> Downloadable?
+    func download(for identifier: String) async -> DownloadTask?
     
     func isDownloading(for identifier: String) async -> Bool
     
@@ -80,6 +85,7 @@ public extension DownloadQueue {
 public struct DownloadQueueMetrics: Sendable {
     public var processed = 0
     public var failed = 0
+    public var retried = 0
     public var completed = 0
     
     public init() {}
@@ -87,10 +93,9 @@ public struct DownloadQueueMetrics: Sendable {
 
 extension DownloadQueueMetrics : CustomStringConvertible {
     public var description: String {
-        return String(format: "Processed: %d Failed: %d Retried: %d Completed: %d", processed, failed, 0, completed)
+        return String(format: "Processed: %d Failed: %d Retried: %d Completed: %d", processed, failed, retried, completed)
     }
 }
-
 ///
 /// DownloadQueue to process Downloadable items. It's main purpose is to handle different prioritizations,
 /// and redirect downloadables to several processors.
@@ -102,15 +107,15 @@ public actor DownloadQueue: DownloadQueuable {
     private let log = Logger.logDownloadQueue
     
     /// Holds pending downloads.
-    private var downloadQueue = [Downloadable]()
+    private var downloadQueue = [DownloadTask]()
     
     public private(set) var downloadProcessors: [DownloadProcessor] = []
     
     private var notificationCenter = NotificationCenter.default
     
     /// Holds properties to current items for quick access.
-    private var progressDownloadMap = Dictionary<String, Downloadable>()
-    private var queuedDownloadMap = Dictionary<String, Downloadable>()
+    private var progressDownloadMap = Dictionary<String, DownloadTask>()
+    private var queuedDownloadMap = Dictionary<String, DownloadTask>()
         
     // MARK: - Public Properties
     
@@ -137,19 +142,19 @@ public actor DownloadQueue: DownloadQueuable {
         }
     }
     
-    public var downloads: [Downloadable] {
-        var values = [Downloadable]()
+    public var downloads: [DownloadTask] {
+        var values = [DownloadTask]()
         values += Array(progressDownloadMap.values)
         values += Array(downloadQueue)
         
         return values
     }
     
-    public var currentDownloads: [Downloadable] {
+    public var currentDownloads: [DownloadTask] {
         return Array(progressDownloadMap.values)
     }
     
-    public var queuedDownloads: [Downloadable] {
+    public var queuedDownloads: [DownloadTask] {
         return Array(downloadQueue)
     }
             
@@ -195,9 +200,9 @@ public actor DownloadQueue: DownloadQueuable {
         self.queuedDownloadMap = [:]
     }
     
-    public func cancel(items: [Downloadable]) async {
+    public func cancel(items: [DownloadTask]) async {
         for item in items {
-            await cancel(with: item.identifier)
+            await cancel(with: item.id)
         }
     }
     
@@ -220,16 +225,12 @@ public actor DownloadQueue: DownloadQueuable {
         }
     }
     
-    public func hasDownloadable(with identifier: String) -> Bool {
-        return downloadable(for: identifier) != nil
+    public func hasDownload(for identifier: String) -> Bool {
+        return download(for: identifier) != nil
     }
     
-    public func downloadable(for identifier: String) -> Downloadable? {
+    public func download(for identifier: String) -> DownloadTask? {
         progressDownloadMap[identifier] ?? queuedDownloadMap[identifier]
-    }
-    
-    public func isDownloading(_ downloadable: Downloadable) async -> Bool {
-        return isDownloading(for: await downloadable.identifier)
     }
     
     public func isDownloading(for identifier: String) -> Bool {
@@ -248,14 +249,14 @@ public actor DownloadQueue: DownloadQueuable {
         self.isActive = value
     }
     
-    public func download(_ downloadable: [Downloadable]) async {
-        for item in downloadable {
+    public func download(_ downloads: [DownloadTask]) async {
+        for item in downloads {
             await download(item)
         }
     }
     
-    public func download(_ downloadable: Downloadable) async {
-        let identifier = await downloadable.identifier
+    public func download(_ downloadTask: DownloadTask) async {
+        let identifier = downloadTask.id
         // If item is in incomplete state
         // If the item is already in progress, do nothing.
         guard self.progressDownloadMap[identifier] == nil else {
@@ -273,12 +274,30 @@ public actor DownloadQueue: DownloadQueuable {
         
         log.debug("DownloadQueue - Start Enqueue: \(identifier)")
         
-        downloadQueue.append(downloadable)
+        downloadQueue.append(downloadTask)
         
         log.debug("DownloadQueue - Finished Enqueued: \(identifier)")
                 
-        self.queuedDownloadMap[identifier] = downloadable
+        self.queuedDownloadMap[identifier] = downloadTask
         await self.process()
+    }
+    
+    // MARK: - Private Methods
+    fileprivate func download(for downloadable: Downloadable) async -> DownloadTask? {
+        //
+        // This method should be used internally to get DownloadTask for specific downloadable
+        //
+        
+        for currentDownload in downloads {
+            if let currentDownloadable = await currentDownload.downloadable(with: nil, error: nil), currentDownloadable === downloadable {
+                return currentDownload
+            }
+        }
+        
+        let downloadableIdentifier = await downloadable.identifier
+        log.warning("DownloadQueue - Could not find DownloadTask for downloadable: \(downloadableIdentifier)")
+        
+        return nil
     }
     
     /// Start processing items, may only be called on process queue.
@@ -288,69 +307,72 @@ public actor DownloadQueue: DownloadQueuable {
             return
         }
         
-        log.debug("DownloadQueue - Started processing, item count: \(self.progressDownloadMap.count) Queue: \(self.debugQueueState())")
+        log.debug("DownloadQueue - Started processing, item count: \(self.progressDownloadMap.count)")
                 
         // Process up to X simultaneous downloads.
         while self.progressDownloadMap.count < self.simultaneousDownloads {
-            if let item = self.downloadQueue.first {
+            if let task = self.downloadQueue.first {
+                // Update state of the queue
+                
+                self.progressDownloadMap[task.id] = task
+                self.queuedDownloadMap[task.id] = nil
+            
                 _ = self.downloadQueue.removeFirst()
-                await process(downloadable: item)
+                
+                // Grab the first dowloadable and start processign the download
+                if let downloadable = await task.downloadable(with: nil, error: nil) {
+                    await process(download: task, downloadable: downloadable)
+                }
+                else {
+                    // Generally we should never enter here, as this error should be handled by the callbacks and error would be
+                    // the error from last retry.
+                    await task.complete(with: DownloadQueueError.mirrorsExhausted)
+                    self.progressDownloadMap[task.id] = nil
+                    
+                    log.error("DownloadQueue - Attempting to process download, but no downloadable was returned: \(task.id)")
+                }
             }
             else {
-                log.debug("DownloadQueue - Empty queue, stopping processing: Queue: \(self.debugQueueState())")
+                log.debug("DownloadQueue - Empty queue, stopping processing")
                 break
             }
         }
         
-        log.debug("DownloadQueue - Finished processing, item count: \(self.progressDownloadMap.count) Queue: \(self.debugQueueState())")
-    }
-    
-    private func debugQueueState() -> String {
-        let mapCount = self.queuedDownloadMap.count
-        let queueCount = self.downloadQueue.count
-        var state = "\(mapCount)/\(queueCount)"
-        
-        if mapCount != queueCount && mapCount == 1 {
-            let identifier = self.queuedDownloadMap.first!.key
-            state += " Missing Id: \(identifier)"
-        }
-        
-        return state
+        log.debug("DownloadQueue - Finished processing, item count: \(self.progressDownloadMap.count)")
     }
     
     /// Process one specific item, will update internal state.
     /// - Parameter item: to process
-    private func process(downloadable: Downloadable) async {
-        let identifier = await downloadable.identifier
+    private func process(download: DownloadTask, downloadable: Downloadable) async {
+        let downloadableIdentifier = await downloadable.identifier
         
-        log.debug("DownloadQueue - started processing item: \(identifier)")
-        
+        log.debug("DownloadQueue - started processing: \(download.id) provided downloadable: \(downloadableIdentifier)")
+                
         // Remove item from queued downloads map.
-        self.queuedDownloadMap[identifier] = nil
         
         // Find a processor that will take care of the item.
         if let processor = await findProcessor(for: downloadable) {
             await assignObserverIfNeeded(processor: processor)
             
-            log.debug("DownloadQueue - processor will start processing item: \(identifier)")
+            log.debug("DownloadQueue - processor will start processing item: \(download.id) downloadable: \(downloadableIdentifier)")
             
-            self.progressDownloadMap[identifier] = downloadable
             await processor.process(downloadable)
             
-            await self.observer?.downloadQueue(self, downloadDidStart: downloadable, with: processor)
+            await self.observer?.downloadQueue(self, downloadDidStart: download, with: processor)
             self.notificationCenter.post(name: DownloadQueue.downloadDidStartNotification, object: downloadable)
         }
         else {
             // We cannot EVER process this item! We will add it to incomplete, since it just
             // cannot be done.
+            log.fault("DownloadQueue - Cannot process the task: \(download.id)")
             
-            let error = DownloadKitError.downloadQueue(.noProcessorAvailable(identifier))
+            let error = DownloadKitError.downloadQueue(.noProcessorAvailable(download.id))
             
-            await self.observer?.downloadQueue(self, downloadDidFail: downloadable, with: error)
+            await self.observer?.downloadQueue(self, downloadDidFail: download, with: error)
             self.notificationCenter.post(name: DownloadQueue.downloadErrorNotification, object: error, userInfo: [ "downloadItem": downloadable])
         }
         
-        log.info("Metrics: \(self.metrics.description) - Processing item: \(identifier)")
+        log.info("Metrics: \(self.metrics.description) - Processing item: \(download.id)")
     }
     
     private func findProcessor(for downloadable: Downloadable) async -> DownloadProcessor? {
@@ -373,36 +395,38 @@ public actor DownloadQueue: DownloadQueuable {
 extension DownloadQueue: DownloadProcessorObserver {
     public func downloadDidTransferData(_ processor: DownloadProcessor, downloadable: Downloadable) {
         Task {
-            await self.observer?.downloadQueue(self, downloadDidTransferData: downloadable, using: processor)
+            guard let downloadTask = await self.download(for: downloadable) else {
+                let downloadableIdentifier = await downloadable.identifier
+                log.error("DownloadQueue - Received downloadDidTransferData callback for a Downloadable that is not in queue: \(downloadableIdentifier)")
+                return
+            }
+            
+            await self.observer?.downloadQueue(self, downloadDidTransferData: downloadTask, using: processor)
         }
     }
 
     public func downloadDidBegin(_ processor: DownloadProcessor, downloadable: Downloadable) {
         Task {
-            let identifier = await downloadable.identifier
+            guard let downloadTask = await self.download(for: downloadable) else {
+                let downloadableIdentifier = await downloadable.identifier
+                log.error("DownloadQueue - Received downloadDidBegin callback for a Downloadable that is not in queue: \(downloadableIdentifier)")
+                return
+            }
             
-            if let trackedItem = self.downloadable(for: identifier) {
-                // We have the item, but it wasn't processed yet, but a processor decided to start downloading it.
-                // This indicates a broken state between processor and the queue and we will fix it here.
-                // This could also be a resume of a very old download, if processor has that ability (such as in case of URLSession).
-                
-                if self.progressDownloadMap[identifier] == nil {
-                    log.error("Internal download inconsistency state for: \(identifier)")
-                    
-                    self.progressDownloadMap[identifier] = trackedItem
-                    self.queuedDownloadMap[identifier] = nil
-                }
-            }
-            else {
-                // We have no tracked item here, but processor started working on it on it's own.
-                // This is to handle any resumed transfers if needed.
-                self.progressDownloadMap[identifier] = downloadable
-            }
+            await self.observer?.downloadQueue(self, downloadDidStart: downloadTask, with: processor)
         }
     }
     
     public func downloadDidStartTransfer(_ processor: DownloadProcessor, downloadable: Downloadable) {
-        self.notificationCenter.post(name: DownloadQueue.downloadDidStartTransferNotification, object: downloadable)
+        Task {
+            guard let downloadTask = await self.download(for: downloadable) else {
+                let downloadableIdentifier = await downloadable.identifier
+                log.error("DownloadQueue - Received downloadDidStartTransfer callback for a Downloadable that is not in queue: \(downloadableIdentifier)")
+                return
+            }
+            self.notificationCenter.post(name: DownloadQueue.downloadDidStartTransferNotification, object: downloadTask)
+        }
+        
     }
     
     public func downloadDidFinishTransfer(_ processor: DownloadProcessor, downloadable: Downloadable, to url: URL) {
@@ -410,55 +434,72 @@ extension DownloadQueue: DownloadProcessorObserver {
         // We can move the file in the WebDownloadProcessor, but either way, or decide later in the
         // resource manager.
         Task {
-            let identifier = await downloadable.identifier
+            guard let downloadTask = await self.download(for: downloadable) else {
+                let downloadableIdentifier = await downloadable.identifier
+                log.error("DownloadQueue - Received downloadDidFinishTransfer callback for a Downloadable that is not in queue: \(downloadableIdentifier)")
+                return
+            }
+            
             do {
-                self.progressDownloadMap[identifier] = nil
+                self.progressDownloadMap[downloadTask.id] = nil
                 
                 self.metrics.processed += 1
                 self.metrics.completed += 1
                 
-                try await observer?.downloadQueue(self, downloadDidFinish: downloadable, to: url)
-                notificationCenter.post(name: DownloadQueue.downloadDidFinishNotification, object: downloadable)
-                
+                try await observer?.downloadQueue(self, downloadDidFinish: downloadTask, to: url)
+                notificationCenter.post(name: DownloadQueue.downloadDidFinishNotification, object: downloadTask)
                 
                 // Continue processing downloads.
-                // I'd do this in defer, if it supported async.
                 
                 await self.process()
             }
             catch {
-                // If something goes wrong with file moving.
-                self.metrics.failed += 1
-                self.metrics.processed += 1
-                
-                self.progressDownloadMap[identifier] = nil
-                
-                await self.process()
+                await retry(downloadTask: downloadTask, downloadable: downloadable, with: error)
             }
         }
     }
     
     public func downloadDidError(_ processor: DownloadProcessor, downloadable: Downloadable, error: Error) {
         Task {
-            let identifier = await downloadable.identifier
+            guard let downloadTask = await self.download(for: downloadable) else {
+                let downloadableIdentifier = await downloadable.identifier
+                log.error("DownloadQueue - Received downloadDidError callback for a Downloadable that is not in queue: \(downloadableIdentifier)")
+                return
+            }
             
-            // Call delegate for error.
-            // Remove item from current downloads
-            self.metrics.processed += 1
-            self.metrics.failed += 1
-            
-            self.progressDownloadMap[identifier] = nil
-
-            self.notificationCenter.post(name: DownloadQueue.downloadErrorNotification, object: error, userInfo: [ "downloadItem": downloadable])
-            
-            await self.observer?.downloadQueue(self, downloadDidFail: downloadable, with: error)
-            
-            // Resume processing
-            await self.process()
+            await retry(downloadTask: downloadTask, downloadable: downloadable, with: error)
         }
     }
     
     public func downloadDidFinish(_ processor: DownloadProcessor, downloadable: Downloadable) {
         // Currently NO-OP as it is not needed for web, we've done everything in Finish Transfer already
+    }
+    
+    private func retry(downloadTask: DownloadTask, downloadable: Downloadable, with error: Error) async {
+        await observer?.downloadQueue(self, downloadWillRetry: downloadTask, with: error)
+        
+        // Try to get a new downloadable from task.
+        
+        if let newDownloadable = await downloadTask.downloadable(with: downloadable, error: error) {
+            // We can process new downloadable:
+            self.metrics.retried += 1
+            await process(download: downloadTask, downloadable: downloadable)
+        }
+        else {
+            await downloadFailure(downloadTask: downloadTask, downloadable: downloadable, withError: error)
+        }
+    }
+    
+    private func downloadFailure(downloadTask: DownloadTask, downloadable: Downloadable, withError error: Error) async {
+        
+        self.metrics.processed += 1
+        self.metrics.failed += 1
+        
+        self.progressDownloadMap[downloadTask.id] = nil
+        
+        self.notificationCenter.post(name: DownloadQueue.downloadErrorNotification, object: error, userInfo: [ "downloadTask": downloadTask])
+        await self.observer?.downloadQueue(self, downloadDidFail: downloadTask, with: error)
+        
+        await self.process()
     }
 }
