@@ -269,6 +269,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         
         let requestId = request.id
         let downloadable = request.mirror.downloadable
+        let downloadableIdentifier = await downloadable.identifier
         
         log.info("Start processing requested: \(requestId)")
         
@@ -305,7 +306,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
             await priorityQueue.download(request.mirror.downloadable)
             
             // If download is on previous queue, we need to cancel, so we do not download it twice.
-            let downloadableIdentifier = await request.downloadableIdentifier()
+            
             
             if await downloadQueue.hasDownloadable(with: downloadableIdentifier) {
                 await downloadQueue.cancel(with: downloadableIdentifier)
@@ -314,7 +315,9 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
             log.info("Reprioritising resource: \(requestId)")
         }
         else {
-            await downloadQueue.download(request.mirror.downloadable)
+            
+            log.debug("Enqueueing - \(requestId) - downloadableId: \(downloadableIdentifier)")
+            await downloadQueue.download(downloadable)
         }
         
         let metrics = await metrics.description
