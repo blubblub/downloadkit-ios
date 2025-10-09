@@ -29,12 +29,7 @@ public protocol DownloadQueueObserver: AnyObject, Sendable {
     ///   - queue: queue on which the task was downloaded.
     ///   - downloadTask: task that finished downloading.
     ///   - location: where on the filesystem the file was stored.
-    func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadTask: DownloadTask, to location: URL) async throws
-    
-    /// Called when download had failed for any reason, but will still retry due to MirrorPolicy providing another downloadable.
-    /// - Parameters:
-    ///   - queue: queue on which the task was downloaded.
-    func downloadQueue(_ queue: DownloadQueue, downloadWillRetry downloadTask: DownloadTask, with error: Error) async
+    func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadTask: DownloadTask, downloadable: Downloadable, to location: URL) async throws
     
     /// Called when download had actually failed for any reason, including sessions being invalidated. No more retries happen after this call.
     /// - Parameters:
@@ -42,6 +37,11 @@ public protocol DownloadQueueObserver: AnyObject, Sendable {
     ///   - downloadTask: task that failed to download.
     ///   - error: error describing the failure.
     func downloadQueue(_ queue: DownloadQueue, downloadDidFail downloadTask: DownloadTask, with error: Error) async
+    
+    /// Called when download had failed for any reason, but will still retry due to MirrorPolicy providing another downloadable.
+    /// - Parameters:
+    ///   - queue: queue on which the task was downloaded.
+    func downloadQueue(_ queue: DownloadQueue, downloadWillRetry downloadTask: DownloadTask, with error: Error) async    
 }
 
 
@@ -446,7 +446,7 @@ extension DownloadQueue: DownloadProcessorObserver {
                 self.metrics.processed += 1
                 self.metrics.completed += 1
                 
-                try await observer?.downloadQueue(self, downloadDidFinish: downloadTask, to: url)
+                try await observer?.downloadQueue(self, downloadDidFinish: downloadTask, downloadable: downloadable, to: url)
                 notificationCenter.post(name: DownloadQueue.downloadDidFinishNotification, object: downloadTask)
                 
                 // Continue processing downloads.
@@ -481,9 +481,9 @@ extension DownloadQueue: DownloadProcessorObserver {
         // Try to get a new downloadable from task.
         
         if let newDownloadable = await downloadTask.downloadable(with: downloadable, error: error) {
-            // We can process new downloadable:
+            // We can process new downloadable now.
             self.metrics.retried += 1
-            await process(download: downloadTask, downloadable: downloadable)
+            await process(download: downloadTask, downloadable: newDownloadable)
         }
         else {
             await downloadFailure(downloadTask: downloadTask, downloadable: downloadable, withError: error)

@@ -223,9 +223,7 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
                 let downloadableResources = downloads(from: resources)
                 
                 let downloadRequests: [DownloadRequest] = downloadableResources.compactMap { resource -> DownloadRequest? in
-                    guard let downloadable = resource.main.downloadable else { return nil }
-                    let mirrorSelection = ResourceMirrorSelection(id: resource.id, mirror: resource.main, downloadable: downloadable)
-                    return DownloadRequest(resource: resource, options: options, mirror: mirrorSelection)
+                    return DownloadRequest(resource: resource, options: options)
                 }
                 
                 return downloadRequests
