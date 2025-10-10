@@ -1,7 +1,7 @@
 import XCTest
 @testable import DownloadKit
 
-class DownloadQueueAdvancedTests: XCTestCase, @unchecked Sendable {
+class DownloadQueueTests: XCTestCase, @unchecked Sendable {
     
     var downloadQueue: DownloadQueue!
     var processor: WebDownloadProcessor!
