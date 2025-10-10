@@ -93,7 +93,7 @@ public final class DownloadTask: Sendable, Equatable {
         return "\(ObjectIdentifier(self))"
     }
     
-    internal init(request: DownloadRequest, mirrorPolicy: MirrorPolicy) {
+    public init(request: DownloadRequest, mirrorPolicy: MirrorPolicy) {
         self.request = request
         self.mirrorPolicy = mirrorPolicy
         

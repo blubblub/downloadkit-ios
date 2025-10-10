@@ -174,6 +174,22 @@ actor DownloadQueueObserverMock: DownloadQueueObserver {
     func setDidFailCallback(_ callback: @escaping (DownloadTask, Error) -> Void) {
         didFailCallback = callback
     }
+    
+    func setDidFinishCallback(_ callback: @escaping (DownloadTask, Downloadable, URL) -> Void) {
+        didFinishCallback = callback
+    }
+    
+    func setDidStartCallback(_ callback: @escaping (DownloadTask, Downloadable, DownloadProcessor) -> Void) {
+        didStartCallback = callback
+    }
+    
+    func setDidTransferDataCallback(_ callback: @escaping (DownloadTask, Downloadable, DownloadProcessor) -> Void) {
+        didTransferDataCallback = callback
+    }
+    
+    func setDidRetryCallback(_ callback: @escaping (DownloadTask, DownloadRetryContext) -> Void) {
+        didRetryCallback = callback
+    }
 }
 
 // MARK: - Resource Factory Extensions
