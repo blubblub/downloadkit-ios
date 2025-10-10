@@ -363,9 +363,6 @@ public actor DownloadQueue: DownloadQueuable {
             log.debug("DownloadQueue - processor will start processing item: \(download.id) downloadable: \(downloadableIdentifier)")
             
             await processor.process(downloadable)
-            
-            await self.observer?.downloadQueue(self, downloadDidStart: download, downloadable: downloadable, on: processor)
-            self.notificationCenter.post(name: DownloadQueue.downloadDidStartNotification, object: downloadable)
         }
         else {
             // We cannot EVER process this item! We will add it to incomplete, since it just
@@ -420,6 +417,7 @@ extension DownloadQueue: DownloadProcessorObserver {
             }
             
             await self.observer?.downloadQueue(self, downloadDidStart: downloadTask, downloadable: downloadable, on: processor)
+            self.notificationCenter.post(name: DownloadQueue.downloadDidStartNotification, object: downloadable)
         }
     }
     

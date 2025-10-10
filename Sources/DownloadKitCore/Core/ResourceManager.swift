@@ -446,6 +446,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
 
 extension ResourceManager: DownloadQueueObserver {
     public func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadTask: DownloadTask, downloadable: Downloadable, on processor: any DownloadProcessor) async {
+        log.debug("ResourceManager - downloadQueue:downloadDidStart: \(downloadTask.id)")
         
         // Add downloads to monitor progresses.
         await progress.add(download: downloadTask, downloadable: downloadable)
