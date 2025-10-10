@@ -9,13 +9,19 @@
 import Foundation
 import os.log
 
+public struct DownloadRetryContext : Sendable {
+    public let failedDownloadable: Downloadable
+    public let nextDownloadable: Downloadable
+    public let error: Error
+}
+
 public protocol DownloadQueueObserver: AnyObject, Sendable {
     /// Called when download task starts downloading.
     /// - Parameters:
     ///   - queue: queue on which the task was enqueued.
     ///   - downloadTask: task that started downloading.
     ///   - processor: processor that is processing download.
-    func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadTask: DownloadTask, on processor: DownloadProcessor) async
+    func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadTask: DownloadTask, downloadable: Downloadable, on processor: DownloadProcessor) async
     
     /// Called when download task transfers data.
     /// - Parameters:
@@ -41,7 +47,7 @@ public protocol DownloadQueueObserver: AnyObject, Sendable {
     /// Called when download had failed for any reason, but will still retry due to MirrorPolicy providing another downloadable.
     /// - Parameters:
     ///   - queue: queue on which the task was downloaded.
-    func downloadQueue(_ queue: DownloadQueue, downloadWillRetry downloadTask: DownloadTask, downloadable: Downloadable, with error: Error) async
+    func downloadQueue(_ queue: DownloadQueue, downloadWillRetry downloadTask: DownloadTask, context: DownloadRetryContext) async
 }
 
 
@@ -319,7 +325,7 @@ public actor DownloadQueue: DownloadQueuable {
             
                 _ = self.downloadQueue.removeFirst()
                 
-                // Grab the first dowloadable and start processign the download
+                // Grab the first downloadable and start processing the download
                 if let downloadable = await task.downloadable(with: nil, error: nil) {
                     await process(download: task, downloadable: downloadable)
                 }
@@ -358,7 +364,7 @@ public actor DownloadQueue: DownloadQueuable {
             
             await processor.process(downloadable)
             
-            await self.observer?.downloadQueue(self, downloadDidStart: download, on: processor)
+            await self.observer?.downloadQueue(self, downloadDidStart: download, downloadable: downloadable, on: processor)
             self.notificationCenter.post(name: DownloadQueue.downloadDidStartNotification, object: downloadable)
         }
         else {
@@ -413,7 +419,7 @@ extension DownloadQueue: DownloadProcessorObserver {
                 return
             }
             
-            await self.observer?.downloadQueue(self, downloadDidStart: downloadTask, on: processor)
+            await self.observer?.downloadQueue(self, downloadDidStart: downloadTask, downloadable: downloadable, on: processor)
         }
     }
     
@@ -476,12 +482,17 @@ extension DownloadQueue: DownloadProcessorObserver {
     }
     
     private func retry(downloadTask: DownloadTask, downloadable: Downloadable, with error: Error) async {
-        await observer?.downloadQueue(self, downloadWillRetry: downloadTask, downloadable: downloadable, with: error)
+        
         
         // Try to get a new downloadable from task.
         
         if let newDownloadable = await downloadTask.downloadable(with: downloadable, error: error) {
             // We can process new downloadable now.
+            
+            let context = DownloadRetryContext(failedDownloadable: downloadable, nextDownloadable: newDownloadable, error: error)
+            
+            await observer?.downloadQueue(self, downloadWillRetry: downloadTask, context: context)
+            
             self.metrics.retried += 1
             await process(download: downloadTask, downloadable: newDownloadable)
         }

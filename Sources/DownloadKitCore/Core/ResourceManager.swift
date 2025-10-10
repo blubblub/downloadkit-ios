@@ -289,8 +289,6 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         
         log.debug("Processing started for request: \(task.id)")
 
-        // Add downloads to monitor progresses.
-        //await progress.add(downloadItem: downloadable)
         
         if let priorityQueue = priorityQueue, priority.rawValue > 0 {
             
@@ -420,7 +418,6 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
     }
     
     private func foreachObserver(action: (ResourceManagerObserver) async -> Void) async {
-        
         for observer in await state.observers {
             guard let instance = observer.value.instance else { continue }
             await action(instance)
@@ -449,13 +446,17 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
 // MARK: - DownloadQueueObserver
 
 extension ResourceManager: DownloadQueueObserver {
-    public func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadTask: DownloadTask, on processor: any DownloadProcessor) async {
+    public func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadTask: DownloadTask, downloadable: Downloadable, on processor: any DownloadProcessor) async {
+        
+        // Add downloads to monitor progresses.
+        await progress.add(download: downloadTask, downloadable: downloadable)
+        
         await metrics.increase(downloadBegan: 1)
         await self.foreachObserver { await $0.didStartDownloading(downloadTask) }
     }
     
     public func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadTask: DownloadTask, downloadable: Downloadable, using processor: any DownloadProcessor) async {
-        await metrics.updateDownloadSpeed(for: downloadTask)
+        await metrics.updateDownloadSpeed(for: downloadTask, downloadable: downloadable)
     }
     
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFinish task: DownloadTask, downloadable: Downloadable, to location: URL) async throws {
@@ -464,7 +465,7 @@ extension ResourceManager: DownloadQueueObserver {
         try await self.cache.download(task, downloadable: downloadable, didFinishTo: location)
         
         await metrics.increase(downloadCompleted: 1)
-        await metrics.updateDownloadSpeed(for: task, isCompleted: true)
+        await metrics.updateDownloadSpeed(for: task, downloadable: downloadable, isCompleted: true)
 
         let metrics = await self.metrics.description
         log.info("Metrics on download finished: \(metrics)")
@@ -488,11 +489,16 @@ extension ResourceManager: DownloadQueueObserver {
         await self.foreachObserver { await $0.didFinishDownload(downloadTask, with: error) }
     }
     
-    public func downloadQueue(_ queue: DownloadQueue, downloadWillRetry downloadTask: DownloadTask, downloadable: Downloadable, with error: Error) async {
-        await metrics.increase(retried: 1)
-        await metrics.updateDownloadSpeed(for: downloadTask)
+    public func downloadQueue(_ queue: DownloadQueue, downloadWillRetry downloadTask: DownloadTask, context: DownloadRetryContext) async {
+        let downloadable = context.nextDownloadable
         
-        await self.foreachObserver { await $0.willRetryFailedDownload(downloadTask, downloadable: downloadable, with: error) }
+        // Update progress.
+        await progress.add(download: downloadTask, downloadable: downloadable)
+        
+        await metrics.increase(retried: 1)
+        await metrics.updateDownloadSpeed(for: downloadTask, downloadable: downloadable)
+        
+        await self.foreachObserver { await $0.willRetryFailedDownload(downloadTask, downloadable: downloadable, with: context.error) }
     }
     
 }

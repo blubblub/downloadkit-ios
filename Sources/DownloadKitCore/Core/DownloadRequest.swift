@@ -7,7 +7,8 @@
 import Foundation
 import os.log
 
-/// Hold references to downloads, so they can be properly handled.
+/// A download request, usually created by the cache. It's used to ask cache for a resource file,
+/// and if not available, a DownloadRequest that can be processed is created.
 public final class DownloadRequest: Sendable, Equatable {
     public let resource: ResourceFile
     public let options: RequestOptions
