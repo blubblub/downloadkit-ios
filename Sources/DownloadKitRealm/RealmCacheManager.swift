@@ -203,8 +203,7 @@ public final class RealmCacheManager<L: Object>: ResourceCachable where L: Local
     
     public func download(_ downloadTask: DownloadTask, didFailWith error: any Error) async {
         log.error("Download task failed: \(downloadTask.id) error: \(error)")
-        let downloads = await downloads(for: downloadTask)
-        
+
         await taskMap.completeAll(for: downloadTask.id, error: error)
     }
         

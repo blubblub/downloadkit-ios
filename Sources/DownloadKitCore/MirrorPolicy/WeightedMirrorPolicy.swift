@@ -115,7 +115,7 @@ public actor WeightedMirrorPolicy: MirrorPolicy {
                 
         //log.debug("Downloading resource: \(resource.id) from: \(mirrors[selectedIndex].location)")
 
-        return downloadable
+        return finalDownloadable
     }
     
     private func shouldRetry(mirror: ResourceFileMirror, for resource: ResourceFile) -> Bool {

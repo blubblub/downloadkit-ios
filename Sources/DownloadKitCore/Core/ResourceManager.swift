@@ -449,15 +449,15 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
 // MARK: - DownloadQueueObserver
 
 extension ResourceManager: DownloadQueueObserver {
-    public func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadTask: DownloadTask, with processor: DownloadProcessor) async {
+    public func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadTask: DownloadTask, on processor: any DownloadProcessor) async {
         await metrics.increase(downloadBegan: 1)
         await self.foreachObserver { await $0.didStartDownloading(downloadTask) }
     }
     
-    public func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadTask: DownloadTask, downloadable: Downloadable, using processor: DownloadProcessor) async {
+    public func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadTask: DownloadTask, downloadable: Downloadable, using processor: any DownloadProcessor) async {
         await metrics.updateDownloadSpeed(for: downloadTask)
     }
-            
+    
     public func downloadQueue(_ queue: DownloadQueue, downloadDidFinish task: DownloadTask, downloadable: Downloadable, to location: URL) async throws {
  
         // Store the file to the cache
@@ -488,8 +488,7 @@ extension ResourceManager: DownloadQueueObserver {
         await self.foreachObserver { await $0.didFinishDownload(downloadTask, with: error) }
     }
     
-    
-    public func downloadQueue(_ queue: DownloadQueue, downloadWillRetry downloadTask: DownloadTask, downloadable: Downloadable, with error: any Error) async {
+    public func downloadQueue(_ queue: DownloadQueue, downloadWillRetry downloadTask: DownloadTask, downloadable: Downloadable, with error: Error) async {
         await metrics.increase(retried: 1)
         await metrics.updateDownloadSpeed(for: downloadTask)
         
