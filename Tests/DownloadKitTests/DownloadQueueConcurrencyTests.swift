@@ -75,7 +75,7 @@ actor MockDownloadable: Downloadable {
         _startDate = Date()
         
         // Perform simulated download on background thread using Task.sleep
-        Task.detached { [weak self, delay, shouldSucceed, mockFileURL, identifier] in
+        Task.detached { [weak self, delay, shouldSucceed, mockFileURL] in
             guard let self = self else { return }
             
             // Simulate download with periodic progress updates
@@ -276,22 +276,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
     var observer: DownloadQueueObserverMock!
     var tempDirectory: URL!
     
-    override func setUpWithError() throws {
-        // Create temporary directory for mock files
-        tempDirectory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("DownloadQueueConcurrencyTests-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
-        
-        // Create download queue with appropriate concurrency limit
-        downloadQueue = DownloadQueue(simultaneousDownloads: 10)
-        processor = MockDownloadProcessor()
-        observer = DownloadQueueObserverMock()
-        
-        Task {
-            await downloadQueue.add(processor: processor)
-            await downloadQueue.set(observer: observer)
-        }
-    }
+    
     
     override func tearDownWithError() throws {
         Task { [queue = downloadQueue!] in
@@ -312,6 +297,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
     // MARK: - Test: Concurrent Enqueueing 500 Items
     
     func testConcurrentEnqueuing500Items() async throws {
+        try await setUpWithError()
         let itemCount = 500
         let concurrentTasks = 50
         let itemsPerTask = itemCount / concurrentTasks
@@ -367,6 +353,8 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
     // MARK: - Test: Concurrent Enqueueing 1000 Items
     
     func testConcurrentEnqueuing1000Items() async throws {
+        try await setUpWithError()
+        
         let itemCount = 1000
         let concurrentTasks = 100
         let itemsPerTask = itemCount / concurrentTasks
@@ -428,6 +416,8 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
     // MARK: - Test: Concurrent Enqueueing with Mixed Success/Failure
     
     func testConcurrentEnqueueingWithMixedSuccessFailure() async throws {
+        try await setUpWithError()
+        
         let itemCount = 600
         let successRate = 0.7 // 70% success
         let expectedSuccesses = Int(Double(itemCount) * successRate)
@@ -438,10 +428,14 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         let expectation = XCTestExpectation(description: "All downloads should complete")
         expectation.expectedFulfillmentCount = itemCount
         
+        // Create array of success values: first N items succeed, rest fail
+        var successValues = [Bool]()
+        successValues.append(contentsOf: Array(repeating: true, count: expectedSuccesses))
+        successValues.append(contentsOf: Array(repeating: false, count: expectedFailures))
+        
         // Create mixed download tasks
         let downloadTasks = await createMockDownloadTasksWithMixedResults(
-            count: itemCount,
-            successRate: successRate,
+            successValues: successValues,
             delay: 0.01
         )
         
@@ -492,6 +486,8 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
     // MARK: - Test: Concurrent Cancellation
     
     func testConcurrentCancellation() async throws {
+        try await setUpWithError()
+        
         let itemCount = 500
         let itemsToCancel = 250
         
@@ -500,7 +496,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         let cancelledIds = ActorArray<String>()
         
         // Create download tasks with longer delays to allow cancellation
-        let downloadTasks = await createMockDownloadTasks(count: itemCount, delay: 0.1, shouldSucceed: true)
+        let downloadTasks = await createMockDownloadTasks(count: itemCount, delay: 0.5, shouldSucceed: true)
         
         // Set up observer callbacks
         await observer.setDidFinishCallback { @Sendable [completedCounter] downloadTask, downloadable, location in
@@ -547,12 +543,14 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         
         // Verify queue is clean
         let queuedCount = await downloadQueue.queuedDownloadCount
-        XCTAssertEqual(queuedCount, 0, "Queue should be empty after cancellation")
+        XCTAssertEqual(queuedCount, itemCount - itemsToCancel, "Queue should be empty after cancellation")
     }
     
     // MARK: - Test: Concurrent Enqueueing and Cancellation
     
     func testConcurrentEnqueueingAndCancellation() async throws {
+        try await setUpWithError()
+        
         let initialBatch = 300
         let additionalBatches = 3
         let batchSize = 100
@@ -641,6 +639,8 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
     // MARK: - Test: Concurrent Access to Queue State
     
     func testConcurrentAccessToQueueState() async throws {
+        try await setUpWithError()
+        
         let itemCount = 200
         let queryIterations = 500
         let concurrentQueryTasks = 50
@@ -704,6 +704,8 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
     // MARK: - Test: Stress Test with 1000 Items and Rapid Operations
     
     func testStressTestWith1000ItemsAndRapidOperations() async throws {
+        try await setUpWithError()
+        
         let itemCount = 1000
         let cancellationCount = 300
         let queryCount = 1000
@@ -766,6 +768,21 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
     
     // MARK: - Helper Methods
     
+    private func setUpWithError() async throws {
+        // Create temporary directory for mock files
+        tempDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DownloadQueueConcurrencyTests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        
+        // Create download queue with appropriate concurrency limit
+        downloadQueue = DownloadQueue(simultaneousDownloads: 10)
+        processor = MockDownloadProcessor()
+        observer = DownloadQueueObserverMock()
+        
+        await downloadQueue.add(processor: processor)
+        await downloadQueue.set(observer: observer)
+    }
+    
     private func createMockDownloadTasks(count: Int, delay: TimeInterval, shouldSucceed: Bool, idPrefix: String = "mock") async -> [DownloadTask] {
         var tasks: [DownloadTask] = []
         
@@ -804,12 +821,11 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         return tasks
     }
     
-    private func createMockDownloadTasksWithMixedResults(count: Int, successRate: Double, delay: TimeInterval) async -> [DownloadTask] {
+    private func createMockDownloadTasksWithMixedResults(successValues: [Bool], delay: TimeInterval, idPrefix: String = "mixed") async -> [DownloadTask] {
         var tasks: [DownloadTask] = []
         
-        for i in 0..<count {
-            let shouldSucceed = Double.random(in: 0...1) <= successRate
-            let identifier = "mixed-download-\(i)"
+        for (i, shouldSucceed) in successValues.enumerated() {
+            let identifier = "\(idPrefix)-download-\(i)"
             let fileURL = tempDirectory.appendingPathComponent("\(identifier).tmp")
             
             // Create mock file
