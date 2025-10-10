@@ -26,7 +26,6 @@ class CloudKitTests: XCTestCase, @unchecked Sendable {
     
     func testCloudKitDownloadInitialization() async {
         let identifier = await cloudKitDownload.identifier
-        let priority = await cloudKitDownload.priority
         let totalBytes = await cloudKitDownload.totalBytes
         let totalSize = await cloudKitDownload.totalSize
         let transferredBytes = await cloudKitDownload.transferredBytes
@@ -34,7 +33,6 @@ class CloudKitTests: XCTestCase, @unchecked Sendable {
         let finishedDate = await cloudKitDownload.finishedDate
         
         XCTAssertEqual(identifier, "test-cloudkit-item")
-        XCTAssertEqual(priority, 0)
         XCTAssertEqual(totalBytes, 0)
         XCTAssertEqual(totalSize, 0)
         XCTAssertEqual(transferredBytes, 0)
@@ -43,15 +41,12 @@ class CloudKitTests: XCTestCase, @unchecked Sendable {
     }
     
     func testCloudKitDownloadWithPriority() async {
+        // Priority is now managed at the task level, not on the downloadable itself.
+        // This test has been updated to reflect the new architecture.
         let priorityDownload = CloudKitDownload(identifier: "priority-item", 
-                                              url: URL(string: "cloudkit://container/record_type/record_id")!, 
-                                              priority: 100)
-        let initialPriority = await priorityDownload.priority
-        XCTAssertEqual(initialPriority, 100)
-        
-        await priorityDownload.set(priority: 200)
-        let updatedPriority = await priorityDownload.priority
-        XCTAssertEqual(updatedPriority, 200)
+                                              url: URL(string: "cloudkit://container/record_type/record_id")!)
+        let identifier = await priorityDownload.identifier
+        XCTAssertEqual(identifier, "priority-item")
     }
     
     func testCloudKitDownloadProgress() async {

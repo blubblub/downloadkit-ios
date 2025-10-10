@@ -98,7 +98,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
             }
         }
         
-        await manager.process(requests: requests)
+        let _ = await manager.process(requests: requests)
         
         // Wait for all downloads to complete (allow some failures due to network)
         await fulfillment(of: [batchExpectation], timeout: 20) // 2 minutes timeout
@@ -140,7 +140,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         
         XCTAssertEqual(requests.count, 3, "Should have 3 download requests")
         
-        await manager.process(requests: requests)
+        let _ = await manager.process(requests: requests)
         
         // Test that manager state is correct
         let isActive = await manager.isActive
@@ -185,7 +185,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
             downloadExpectation.fulfill()
         }
         
-        await manager.process(requests: requests)
+        let _ = await manager.process(requests: requests)
         
         // Wait for download to complete
         await fulfillment(of: [downloadExpectation], timeout: 60)
@@ -251,8 +251,8 @@ class ResourceManagerIntegrationTests: XCTestCase {
             }
         }
         
-        await manager.process(requests: normalRequests)
-        await manager.process(requests: highPriorityRequests)
+        let _ = await manager.process(requests: normalRequests)
+        let _ = await manager.process(requests: highPriorityRequests)
         
         print("Waiting for downloads to be processed")
         
@@ -358,7 +358,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         }
         
         // Process the downloads after setting up completion handlers
-        await manager.process(requests: requests)
+        let _ = await manager.process(requests: requests)
         
         // Check intermediate metrics
         let afterProcessMetrics = manager.metrics
@@ -501,7 +501,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
         }
         
         print("Waiting for batch downloads to complete...")
-        await manager.process(requests: requests)
+        let _ = await manager.process(requests: requests)
         
         // Check metrics after request
         let afterProcessMetrics = manager.metrics
@@ -606,7 +606,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
             }
         }
 
-        await manager.process(requests: requests)
+        let _ = await manager.process(requests: requests)
 
         await fulfillment(of: [allHandlersCalled], timeout: 120)
 
@@ -651,7 +651,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
                     let reqs = await manager.request(resources: [resource])
                     // Process if there is anything new to do; typically only the first few will see 1 request
                     if !reqs.isEmpty {
-                        await manager.process(requests: reqs)
+                    let _ = await manager.process(requests: reqs)
                     }
                 }
             }
@@ -692,11 +692,11 @@ class ResourceManagerIntegrationTests: XCTestCase {
                     return (res.id, false)
                 }
                 
-                await manager.process(request: request)
+                let task = await manager.process(request: request)
                 do {
                     print("Parallel batch content \(res.id) Starting transfer")
                     
-                    try await request.waitTillComplete()
+                    try await task.waitTillComplete()
                     
                     print("Parallel batch content \(res.id) Transfer finished")
                     
@@ -724,11 +724,11 @@ class ResourceManagerIntegrationTests: XCTestCase {
                 } else {
                 }
                 
-                await manager.process(request: request)
+                let task = await manager.process(request: request)
                 do {
                     print("Parallel delay batch content \(res.id) Starting transfer")
                     
-                    try await request.waitTillComplete()
+                    try await task.waitTillComplete()
                     
                     print("Parallel delay batch content \(res.id) Transfer finished")
                     

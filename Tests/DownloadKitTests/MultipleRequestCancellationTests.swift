@@ -57,7 +57,7 @@ class MultipleRequestCancellationTests: XCTestCase {
         await setupManager()
         
         // Test that cancelling empty array doesn't crash or cause issues
-        await manager.cancel(requests: [])
+        await manager.cancel(downloadTasks: [])
         
         // Verify manager state is unaffected
         let currentDownloadCount = await manager.currentDownloadCount
@@ -93,18 +93,22 @@ class MultipleRequestCancellationTests: XCTestCase {
             expectation.fulfill()
         }
         
+        // Process and get task
+        let tasks = await manager.process(requests: [request!])
+        XCTAssertEqual(tasks.count, 1, "Should have one task")
+        let task = tasks.first!
+        
         // Cancel using array method with single request
-        await manager.cancel(requests: [request!])
+        await manager.cancel(downloadTasks: [task])
         
         await fulfillment(of: [expectation], timeout: 2)
         
         // Verify state cleanup
-        let downloadableIdentifier = await request!.downloadableIdentifier()
-        let isDownloading = await manager.isDownloading(for: downloadableIdentifier)
+        let isDownloading = await manager.isDownloading(for: task.id)
         XCTAssertFalse(isDownloading, "Download should no longer be in progress after cancellation")
         
-        let hasDownloadable = await manager.hasDownloadable(with: downloadableIdentifier)
-        XCTAssertFalse(hasDownloadable, "Download should be removed from queue after cancellation")
+        let hasDownload = await manager.hasDownload(for: task.id)
+        XCTAssertFalse(hasDownload, "Download should be removed from queue after cancellation")
     }
     
     // MARK: - Multiple Request Array Tests
@@ -149,19 +153,22 @@ class MultipleRequestCancellationTests: XCTestCase {
             }
         }
         
+        // Process and get tasks
+        let tasks = await manager.process(requests: requests)
+        XCTAssertEqual(tasks.count, 3, "Should have 3 tasks")
+        
         // Cancel all requests using array method
-        await manager.cancel(requests: requests)
+        await manager.cancel(downloadTasks: tasks)
         
         await fulfillment(of: [expectation], timeout: 2)
         
         // Verify all requests are cleaned up
-        for request in requests {
-            let downloadableIdentifier = await request.downloadableIdentifier()
-            let isDownloading = await manager.isDownloading(for: downloadableIdentifier)
+        for task in tasks {
+            let isDownloading = await manager.isDownloading(for: task.id)
             XCTAssertFalse(isDownloading, "Download should no longer be in progress after cancellation")
             
-            let hasDownloadable = await manager.hasDownloadable(with: downloadableIdentifier)
-            XCTAssertFalse(hasDownloadable, "Download should be removed from queue after cancellation")
+            let hasDownload = await manager.hasDownload(for: task.id)
+            XCTAssertFalse(hasDownload, "Download should be removed from queue after cancellation")
         }
     }
     
@@ -216,8 +223,11 @@ class MultipleRequestCancellationTests: XCTestCase {
             }
         }
         
+        // Process and get tasks
+        let tasks = await manager.process(requests: requests)
+        
         // Cancel all requests
-        await manager.cancel(requests: requests)
+        await manager.cancel(downloadTasks: tasks)
         
         await fulfillment(of: [expectation], timeout: 2)
         
@@ -263,8 +273,11 @@ class MultipleRequestCancellationTests: XCTestCase {
         let requests = await manager.request(resources: resources)
         XCTAssertEqual(requests.count, 3, "Should have 3 requests")
         
+        // Process and get tasks
+        let tasks = await manager.process(requests: requests)
+        
         // Cancel all requests
-        await manager.cancel(requests: requests)
+        await manager.cancel(downloadTasks: tasks)
         
         // Verify manager state is cleaned up
         let currentDownloadCount = await manager.currentDownloadCount
@@ -277,13 +290,12 @@ class MultipleRequestCancellationTests: XCTestCase {
         XCTAssertEqual(totalDownloads, 0, "No downloads should exist after cancellation")
         
         // Verify individual request states
-        for request in requests {
-            let downloadableIdentifier = await request.downloadableIdentifier()
-            let isDownloading = await manager.isDownloading(for: downloadableIdentifier)
+        for task in tasks {
+            let isDownloading = await manager.isDownloading(for: task.id)
             XCTAssertFalse(isDownloading, "Individual request should not be downloading after cancellation")
             
-            let hasDownloadable = await manager.hasDownloadable(with: downloadableIdentifier)
-            XCTAssertFalse(hasDownloadable, "Individual request should not have downloadable after cancellation")
+            let hasDownload = await manager.hasDownload(for: task.id)
+            XCTAssertFalse(hasDownload, "Individual request should not have downloadable after cancellation")
         }
     }
     
@@ -321,16 +333,18 @@ class MultipleRequestCancellationTests: XCTestCase {
             }
         }
         
+        // Process and get tasks
+        let tasks = await manager.process(requests: requests)
+        
         // Cancel all requests
-        await manager.cancel(requests: requests)
+        await manager.cancel(downloadTasks: tasks)
         
         await fulfillment(of: [expectation], timeout: 2)
         
         // Verify progress tracking is cleaned up for all requests
-        for request in requests {
-            let downloadableIdentifier = await request.downloadableIdentifier()
-            let progressAfter = await manager.progress.progresses[downloadableIdentifier]
-            XCTAssertNil(progressAfter, "Progress should be cleaned up after cancellation for \(downloadableIdentifier)")
+        for task in tasks {
+            let progressAfter = await manager.progress.progresses[task.id]
+            XCTAssertNil(progressAfter, "Progress should be cleaned up after cancellation for \(task.id)")
         }
     }
     
@@ -368,19 +382,21 @@ class MultipleRequestCancellationTests: XCTestCase {
             }
         }
         
+        // Process and get tasks
+        let tasks = await manager.process(requests: requests)
+        
         // Cancel all requests
-        await manager.cancel(requests: requests)
+        await manager.cancel(downloadTasks: tasks)
         
         await fulfillment(of: [expectation], timeout: 2)
         
         // Verify requests are cleaned up from both normal and priority queues
-        for request in requests {
-            let downloadableIdentifier = await request.downloadableIdentifier()
-            let isDownloading = await manager.isDownloading(for: downloadableIdentifier)
+        for task in tasks {
+            let isDownloading = await manager.isDownloading(for: task.id)
             XCTAssertFalse(isDownloading, "Download should not be in progress after cancellation")
             
-            let hasDownloadable = await manager.hasDownloadable(with: downloadableIdentifier)
-            XCTAssertFalse(hasDownloadable, "Download should be removed from both queues after cancellation")
+            let hasDownload = await manager.hasDownload(for: task.id)
+            XCTAssertFalse(hasDownload, "Download should be removed from both queues after cancellation")
         }
     }
     
@@ -424,8 +440,12 @@ class MultipleRequestCancellationTests: XCTestCase {
             expectation.fulfill()
         }
         
+        // Process and get tasks
+        let validTask = (await manager.process(requests: [validRequest!])).first!
+        let invalidTask = (await manager.process(requests: [invalidRequest!])).first!
+        
         // Cancel both requests together
-        await manager.cancel(requests: [validRequest!, invalidRequest!])
+        await manager.cancel(downloadTasks: [validTask, invalidTask])
         
         await fulfillment(of: [expectation], timeout: 2)
     }
@@ -460,8 +480,11 @@ class MultipleRequestCancellationTests: XCTestCase {
             }
         }
         
+        // Process and get tasks
+        let tasks = await manager.process(requests: requests)
+        
         // Cancel all requests at once
-        await manager.cancel(requests: requests)
+        await manager.cancel(downloadTasks: tasks)
         
         await fulfillment(of: [expectation], timeout: 5)
         

@@ -73,7 +73,7 @@ class IsAvailableTests: XCTestCase {
         
         // Store the resource in cache
         let cachedOptions = RequestOptions(storagePriority: .cached)
-        let _ = try localCache.store(resource: resource, mirror: resource.main, at: tempFile, options: cachedOptions)
+        let _ = try localCache.store(resource: resource, mirrorId: resource.main.id, at: tempFile, options: cachedOptions)
         
         let isAvailable = cache.isAvailable(resource: resource)
         
@@ -89,7 +89,7 @@ class IsAvailableTests: XCTestCase {
         
         // Store the resource in cache
         let cachedOptions = RequestOptions(storagePriority: .cached)
-        let localResource = try localCache.store(resource: resource, mirror: resource.main, at: tempFile, options: cachedOptions)
+        let localResource = try localCache.store(resource: resource, mirrorId: resource.main.id, at: tempFile, options: cachedOptions)
         
         // Verify it's available before deletion
         let isAvailableBeforeDelete = cache.isAvailable(resource: resource)
@@ -117,7 +117,7 @@ class IsAvailableTests: XCTestCase {
         // Store only one resource in cache
         let tempFile = try createTemporaryFile()
         let cachedOptions = RequestOptions(storagePriority: .cached)
-        let _ = try localCache.store(resource: cachedResource, mirror: cachedResource.main, at: tempFile, options: cachedOptions)
+        let _ = try localCache.store(resource: cachedResource, mirrorId: cachedResource.main.id, at: tempFile, options: cachedOptions)
         
         let cachedIsAvailable = cache.isAvailable(resource: cachedResource)
         let uncachedIsAvailable = cache.isAvailable(resource: uncachedResource)
@@ -140,8 +140,8 @@ class IsAvailableTests: XCTestCase {
         let cachedOptions = RequestOptions(storagePriority: .cached)
         let permanentOptions = RequestOptions(storagePriority: .permanent)
         
-        let _ = try localCache.store(resource: cachedResource, mirror: cachedResource.main, at: tempFile1, options: cachedOptions)
-        let _ = try localCache.store(resource: permanentResource, mirror: permanentResource.main, at: tempFile2, options: permanentOptions)
+        let _ = try localCache.store(resource: cachedResource, mirrorId: cachedResource.main.id, at: tempFile1, options: cachedOptions)
+        let _ = try localCache.store(resource: permanentResource, mirrorId: permanentResource.main.id, at: tempFile2, options: permanentOptions)
         
         let cachedIsAvailable = cache.isAvailable(resource: cachedResource)
         let permanentIsAvailable = cache.isAvailable(resource: permanentResource)
@@ -173,7 +173,7 @@ class IsAvailableTests: XCTestCase {
         // Store the resource in cache
         let tempFile = try createTemporaryFile()
         let cachedOptions = RequestOptions(storagePriority: .cached)
-        let _ = try localCache.store(resource: oldResource, mirror: oldResource.main, at: tempFile, options: cachedOptions)
+        let _ = try localCache.store(resource: oldResource, mirrorId: oldResource.main.id, at: tempFile, options: cachedOptions)
         
         // Check availability with same modification date
         let isAvailableOld = cache.isAvailable(resource: oldResource)
@@ -206,7 +206,7 @@ class IsAvailableTests: XCTestCase {
         
         // Store the resource in cache
         let cachedOptions = RequestOptions(storagePriority: .cached)
-        let _ = try localCache.store(resource: resource, mirror: resource.main, at: tempFile, options: cachedOptions)
+        let _ = try localCache.store(resource: resource, mirrorId: resource.main.id, at: tempFile, options: cachedOptions)
         
         // Verify resource is available before reset
         let isAvailableBeforeReset = cache.isAvailable(resource: resource)
@@ -229,7 +229,7 @@ class IsAvailableTests: XCTestCase {
         
         // Store the resource in cache
         let cachedOptions = RequestOptions(storagePriority: .cached)
-        let _ = try localCache.store(resource: resource, mirror: resource.main, at: tempFile, options: cachedOptions)
+        let _ = try localCache.store(resource: resource, mirrorId: resource.main.id, at: tempFile, options: cachedOptions)
         
         // Test using the ResourceFile extension
         let isAvailable = await resource.isAvailable(in: cache)
@@ -253,7 +253,7 @@ class IsAvailableTests: XCTestCase {
             if i % 2 == 0 {
                 let tempFile = try createTemporaryFile()
                 let cachedOptions = RequestOptions(storagePriority: .cached)
-                let _ = try localCache.store(resource: resource, mirror: resource.main, at: tempFile, options: cachedOptions)
+                let _ = try localCache.store(resource: resource, mirrorId: resource.main.id, at: tempFile, options: cachedOptions)
             }
         }
         

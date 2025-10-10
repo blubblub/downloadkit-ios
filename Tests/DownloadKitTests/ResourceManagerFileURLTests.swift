@@ -57,7 +57,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         }
 
         // Process the download
-        await manager.process(requests: requests)
+        let _ = await manager.process(requests: requests)
 
         // Wait for the download to complete
         await fulfillment(of: [downloadExpectation], timeout: 60)
@@ -142,7 +142,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         }
         
         // Process downloads concurrently
-        await manager.process(requests: requests)
+        let _ = await manager.process(requests: requests)
         
         // Wait for all downloads to complete
         await fulfillment(of: downloadExpectations, timeout: 60)
@@ -287,7 +287,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         
         // Store the resource in cache using the cache manager's store method
         let options = RequestOptions(storagePriority: .cached)
-        let localFile = try cache.localCache.store(resource: resource, mirror: resource.main, at: tempFileURL, options: options)
+        let localFile = try cache.localCache.store(resource: resource, mirrorId: resource.main.id, at: tempFileURL, options: options)
         
         let url = manager.fileURL(for: resource.id)
         XCTAssertNotNil(url, "File URL should not be nil for a cached resource.")
@@ -308,7 +308,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         
         // Store the resource in cache with permanent storage priority
         let options = RequestOptions(storagePriority: .permanent)
-        let localFile = try cache.localCache.store(resource: resource, mirror: resource.main, at: tempFileURL, options: options)
+        let localFile = try cache.localCache.store(resource: resource, mirrorId: resource.main.id, at: tempFileURL, options: options)
         
         let url = manager.fileURL(for: resource.id)
         XCTAssertNotNil(url, "File URL should not be nil for a permanently stored resource.")
@@ -332,7 +332,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         // Store multiple resources
         for resource in resources {
             let tempFileURL = try FileManager.createFileOnDisk()
-            let localFile = try cache.localCache.store(resource: resource, mirror: resource.main, at: tempFileURL, options: options)
+            let localFile = try cache.localCache.store(resource: resource, mirrorId: resource.main.id, at: tempFileURL, options: options)
             storedURLs.append(localFile.fileURL)
         }
         
@@ -381,7 +381,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         }
         
         // Process the download
-        await manager.process(requests: requests)
+        let _ = await manager.process(requests: requests)
         
         // Wait for the download to complete (should fail)
         await fulfillment(of: [downloadExpectation], timeout: 30)
@@ -435,12 +435,13 @@ class ResourceManagerFileURLTests: XCTestCase {
             }
         }
         
-        // Process the download
-        await manager.process(requests: requests)
+        // Process the download and get the task
+        let tasks = await manager.process(requests: requests)
+        let downloadTask = tasks.first!
         
         // Wait a short time to let download start, then cancel it
         try await Task.sleep(nanoseconds: 1_000_000) // 0.1 second
-        await manager.cancel(request: downloadRequest)
+        await manager.cancel(downloadTask)
         
         // Wait for the cancellation to complete
         await fulfillment(of: [downloadExpectation], timeout: 5)
@@ -489,7 +490,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         }
         
         // Process the download
-        await manager.process(requests: requests)
+        let _ = await manager.process(requests: requests)
         
         // Wait for the download to complete
         await fulfillment(of: [downloadExpectation], timeout: 30)
@@ -571,7 +572,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         }
         
         // Process the download
-        await manager.process(requests: requests)
+        let _ = await manager.process(requests: requests)
         
         // Wait for the download to complete (should succeed with alternative mirror)
         await fulfillment(of: [downloadExpectation], timeout: 60)
@@ -626,7 +627,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         
         // Store the resource in cache
         let options = RequestOptions(storagePriority: .cached)
-        let localFile = try cache.localCache.store(resource: resource, mirror: resource.main, at: tempFileURL, options: options)
+        let localFile = try cache.localCache.store(resource: resource, mirrorId: resource.main.id, at: tempFileURL, options: options)
         
         let url = manager.fileURL(for: resource.id)
         XCTAssertNotNil(url, "File URL should not be nil for a cached resource with unicode ID.")
@@ -646,7 +647,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         
         // Store the resource in cache
         let options = RequestOptions(storagePriority: .cached)
-        _ = try cache.localCache.store(resource: resource, mirror: resource.main, at: tempFileURL, options: options)
+        _ = try cache.localCache.store(resource: resource, mirrorId: resource.main.id, at: tempFileURL, options: options)
         
         // Verify the file URL is available
         let urlBefore = manager.fileURL(for: resource.id)
@@ -671,7 +672,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         
         // Store the resource in cache with cached priority
         let cachedOptions = RequestOptions(storagePriority: .cached)
-        _ = try cache.localCache.store(resource: resource, mirror: resource.main, at: tempFileURL, options: cachedOptions)
+        _ = try cache.localCache.store(resource: resource, mirrorId: resource.main.id, at: tempFileURL, options: cachedOptions)
         
         // Verify the file URL is available
         let urlBefore = manager.fileURL(for: resource.id)
@@ -748,7 +749,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         }
         
         // Process the downloads
-        await manager.process(requests: requests)
+        let _ = await manager.process(requests: requests)
         
         // Wait for downloads to complete
         await fulfillment(of: [downloadExpectation], timeout: 60)
@@ -863,7 +864,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         }
         
         // Process the download
-        await manager.process(requests: requests)
+        let _ = await manager.process(requests: requests)
         
         // Wait for download to complete
         await fulfillment(of: [downloadExpectation], timeout: 60)
@@ -945,7 +946,7 @@ class ResourceManagerFileURLTests: XCTestCase {
         }
         
         // Process the download using manager.process()
-        await manager.process(requests: requests)
+        let _ = await manager.process(requests: requests)
         
         // Wait for download completion
         await fulfillment(of: [downloadExpectation], timeout: 30)

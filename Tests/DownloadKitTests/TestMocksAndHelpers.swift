@@ -145,28 +145,33 @@ actor DownloadProcessorObserverMock: DownloadProcessorObserver {
 
 /// Mock implementation of DownloadQueueObserver for testing download queue events
 actor DownloadQueueObserverMock: DownloadQueueObserver {
-    var didStartCallback: ((Downloadable, DownloadProcessor) -> Void)?
-    var didTransferDataCallback: ((Downloadable, DownloadProcessor) -> Void)?
-    var didFinishCallback: ((Downloadable, URL) -> Void)?
-    var didFailCallback: ((Downloadable, Error) -> Void)?
+    var didStartCallback: ((DownloadTask, Downloadable, DownloadProcessor) -> Void)?
+    var didTransferDataCallback: ((DownloadTask, Downloadable, DownloadProcessor) -> Void)?
+    var didFinishCallback: ((DownloadTask, Downloadable, URL) -> Void)?
+    var didFailCallback: ((DownloadTask, Error) -> Void)?
+    var didRetryCallback: ((DownloadTask, DownloadRetryContext) -> Void)?
     
-    func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadable: Downloadable, with processor: DownloadProcessor) async {
-        didStartCallback?(downloadable, processor)
+    func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadTask: DownloadTask, downloadable: Downloadable, on processor: DownloadProcessor) async {
+        didStartCallback?(downloadTask, downloadable, processor)
     }
     
-    func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadable: Downloadable, using processor: DownloadProcessor) async {
-        didTransferDataCallback?(downloadable, processor)
+    func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadTask: DownloadTask, downloadable: Downloadable, using processor: DownloadProcessor) async {
+        didTransferDataCallback?(downloadTask, downloadable, processor)
     }
     
-    func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadable: Downloadable, to location: URL) async throws {
-        didFinishCallback?(downloadable, location)
+    func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadTask: DownloadTask, downloadable: Downloadable, to location: URL) async throws {
+        didFinishCallback?(downloadTask, downloadable, location)
     }
     
-    func downloadQueue(_ queue: DownloadQueue, downloadDidFail downloadable: Downloadable, with error: Error) async {
-        didFailCallback?(downloadable, error)
+    func downloadQueue(_ queue: DownloadQueue, downloadDidFail downloadTask: DownloadTask, with error: Error) async {
+        didFailCallback?(downloadTask, error)
     }
     
-    func setDidFailCallback(_ callback: @escaping (Downloadable, Error) -> Void) {
+    func downloadQueue(_ queue: DownloadQueue, downloadWillRetry downloadTask: DownloadTask, context: DownloadRetryContext) async {
+        didRetryCallback?(downloadTask, context)
+    }
+    
+    func setDidFailCallback(_ callback: @escaping (DownloadTask, Error) -> Void) {
         didFailCallback = callback
     }
 }
@@ -179,6 +184,19 @@ public extension FileMirror {
         FileMirror(id: UUID().uuidString,
                    location: "https://example.com/file",
                    info: [WeightedMirrorPolicy.weightKey: weight])
+    }
+}
+
+/// Extension to convert WebDownload to FileMirror for testing
+extension WebDownload {
+    func toMirror() async -> FileMirror {
+        let identifier = await self.identifier
+        let url = await self.url
+        return FileMirror(
+            id: identifier,
+            location: url.absoluteString,
+            info: [:]
+        )
     }
 }
 
@@ -290,9 +308,10 @@ func downloadAndWaitForCompletion(resource: Resource) async throws {
     
     guard let request = requests.first else { return }
     
-    await manager.process(requests: requests)
+    let tasks = await manager.process(requests: requests)
+    guard let task = tasks.first else { return }
     
-    try await request.waitTillComplete()
+    try await task.waitTillComplete()
 }
 
 /// Verifies a file URL points to a valid image file
