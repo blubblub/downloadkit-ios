@@ -21,6 +21,7 @@ public actor ResourceDownloadProgress {
 
     /// Transferring progresses that are mapped to nodes under the hood.
     public private(set) var progresses = [String: Progress]()
+    private var downloadTaskIdentifiers = Set<String>()
     
     /// Completed count.
     public private(set) var completedDownloadCount = 0
@@ -40,15 +41,20 @@ public actor ResourceDownloadProgress {
             return nil
         }
         
-        let returnNode = ProgressNode(items: items)
+        let returnNode = ProgressNode(tasks: Array(downloadTaskIdentifiers), items: items)
         
         self.nodes[identifier] = returnNode
         
         return returnNode
     }
     
-    public func add(_ progress: Progress, for identifier: String) {
-        progresses[identifier] = progress
+    public func add(_ progress: Progress?, for identifier: String) {
+        // Adds a progress for the specific identifier, if exists
+        if let progress {
+            progresses[identifier] = progress
+        }
+        
+        downloadTaskIdentifiers.insert(identifier)
         
         for (_, node) in nodes {
             node.retry(identifier, with: progress)
@@ -72,6 +78,8 @@ public actor ResourceDownloadProgress {
             nodes[key] = nil
         }
         
+        downloadTaskIdentifiers.remove(identifier)
+        
         if error == nil {
             completedDownloadCount += progresses[identifier] != nil ? 1 : 0
         } else {
@@ -83,7 +91,6 @@ public actor ResourceDownloadProgress {
 }
 
 extension ResourceDownloadProgress {
-    
     public func progressNode(for identifier: String, downloadIdentifiers: [String]) -> ProgressNode? {
         let count = progresses.count
 
@@ -91,20 +98,23 @@ extension ResourceDownloadProgress {
             return nil
         }
         
-        let items = downloadIdentifiers.reduce(into: [String: Progress]()) {
+        let existingDownloadables = downloadIdentifiers.reduce(into: [String: Progress]()) {
             $0[$1] = progresses[$1]
         }
         
-        if progresses.count > 0 && items.count == 0 {
+        // Get tasks that are in flight
+        let tasks = Set(downloadIdentifiers).intersection(downloadTaskIdentifiers)
+        
+        if progresses.count > 0 && existingDownloadables.count == 0 {
             log.debug("There are progresses: \(self.progresses.count), but apparently not for this group resources: \(downloadIdentifiers.count)")
         }
         
-        guard let newNode = ProgressNode(items: items) else {
-            return node(for: identifier, with: items)
+        guard let newNode = ProgressNode(tasks: Array(tasks), items: existingDownloadables) else {
+            return node(for: identifier, with: existingDownloadables)
         }
         
         // if there's already a node present and has same item count, return it.
-        let node = self.node(for: identifier, with: items)
+        let node = self.node(for: identifier, with: existingDownloadables)
         if node?.hasSameItems(as: newNode) ?? false {
             return node
         } else {
@@ -116,24 +126,10 @@ extension ResourceDownloadProgress {
         }
     }
     
-    public func add(download: DownloadTask, downloadable: Downloadable) async {
-        guard let progress = await downloadable.progress else {
-            return
-        }
+    public func add(download: DownloadTask, downloadable: Downloadable?) async {
+        let progress = await downloadable?.progress
         
         add(progress, for: download.id)
     }
-    
-//    public func add(downloads: [DownloadTask]) async {
-//        
-//        var items = [String: Progress]()
-//        
-//        for item in downloads {
-//            let identifier = await item.identifier
-//            items[identifier] = await item.progress
-//        }
-//        
-//        add(items: items)
-//    }
 }
 

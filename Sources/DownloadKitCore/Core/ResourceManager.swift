@@ -287,8 +287,9 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
             return task
         }
         
+        await progress.add(download: task, downloadable: nil)
+        
         log.debug("Processing started for request: \(task.id)")
-
         
         if let priorityQueue = priorityQueue, priority.rawValue > 0 {
             
@@ -310,7 +311,6 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
             log.info("Reprioritising resource: \(task.id)")
         }
         else {
-            
             log.debug("Enqueueing - \(task.id)")
             await downloadQueue.download(task)
         }
@@ -322,7 +322,6 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
     }
     
     public func process(requests: [DownloadRequest], priority: DownloadPriority = .normal) async -> [DownloadTask] {
-        
         var finalPriority = priority
         
         if let priorityQueue = priorityQueue, priority.rawValue > 0 {
