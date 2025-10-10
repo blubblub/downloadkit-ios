@@ -7,43 +7,6 @@
 
 import Foundation
 
-public struct ResourceMirrorSelection : Sendable {
-    
-    public let id: String
-    
-    /// Mirror to retry
-    public let mirror: ResourceFileMirror
-    
-    /// Downloadable
-    public let downloadable: Downloadable
-    
-    /// Option to retry
-    public var option = QueueOption.normal
-    
-    public init(id: String, mirror: ResourceFileMirror, downloadable: Downloadable, option: QueueOption = .normal) {
-        self.id = id
-        self.mirror = mirror
-        self.downloadable = downloadable
-        self.option = option
-    }
-}
-
-extension ResourceMirrorSelection {
-    
-    public enum QueueOption : Sendable {
-        /// The Mirror should enqueue normally.
-        case normal
-        
-        /// The Mirror should enqueue on top of the normal queue.
-        case priority
-        
-        /// The Mirror should get a highest priority and will be put on Priority Queue.
-        /// If PriorityQueue is not available, then this is the same as `priority`.
-        case highPriority
-    }
-    
-}
-
 /// Mirror policy is responsible for picking a mirror to download when required.
 /// - Certain Mirror Policies can have specific retry logic.
 public protocol MirrorPolicy : Actor {
