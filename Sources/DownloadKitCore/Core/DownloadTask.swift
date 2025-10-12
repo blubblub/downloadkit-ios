@@ -42,12 +42,22 @@ private actor DownloadTaskState {
     }
     
     fileprivate func cancel() async {
-        await currentDownloadable?.cancel()
+        if let currentDownloadable {
+            // We have downloadable, need to cancel it and wait for it to error. (this is expected in URL session)
+            await currentDownloadable.cancel()
+        }
+        else {
+            // Download never started, just mark it as completed.
+            markComplete(with: DownloadKitError.network(.cancelled))
+        }
     }
     
     
     fileprivate func set(downloadable: Downloadable?) {
         currentDownloadable = downloadable
+        
+        // This happens on redownloading a cancelled or failed task, we should reset the isComplete flah.
+        isComplete = false
     }
 
     fileprivate func markComplete(with error: Error? = nil) {
@@ -142,6 +152,8 @@ public final class DownloadTask: Sendable, Equatable {
         await state.markComplete(with: error)
     }
     public func cancel() async {
+        let stateId = "\(ObjectIdentifier(state))"
+        log.debug("Cancelling download: \(self.id) (\(self.instanceId)-\(stateId)")
         await state.cancel()
     }
 }

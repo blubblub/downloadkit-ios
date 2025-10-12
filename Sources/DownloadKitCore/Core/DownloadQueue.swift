@@ -218,19 +218,28 @@ public actor DownloadQueue: DownloadQueuable {
             
             await downloadTaskInProgress.cancel()
         }
-        else {
+        else if let queuedTask = self.queuedDownloadMap[identifier] {
             log.debug("DownloadQueue - Canceling in queue: \(identifier)")
             
-            let queuedDownloadable = self.queuedDownloadMap[identifier]
+            // Cancel the task in queue, should finish all awaits on the task.
+            await queuedTask.cancel()
             
-            if let index = downloadQueue.firstIndex(where: { $0 === queuedDownloadable }) {
+            if let index = downloadQueue.firstIndex(where: { $0 === queuedTask }) {
                 downloadQueue.remove(at: index)
             }
             else {
-                log.fault("DownloadQueue - Error removing downloadable, inconsistent state: \(identifier)")
+                log.fault("DownloadQueue - Error removing downloadable, inconsistent queue state: \(identifier)")
             }
             
             self.queuedDownloadMap[identifier] = nil
+            
+            // Observers should be called with error.
+            let error = DownloadKitError.network(.cancelled)
+            self.notificationCenter.post(name: DownloadQueue.downloadErrorNotification, object: error, userInfo: [ "downloadTask": queuedTask])
+            await self.observer?.downloadQueue(self, downloadDidFail: queuedTask, with: error)
+        }
+        else {
+            log.warning("DownloadQueue - Cancelling a task not on the queue: \(identifier)")
         }
     }
     
@@ -470,7 +479,7 @@ extension DownloadQueue: DownloadProcessorObserver {
         Task {
             guard let downloadTask = await self.download(for: downloadable) else {
                 let downloadableIdentifier = await downloadable.identifier
-                log.error("DownloadQueue - Received downloadDidError callback for a Downloadable that is not in queue: \(downloadableIdentifier)")
+                log.error("DownloadQueue - Received downloadDidError: \(error) callback for a Downloadable that is not in queue: \(downloadableIdentifier)")
                 return
             }
             

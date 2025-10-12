@@ -128,7 +128,7 @@ actor MockDownloadable: Downloadable {
     private func handleCancellation() {
         state = .cancelled
         _finishedDate = Date()
-        let error = NSError(domain: "MockDownloadable", code: -999, userInfo: [NSLocalizedDescriptionKey: "Download was cancelled"])
+        let error = DownloadKitError.network(.cancelled)
         onComplete?(.failure(error))
     }
     

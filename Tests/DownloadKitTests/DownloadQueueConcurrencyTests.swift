@@ -237,7 +237,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         let cancelledIds = ActorArray<String>()
         
         // Create download tasks with longer delays to allow cancellation
-        let downloadTasks = await createMockDownloadTasks(count: itemCount, delay: 0.5, shouldSucceed: true)
+        let downloadTasks = await createMockDownloadTasks(count: itemCount, delay: 3, shouldSucceed: true)
         
         // Set up observer callbacks
         await observer.setDidFinishCallback { @Sendable [completedCounter] downloadTask, downloadable, location in
@@ -276,11 +276,12 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         
         // Verify results
         let completed = await completedCounter.value
-        let _ = await failedCounter.value
+        let failed = await failedCounter.value
         let cancelled = await cancelledIds.count
         
         XCTAssertEqual(cancelled, itemsToCancel, "Should have attempted to cancel \(itemsToCancel) items")
         XCTAssertLessThan(completed, itemCount, "Not all items should complete due to cancellations")
+        XCTAssertEqual(failed, itemsToCancel, "Cancelled items should be failed.")
         
         // Verify queue is clean
         let queuedCount = await downloadQueue.queuedDownloadCount
