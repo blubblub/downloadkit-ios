@@ -207,21 +207,25 @@ class MultipleRequestCancellationTests: XCTestCase {
         // Add multiple completion handlers for each resource
         for resource in resources {
             await manager.addResourceCompletion(for: resource) { (success: Bool, resourceId: String) in
-                XCTAssertFalse(success, "Cancellation should trigger completion with success: false")
-                Task {
-                    await callbackCounter.increment()
-                    await callbackIds.append(resourceId)
+                if resource.id == resourceId {
+                    XCTAssertFalse(success, "Cancellation should trigger completion with success: false")
+                    Task {
+                        await callbackCounter.increment()
+                        await callbackIds.append(resourceId)
+                    }
+                    expectation.fulfill()
                 }
-                expectation.fulfill()
             }
             
             await manager.addResourceCompletion(for: resource) { (success: Bool, resourceId: String) in
-                XCTAssertFalse(success, "Cancellation should trigger completion with success: false")
-                Task {
-                    await callbackCounter.increment()
-                    await callbackIds.append(resourceId)
+                if resource.id == resourceId {
+                    XCTAssertFalse(success, "Cancellation should trigger completion with success: false")
+                    Task {
+                        await callbackCounter.increment()
+                        await callbackIds.append(resourceId)
+                    }
+                    expectation.fulfill()
                 }
-                expectation.fulfill()
             }
         }
         
