@@ -493,6 +493,11 @@ extension DownloadQueue: DownloadProcessorObserver {
     
     private func retry(downloadTask: DownloadTask, downloadable: Downloadable, with error: Error) async {
         // Try to get a new downloadable from task.
+        if let dkError = error as? DownloadKitError, dkError == DownloadKitError.network(.cancelled) {
+            await downloadFailure(downloadTask: downloadTask, downloadable: downloadable, withError: error)
+            return
+        }
+        
         
         if let newDownloadable = await downloadTask.downloadable(with: downloadable, error: error) {
             // We can process new downloadable now.

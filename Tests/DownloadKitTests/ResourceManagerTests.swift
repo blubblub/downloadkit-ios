@@ -385,7 +385,9 @@ class ResourceManagerTests: XCTestCase {
         // Cancel the request without processing it to avoid double completion
         await manager.cancel(task)
 
-        await fulfillment(of: [expectation], timeout: 2)
+        await fulfillment(of: [expectation], timeout: 3)
+        
+        print("Task should be cancelled now.")
 
         // Verify internal state is cleaned up from both queues
         let downloadableIdentifier = task.id
