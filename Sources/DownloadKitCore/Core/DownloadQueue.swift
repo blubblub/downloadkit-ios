@@ -213,11 +213,14 @@ public actor DownloadQueue: DownloadQueuable {
     }
     
     public func cancel(with identifier: String) async {
-        if let downloadableInProgress = self.progressDownloadMap[identifier] {
-            await downloadableInProgress.cancel()
-            self.progressDownloadMap[identifier] = nil
+        if let downloadTaskInProgress = self.progressDownloadMap[identifier] {
+            log.debug("DownloadQueue - Canceling in flight: \(identifier)")
+            
+            await downloadTaskInProgress.cancel()
         }
         else {
+            log.debug("DownloadQueue - Canceling in queue: \(identifier)")
+            
             let queuedDownloadable = self.queuedDownloadMap[identifier]
             
             if let index = downloadQueue.firstIndex(where: { $0 === queuedDownloadable }) {
@@ -480,8 +483,6 @@ extension DownloadQueue: DownloadProcessorObserver {
     }
     
     private func retry(downloadTask: DownloadTask, downloadable: Downloadable, with error: Error) async {
-        
-        
         // Try to get a new downloadable from task.
         
         if let newDownloadable = await downloadTask.downloadable(with: downloadable, error: error) {

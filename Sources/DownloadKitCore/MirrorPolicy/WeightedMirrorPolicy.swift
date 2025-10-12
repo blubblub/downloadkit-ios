@@ -75,7 +75,7 @@ public actor WeightedMirrorPolicy: MirrorPolicy {
             // Ensure downloadable exists, otherwise continue
             var counter = selectedIndex
             
-            while downloadable == nil, counter < mirrors.count  {
+            while downloadable == nil, counter < mirrors.count {
                 downloadable = mirrors[counter].downloadable
                 
                 if downloadable != nil {

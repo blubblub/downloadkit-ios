@@ -10,263 +10,6 @@ import XCTest
 import Foundation
 @testable import DownloadKit
 
-// MARK: - Mock Downloadable Implementation
-
-/// Mock downloadable that simulates downloads using Thread.sleep()
-actor MockDownloadable: Downloadable {
-    
-    enum State {
-        case idle
-        case downloading
-        case completed
-        case failed
-        case cancelled
-    }
-    
-    // MARK: - Configuration
-    
-    private let _identifier: String
-    private let delay: TimeInterval
-    private let shouldSucceed: Bool
-    private let mockFileURL: URL
-    
-    // MARK: - State
-    
-    private var state: State = .idle
-    private var _startDate: Date?
-    private var _finishedDate: Date?
-    private var _progress: Foundation.Progress?
-    private var _totalBytes: Int64 = 0
-    private var _totalSize: Int64 = 1024 * 1024 // 1MB default
-    private var _transferredBytes: Int64 = 0
-    private var isCancelled = false
-    
-    // MARK: - Callbacks
-    
-    var onComplete: ((Result<URL, Error>) -> Void)?
-    var onProgress: ((Int64, Int64) -> Void)?
-    
-    // MARK: - Downloadable Protocol
-    
-    var identifier: String { _identifier }
-    var totalBytes: Int64 { _totalBytes }
-    var totalSize: Int64 { _totalSize }
-    var transferredBytes: Int64 { _transferredBytes }
-    var startDate: Date? { _startDate }
-    var finishedDate: Date? { _finishedDate }
-    var progress: Foundation.Progress? { _progress }
-    
-    // MARK: - Initialization
-    
-    init(identifier: String, delay: TimeInterval, shouldSucceed: Bool, fileURL: URL) {
-        self._identifier = identifier
-        self.delay = delay
-        self.shouldSucceed = shouldSucceed
-        self.mockFileURL = fileURL
-        self._progress = Foundation.Progress(totalUnitCount: _totalSize)
-    }
-    
-    // MARK: - Public Methods
-    
-    func start(with parameters: DownloadParameters) {
-        guard state == .idle else { return }
-        
-        state = .downloading
-        _startDate = Date()
-        
-        // Perform simulated download on background thread using Task.sleep
-        Task.detached { [weak self, delay, shouldSucceed, mockFileURL] in
-            guard let self = self else { return }
-            
-            // Simulate download with periodic progress updates
-            let chunks = 10
-            let chunkDelay = delay / Double(chunks)
-            let chunkDelayNanos = UInt64(chunkDelay * 1_000_000_000)
-            
-            for i in 1...chunks {
-                // Check for cancellation
-                let cancelled = await self.checkCancellation()
-                if cancelled {
-                    await self.handleCancellation()
-                    return
-                }
-                
-                // Sleep to simulate work using Task.sleep
-                try? await Task.sleep(nanoseconds: chunkDelayNanos)
-                
-                // Update progress
-                await self.updateProgress(chunk: i, totalChunks: chunks)
-            }
-            
-            // Complete the download
-            await self.completeDownload(success: shouldSucceed, fileURL: mockFileURL)
-        }
-    }
-    
-    func cancel() {
-        isCancelled = true
-        if state == .downloading {
-            state = .cancelled
-            _finishedDate = Date()
-        }
-    }
-    
-    func pause() {
-        // No-op for mock
-    }
-    
-    // MARK: - Internal Helpers
-    
-    private func checkCancellation() -> Bool {
-        return isCancelled
-    }
-    
-    private func handleCancellation() {
-        state = .cancelled
-        _finishedDate = Date()
-        let error = NSError(domain: "MockDownloadable", code: -999, userInfo: [NSLocalizedDescriptionKey: "Download was cancelled"])
-        onComplete?(.failure(error))
-    }
-    
-    private func updateProgress(chunk: Int, totalChunks: Int) {
-        let bytesTransferred = (_totalSize * Int64(chunk)) / Int64(totalChunks)
-        _transferredBytes = bytesTransferred
-        _progress?.completedUnitCount = bytesTransferred
-        onProgress?(_transferredBytes, _totalSize)
-    }
-    
-    private func completeDownload(success: Bool, fileURL: URL) {
-        _finishedDate = Date()
-        
-        if success {
-            state = .completed
-            _transferredBytes = _totalSize
-            _totalBytes = _totalSize
-            _progress?.completedUnitCount = _totalSize
-            onComplete?(.success(fileURL))
-        } else {
-            state = .failed
-            let error = NSError(domain: "MockDownloadable", code: -1, userInfo: [NSLocalizedDescriptionKey: "Simulated download failure"])
-            onComplete?(.failure(error))
-        }
-    }
-    
-    // MARK: - Test Helpers
-    
-    func getCurrentState() -> State {
-        return state
-    }
-    
-    func setOnComplete(_ callback: @escaping (Result<URL, Error>) -> Void) {
-        self.onComplete = callback
-    }
-    
-    func setOnProgress(_ callback: @escaping (Int64, Int64) -> Void) {
-        self.onProgress = callback
-    }
-}
-
-// MARK: - Mock Mirror Policy
-
-/// Simple mirror policy that returns the mock downloadable
-actor MockMirrorPolicy: MirrorPolicy {
-    private var downloadables: [String: MockDownloadable] = [:]
-    
-    func setDownloadable(_ downloadable: MockDownloadable, for resourceId: String) {
-        downloadables[resourceId] = downloadable
-    }
-    
-    func downloadable(for resource: ResourceFile, lastDownloadableIdentifier: String?, error: Error?) -> Downloadable? {
-        return downloadables[resource.id]
-    }
-}
-
-// MARK: - Mock Download Processor
-
-actor MockDownloadProcessor: DownloadProcessor {
-    
-    weak var observer: DownloadProcessorObserver?
-    private(set) var isActive: Bool = true
-    private var processingTasks: [String: Task<Void, Never>] = [:]
-    
-    func set(observer: DownloadProcessorObserver?) {
-        self.observer = observer
-    }
-    
-    func canProcess(downloadable: Downloadable) -> Bool {
-        return downloadable is MockDownloadable
-    }
-    
-    func process(_ downloadable: Downloadable) async {
-        guard let mockDownloadable = downloadable as? MockDownloadable else {
-            return
-        }
-        
-        let identifier = await mockDownloadable.identifier
-        
-        // Notify observer that download began (nonisolated)
-        if let observer = observer {
-            Task {
-                await observer.downloadDidBegin(self, downloadable: downloadable)
-            }
-        }
-        
-        // Create processing task
-        let task = Task {
-            // Set up completion callback
-            await mockDownloadable.setOnComplete { @Sendable [weak self, weak downloadable] result in
-                guard let self = self, let downloadable = downloadable else { return }
-                
-                Task {
-                    switch result {
-                    case .success(let url):
-                        await self.observer?.downloadDidFinishTransfer(self, downloadable: downloadable, to: url)
-                        await self.observer?.downloadDidFinish(self, downloadable: downloadable)
-                    case .failure(let error):
-                        await self.observer?.downloadDidError(self, downloadable: downloadable, error: error)
-                    }
-                    
-                    // Clean up processing task
-                    await self.removeProcessingTask(identifier: await downloadable.identifier)
-                }
-            }
-            
-            // Set up progress callback
-            await mockDownloadable.setOnProgress { @Sendable [weak self, weak downloadable] transferred, total in
-                guard let self = self, let downloadable = downloadable else { return }
-                
-                Task {
-                    if transferred > 0 {
-                        await self.observer?.downloadDidStartTransfer(self, downloadable: downloadable)
-                    }
-                    await self.observer?.downloadDidTransferData(self, downloadable: downloadable)
-                }
-            }
-            
-            // Start the download
-            await mockDownloadable.start(with: [:])
-        }
-        
-        processingTasks[identifier] = task
-    }
-    
-    func enqueuePending() async {
-        // No-op for mock processor
-    }
-    
-    func pause() async {
-        isActive = false
-    }
-    
-    func resume() async {
-        isActive = true
-    }
-    
-    private func removeProcessingTask(identifier: String) {
-        processingTasks[identifier] = nil
-    }
-}
-
 // MARK: - Concurrency Tests
 
 class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
@@ -275,9 +18,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
     var processor: MockDownloadProcessor!
     var observer: DownloadQueueObserverMock!
     var tempDirectory: URL!
-    
-    
-    
+        
     override func tearDownWithError() throws {
         Task { [queue = downloadQueue!] in
             await queue.cancelAll()
@@ -543,7 +284,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         
         // Verify queue is clean
         let queuedCount = await downloadQueue.queuedDownloadCount
-        XCTAssertEqual(queuedCount, itemCount - itemsToCancel, "Queue should be empty after cancellation")
+        XCTAssertEqual(queuedCount, 0, "Queue should be empty after cancellation")
     }
     
     // MARK: - Test: Concurrent Enqueueing and Cancellation
@@ -786,6 +527,8 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
     private func createMockDownloadTasks(count: Int, delay: TimeInterval, shouldSucceed: Bool, idPrefix: String = "mock") async -> [DownloadTask] {
         var tasks: [DownloadTask] = []
         
+        let mirrorPolicy = MockMirrorPolicy()
+        
         for i in 0..<count {
             let identifier = "\(idPrefix)-download-\(i)"
             let fileURL = tempDirectory.appendingPathComponent("\(identifier).tmp")
@@ -793,13 +536,10 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
             // Create mock file
             try? "mock data".write(to: fileURL, atomically: true, encoding: .utf8)
             
-            let mockDownloadable = MockDownloadable(
-                identifier: identifier,
-                delay: delay,
-                shouldSucceed: shouldSucceed,
-                fileURL: fileURL
-            )
+            let configuration = MockDownloadableConfiguration(finishedURL: fileURL, shouldSucceed: shouldSucceed, delay: delay)
             
+            await mirrorPolicy.addConfiguration(configuration, forResource: identifier)
+                        
             let resource = Resource(
                 id: identifier,
                 main: FileMirror(id: identifier, location: "mock://\(identifier)", info: [:]),
@@ -808,10 +548,6 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
             )
             
             let request = DownloadRequest(resource: resource, options: RequestOptions())
-            let mirrorPolicy = MockMirrorPolicy()
-            
-            // Register the downloadable with the mirror policy
-            await mirrorPolicy.setDownloadable(mockDownloadable, for: identifier)
             
             let downloadTask = DownloadTask(request: request, mirrorPolicy: mirrorPolicy)
             
@@ -824,6 +560,8 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
     private func createMockDownloadTasksWithMixedResults(successValues: [Bool], delay: TimeInterval, idPrefix: String = "mixed") async -> [DownloadTask] {
         var tasks: [DownloadTask] = []
         
+        let mirrorPolicy = MockMirrorPolicy()
+        
         for (i, shouldSucceed) in successValues.enumerated() {
             let identifier = "\(idPrefix)-download-\(i)"
             let fileURL = tempDirectory.appendingPathComponent("\(identifier).tmp")
@@ -831,13 +569,11 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
             // Create mock file
             try? "mock data".write(to: fileURL, atomically: true, encoding: .utf8)
             
-            let mockDownloadable = MockDownloadable(
-                identifier: identifier,
-                delay: delay,
-                shouldSucceed: shouldSucceed,
-                fileURL: fileURL
-            )
             
+            let configuration = MockDownloadableConfiguration(finishedURL: fileURL, shouldSucceed: shouldSucceed, delay: delay)
+            
+            await mirrorPolicy.addConfiguration(configuration, forResource: identifier)
+                        
             let resource = Resource(
                 id: identifier,
                 main: FileMirror(id: identifier, location: "mock://\(identifier)", info: [:]),
@@ -846,10 +582,6 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
             )
             
             let request = DownloadRequest(resource: resource, options: RequestOptions())
-            let mirrorPolicy = MockMirrorPolicy()
-            
-            // Register the downloadable with the mirror policy
-            await mirrorPolicy.setDownloadable(mockDownloadable, for: identifier)
             
             let downloadTask = DownloadTask(request: request, mirrorPolicy: mirrorPolicy)
             
