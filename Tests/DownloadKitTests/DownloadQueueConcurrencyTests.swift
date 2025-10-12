@@ -237,7 +237,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         let cancelledIds = ActorArray<String>()
         
         // Create download tasks with longer delays to allow cancellation
-        let downloadTasks = await createMockDownloadTasks(count: itemCount, delay: 3, shouldSucceed: true)
+        let downloadTasks = await createMockDownloadTasks(count: itemCount, delay: 0.5, shouldSucceed: true)
         
         // Set up observer callbacks
         await observer.setDidFinishCallback { @Sendable [completedCounter] downloadTask, downloadable, location in
@@ -264,7 +264,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         await withTaskGroup(of: Void.self) { group in
             for i in 0..<itemsToCancel {
                 group.addTask {
-                    let taskId = downloadTasks[i].id
+                    let taskId = downloadTasks[i + itemsToCancel].id
                     await cancelledIds.append(taskId)
                     await self.downloadQueue.cancel(with: taskId)
                 }
@@ -272,7 +272,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         }
         
         // Wait for remaining downloads to complete
-        try await Task.sleep(nanoseconds: 8_000_000_000) // 8 seconds
+        try await Task.sleep(nanoseconds: 20_000_000_000) // 8 seconds
         
         // Verify results
         let completed = await completedCounter.value

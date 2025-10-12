@@ -42,6 +42,10 @@ private actor DownloadTaskState {
     }
     
     fileprivate func cancel() async {
+        if isComplete {
+            log.warning("Cancelled completed task: \(self.instanceId)")
+            return
+        }
         if let currentDownloadable {
             // We have downloadable, need to cancel it and wait for it to error. (this is expected in URL session)
             await currentDownloadable.cancel()
