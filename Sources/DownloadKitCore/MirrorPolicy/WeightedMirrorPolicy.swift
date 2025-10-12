@@ -18,8 +18,7 @@ public actor WeightedMirrorPolicy: MirrorPolicy {
     private let log = Logger.logWeightedMirrorPolicy
     /// Holds a small retry access
     private var retryCounters = [String: Int]()
-    
-    
+        
     public private(set) weak var delegate: MirrorPolicyDelegate?
     
     public func setDelegate(_ delegate: MirrorPolicyDelegate?) {
@@ -42,19 +41,6 @@ public actor WeightedMirrorPolicy: MirrorPolicy {
     }
     
     public func downloadable(for resource: ResourceFile, lastDownloadableIdentifier: String?, error: Error?) -> Downloadable? {
-        
-        // if download was cancelled, no need to retry or return new mirror
-        if let downloadKitError = error as? DownloadKitError,
-           case .networkError(.cancelled) = downloadKitError {
-            return nil
-        }
-        
-        // Also handle NSError for backwards compatibility
-        if let nsError = error as NSError?,
-           nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
-            return nil
-        }
-        
         let mirrors = sortMirrors(for: resource)
         
         var selectedIndex = 0

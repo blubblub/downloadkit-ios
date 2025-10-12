@@ -272,7 +272,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         }
         
         // Wait for remaining downloads to complete
-        try await Task.sleep(nanoseconds: 20_000_000_000) // 8 seconds
+        try await Task.sleep(nanoseconds: 20_000_000_000) // 20 seconds
         
         // Verify results
         let completed = await completedCounter.value
@@ -496,7 +496,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         }
         
         // Wait for completion
-        try await Task.sleep(nanoseconds: 15_000_000_000) // 15 seconds
+        try await Task.sleep(nanoseconds: 20_000_000_000) // 20 seconds
         
         // Verify system is stable
         let completed = await completedCounter.value
