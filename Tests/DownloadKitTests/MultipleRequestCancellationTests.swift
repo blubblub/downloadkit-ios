@@ -2,6 +2,7 @@ import XCTest
 import RealmSwift
 @testable import DownloadKit
 @testable import DownloadKitRealm
+@testable import DownloadKitCore
 
 class MultipleRequestCancellationTests: XCTestCase {
     
@@ -43,6 +44,7 @@ class MultipleRequestCancellationTests: XCTestCase {
         cache = RealmCacheManager<CachedLocalFile>(configuration: config)
         manager = ResourceManager(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue)
     }
+    
 
     override func tearDownWithError() throws {
         // Clear references - in-memory realm will be automatically cleaned up
@@ -494,5 +496,181 @@ class MultipleRequestCancellationTests: XCTestCase {
         
         let finalQueuedDownloadCount = await manager.queuedDownloadCount
         XCTAssertEqual(finalQueuedDownloadCount, 0, "No downloads should be queued after large array cancellation")
+    }
+    
+    // MARK: - Callback Error Verification Tests
+    
+    func testCancelledWebDownloadTriggersWaitTillCompleteWithCorrectError() async {
+        await setupManager()
+        
+        // Create a resource with a real URL that will take time to download
+        let resource = Resource(
+            id: "web-cancel-wait-error-test",
+            main: FileMirror(id: "web-cancel-wait-error-test",
+                           location: "https://picsum.photos/500/500.jpg",
+                           info: [:]),
+            alternatives: [],
+            fileURL: nil
+        )
+        
+        let request = await manager.request(resource: resource)
+        XCTAssertNotNil(request, "Request should be created")
+        
+        let task = await manager.process(request: request!)
+        
+        // Start waiting on the task in a separate Task
+        let waitTask = Task {
+            do {
+                try await task.waitTillComplete()
+                XCTFail("Should have thrown cancellation error")
+            } catch let error as DownloadKitError {
+                // Verify the error is specifically network cancelled
+                if case .networkError(let networkError) = error {
+                    XCTAssertEqual(networkError, .cancelled, "Error should be NetworkError.cancelled")
+                } else {
+                    XCTFail("Error should be networkError(.cancelled), got: \(error)")
+                }
+            } catch {
+                XCTFail("Unexpected error type: \(error)")
+            }
+        }
+        
+        // Give the download time to start
+        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+        
+        // Cancel the download
+        await manager.cancel(task)
+        
+        // Wait for the waitTask to complete
+        await waitTask.value
+    }
+    
+    func testCancelledWebDownloadWithMultipleCallbacksVerifyError() async {
+        await setupManager()
+        
+        let resource = Resource(
+            id: "web-multi-callback-test",
+            main: FileMirror(id: "web-multi-callback-test",
+                           location: "https://picsum.photos/500/500.jpg",
+                           info: [:]),
+            alternatives: [],
+            fileURL: nil
+        )
+        
+        let expectation1 = self.expectation(description: "First callback should be triggered")
+        let expectation2 = self.expectation(description: "Second callback should be triggered")
+        
+        // Add multiple resource completion callbacks
+        await manager.addResourceCompletion(for: resource) { (success: Bool, resourceId: String) in
+            XCTAssertFalse(success, "Cancellation should trigger completion with success: false")
+            expectation1.fulfill()
+        }
+        
+        await manager.addResourceCompletion(for: resource) { (success: Bool, resourceId: String) in
+            XCTAssertFalse(success, "Cancellation should trigger completion with success: false")
+            expectation2.fulfill()
+        }
+        
+        let request = await manager.request(resource: resource)
+        XCTAssertNotNil(request, "Request should be created")
+        
+        let task = await manager.process(request: request!)
+        
+        // Also test waitTillComplete in parallel
+        let waitTask = Task {
+            do {
+                try await task.waitTillComplete()
+                XCTFail("Should have thrown cancellation error")
+            } catch let error as DownloadKitError {
+                print("Catched error: \(error)")
+                if case .networkError(let networkError) = error {
+                    XCTAssertEqual(networkError, .cancelled, "Error should be NetworkError.cancelled")
+                } else {
+                    XCTFail("Error should be networkError(.cancelled), got: \(error)")
+                }
+            } catch {
+                XCTFail("Unexpected error type: \(error)")
+            }
+        }
+        
+        // Give the download time to start
+        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+        
+        // Cancel the download
+        await manager.cancel(task)
+        
+        // Wait for both callbacks and the waitTask
+        await fulfillment(of: [expectation1, expectation2], timeout: 5)
+        await waitTask.value
+    }
+    
+    func testCancelMultipleWebDownloadsVerifyAllCallbacks() async {
+        await setupManager()
+        
+        // Create web resources
+        let webResource1 = Resource(
+            id: "mixed-web-1",
+            main: FileMirror(id: "mixed-web-1",
+                           location: "https://picsum.photos/300/300.jpg",
+                           info: [:]),
+            alternatives: [],
+            fileURL: nil
+        )
+        
+        let webResource2 = Resource(
+            id: "mixed-web-2",
+            main: FileMirror(id: "mixed-web-2",
+                           location: "https://picsum.photos/400/400.jpg",
+                           info: [:]),
+            alternatives: [],
+            fileURL: nil
+        )
+        
+        let webResource3 = Resource(
+            id: "mixed-web-3",
+            main: FileMirror(id: "mixed-web-3",
+                           location: "https://picsum.photos/350/350.jpg",
+                           info: [:]),
+            alternatives: [],
+            fileURL: nil
+        )
+        
+        let expectation = self.expectation(description: "All callbacks should be triggered")
+        expectation.expectedFulfillmentCount = 3
+        
+        // Add callbacks for all resources
+        await manager.addResourceCompletion(for: webResource1) { (success: Bool, resourceId: String) in
+            XCTAssertFalse(success, "Cancellation should trigger completion with success: false")
+            expectation.fulfill()
+        }
+        
+        await manager.addResourceCompletion(for: webResource2) { (success: Bool, resourceId: String) in
+            XCTAssertFalse(success, "Cancellation should trigger completion with success: false")
+            expectation.fulfill()
+        }
+        
+        await manager.addResourceCompletion(for: webResource3) { (success: Bool, resourceId: String) in
+            XCTAssertFalse(success, "Cancellation should trigger completion with success: false")
+            expectation.fulfill()
+        }
+        
+        // Request and process all downloads
+        let webRequest1 = await manager.request(resource: webResource1)
+        let webRequest2 = await manager.request(resource: webResource2)
+        let webRequest3 = await manager.request(resource: webResource3)
+        
+        let webTask1 = await manager.process(request: webRequest1!)
+        let webTask2 = await manager.process(request: webRequest2!)
+        let webTask3 = await manager.process(request: webRequest3!)
+        
+        let tasks = [webTask1, webTask2, webTask3]
+        
+        // Give downloads time to start
+        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+        
+        // Cancel all downloads
+        await manager.cancel(downloadTasks: tasks)
+        
+        await fulfillment(of: [expectation], timeout: 5)
     }
 }
