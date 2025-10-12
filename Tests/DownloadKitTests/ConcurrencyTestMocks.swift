@@ -181,18 +181,32 @@ struct MockDownloadableConfiguration : Sendable {
 /// Simple mirror policy that returns the mock downloadable
 actor MockMirrorPolicy: MirrorPolicy {
     private var configurations: [String: MockDownloadableConfiguration] = [:]
+    private var retries: [String: Int] = [:]
+    
+    private var maxRetries: Int
+    
+    init(maxRetries: Int = 3) {
+        self.maxRetries = maxRetries
+    }
     
     func addConfiguration(_ configuration: MockDownloadableConfiguration, forResource id: String) {
         self.configurations[id] = configuration
     }
-    
-    
+        
     // MARK: - Mirror Policy
     
     func downloadable(for resource: ResourceFile, lastDownloadableIdentifier: String?, error: Error?) -> Downloadable? {
         guard let configuration = configurations[resource.id] else {
             return nil
         }
+        
+        let retries = (self.retries[resource.id] ?? 0) + 1
+        
+        if retries > maxRetries {
+            return nil
+        }
+        
+        self.retries[resource.id] = retries
         
         return MockDownloadable(identifier: resource.id, delay: configuration.delay, shouldSucceed: configuration.shouldSucceed, fileURL: configuration.finishedURL ?? URL(fileURLWithPath: "/tmp/mock"))
     }
