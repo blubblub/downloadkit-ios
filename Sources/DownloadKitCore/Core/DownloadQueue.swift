@@ -441,8 +441,7 @@ extension DownloadQueue: DownloadProcessorObserver {
                 return
             }
             self.notificationCenter.post(name: DownloadQueue.downloadDidStartTransferNotification, object: downloadTask)
-        }
-        
+        }        
     }
     
     public func downloadDidFinishTransfer(_ processor: DownloadProcessor, downloadable: Downloadable, to url: URL) {
@@ -457,19 +456,19 @@ extension DownloadQueue: DownloadProcessorObserver {
             }
             
             do {
-                self.progressDownloadMap[downloadTask.id] = nil
+                try await observer?.downloadQueue(self, downloadDidFinish: downloadTask, downloadable: downloadable, to: url)
+                notificationCenter.post(name: DownloadQueue.downloadDidFinishNotification, object: downloadTask)
                 
                 self.metrics.processed += 1
                 self.metrics.completed += 1
                 
-                try await observer?.downloadQueue(self, downloadDidFinish: downloadTask, downloadable: downloadable, to: url)
-                notificationCenter.post(name: DownloadQueue.downloadDidFinishNotification, object: downloadTask)
-                
                 // Continue processing downloads.
+                self.progressDownloadMap[downloadTask.id] = nil
                 
                 await self.process()
             }
             catch {
+                
                 await retry(downloadTask: downloadTask, downloadable: downloadable, with: error)
             }
         }
