@@ -49,7 +49,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         expectation.expectedFulfillmentCount = itemCount
         
         // Create download tasks
-        let downloadTasks = await createMockDownloadTasks(count: itemCount, delay: 0.01, shouldSucceed: true)
+        let downloadTasks = await createMockDownloadTasks(count: itemCount, delay: 0.1, shouldSucceed: true)
         
         // Set up observer callbacks
         await observer.setDidFinishCallback { @Sendable [successCounter, expectation] downloadTask, downloadable, location in
@@ -81,7 +81,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         }
         
         // Wait for completion
-        await fulfillment(of: [expectation], timeout: 30.0)
+        await fulfillment(of: [expectation], timeout: 40.0)
         
         // Verify results
         let successCount = await successCounter.value
@@ -496,7 +496,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         }
         
         // Wait for completion
-        try await Task.sleep(nanoseconds: 20_000_000_000) // 20 seconds
+        try await Task.sleep(nanoseconds: 25_000_000_000) // 25 seconds
         
         // Verify system is stable
         let completed = await completedCounter.value

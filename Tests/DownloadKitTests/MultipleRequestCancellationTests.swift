@@ -31,6 +31,22 @@ class MultipleRequestCancellationTests: XCTestCase {
         return ResourceManagerWrapper(manager: manager, realm: realm)
     }
     
+    private func setupMockManager() async -> ResourceManagerWrapper {
+        let downloadQueue = DownloadQueue()
+        await downloadQueue.add(processor: MockDownloadProcessor())
+        
+        // Use in-memory configuration to avoid cache conflicts
+        let config = Realm.Configuration(inMemoryIdentifier: UUID().uuidString)
+        
+        // Create Realm instance and keep it alive during the test, so memory is not cleared.
+        let realm = try! await Realm(configuration: config, actor: MainActor.shared)
+        
+        let cache = RealmCacheManager<CachedLocalFile>(configuration: config)
+        let manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
+        
+        return ResourceManagerWrapper(manager: manager, realm: realm)
+    }
+    
     private func setupWithPriorityQueue() async -> ResourceManagerWrapper {
         let downloadQueue = DownloadQueue()
         await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
@@ -518,7 +534,7 @@ class MultipleRequestCancellationTests: XCTestCase {
         let resource = Resource(
             id: "web-cancel-wait-error-test",
             main: FileMirror(id: "web-cancel-wait-error-test",
-                           location: "https://picsum.photos/500/500.jpg",
+                           location: "https://file-examples.com/storage/fe3aa38b1868ec9b7a1cc78/2017/04/file_example_MP4_1920_18MG.mp4",
                            info: [:]),
             alternatives: [],
             fileURL: nil
@@ -563,7 +579,7 @@ class MultipleRequestCancellationTests: XCTestCase {
         let resource = Resource(
             id: "web-multi-callback-test",
             main: FileMirror(id: "web-multi-callback-test",
-                           location: "https://picsum.photos/500/500.jpg",
+                           location: "https://file-examples.com/storage/fe3aa38b1868ec9b7a1cc78/2017/04/file_example_MP4_1920_18MG.mp4",
                            info: [:]),
             alternatives: [],
             fileURL: nil
@@ -624,7 +640,7 @@ class MultipleRequestCancellationTests: XCTestCase {
         let webResource1 = Resource(
             id: "mixed-web-1",
             main: FileMirror(id: "mixed-web-1",
-                           location: "https://picsum.photos/300/300.jpg",
+                           location: "https://file-examples.com/storage/fe3aa38b1868ec9b7a1cc78/2017/04/file_example_MP4_1920_18MG.mp4",
                            info: [:]),
             alternatives: [],
             fileURL: nil
@@ -633,7 +649,7 @@ class MultipleRequestCancellationTests: XCTestCase {
         let webResource2 = Resource(
             id: "mixed-web-2",
             main: FileMirror(id: "mixed-web-2",
-                           location: "https://picsum.photos/400/400.jpg",
+                           location: "https://file-examples.com/storage/fe3aa38b1868ec9b7a1cc78/2017/04/file_example_MP4_1920_18MG.mp4",
                            info: [:]),
             alternatives: [],
             fileURL: nil
@@ -642,7 +658,7 @@ class MultipleRequestCancellationTests: XCTestCase {
         let webResource3 = Resource(
             id: "mixed-web-3",
             main: FileMirror(id: "mixed-web-3",
-                           location: "https://picsum.photos/350/350.jpg",
+                           location: "https://file-examples.com/storage/fe3aa38b1868ec9b7a1cc78/2017/04/file_example_MP4_1920_18MG.mp4",
                            info: [:]),
             alternatives: [],
             fileURL: nil
