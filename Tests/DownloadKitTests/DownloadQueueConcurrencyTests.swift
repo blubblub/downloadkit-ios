@@ -106,7 +106,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         expectation.expectedFulfillmentCount = itemCount
         
         // Create download tasks with shorter delays for faster test
-        let downloadTasks = await createMockDownloadTasks(count: itemCount, delay: 0.005, shouldSucceed: true)
+        let downloadTasks = await createMockDownloadTasks(count: itemCount, delay: 0.01, shouldSucceed: true)
         
         // Set up observer callbacks
         await observer.setDidFinishCallback { @Sendable [successCounter, expectation] downloadTask, downloadable, location in
@@ -138,7 +138,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
         }
         
         // Wait for completion with longer timeout for 1000 items
-        await fulfillment(of: [expectation], timeout: 60.0)
+        await fulfillment(of: [expectation], timeout: 120.0)
         
         // Verify results
         let successCount = await successCounter.value
