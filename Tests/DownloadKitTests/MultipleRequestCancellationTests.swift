@@ -4,31 +4,34 @@ import RealmSwift
 @testable import DownloadKitRealm
 @testable import DownloadKitCore
 
+private struct ResourceManagerWrapper {
+    let manager: ResourceManager
+    let realm: Realm
+}
+
 class MultipleRequestCancellationTests: XCTestCase {
-    
-    var manager: ResourceManager!
-    var cache: RealmCacheManager<CachedLocalFile>!
-    var realm: Realm!
     
     override func setUpWithError() throws {
         // Synchronous setup - manager will be configured in async test methods
     }
     
-    func setupManager() async {
+    private func setupManager() async -> ResourceManagerWrapper {
         let downloadQueue = DownloadQueue()
         await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
         
         // Use in-memory configuration to avoid cache conflicts
         let config = Realm.Configuration(inMemoryIdentifier: UUID().uuidString)
         
-        // Create Realm instance and keep it alive during the test
-        realm = try! await Realm(configuration: config, actor: MainActor.shared)
+        // Create Realm instance and keep it alive during the test, so memory is not cleared.
+        let realm = try! await Realm(configuration: config, actor: MainActor.shared)
         
-        cache = RealmCacheManager<CachedLocalFile>(configuration: config)
-        manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
+        let cache = RealmCacheManager<CachedLocalFile>(configuration: config)
+        let manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
+        
+        return ResourceManagerWrapper(manager: manager, realm: realm)
     }
     
-    func setupWithPriorityQueue() async {
+    private func setupWithPriorityQueue() async -> ResourceManagerWrapper {
         let downloadQueue = DownloadQueue()
         await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
         
@@ -39,24 +42,19 @@ class MultipleRequestCancellationTests: XCTestCase {
         let config = Realm.Configuration(inMemoryIdentifier: UUID().uuidString)
         
         // Create Realm instance and keep it alive during the test
-        realm = try! await Realm(configuration: config, actor: MainActor.shared)
+        let realm = try! await Realm(configuration: config, actor: MainActor.shared)
         
-        cache = RealmCacheManager<CachedLocalFile>(configuration: config)
-        manager = ResourceManager(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue)
-    }
-    
-
-    override func tearDownWithError() throws {
-        // Clear references - in-memory realm will be automatically cleaned up
-        cache = nil
-        manager = nil
-        realm = nil
+        let cache = RealmCacheManager<CachedLocalFile>(configuration: config)
+        let manager = ResourceManager(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue)
+        
+        return ResourceManagerWrapper(manager: manager, realm: realm)
     }
     
     // MARK: - Empty Array Tests
     
     func testCancelEmptyArray() async {
-        await setupManager()
+        let wrapper = await setupManager()
+        let manager = wrapper.manager
         
         // Test that cancelling empty array doesn't crash or cause issues
         await manager.cancel(downloadTasks: [])
@@ -75,7 +73,8 @@ class MultipleRequestCancellationTests: XCTestCase {
     // MARK: - Single Request Array Tests
     
     func testCancelSingleRequestArray() async {
-        await setupManager()
+        let wrapper = await setupManager()
+        let manager = wrapper.manager
         
         let resource = Resource(id: "single-cancel-test", 
                                main: FileMirror(id: "single-cancel-test",
@@ -116,7 +115,8 @@ class MultipleRequestCancellationTests: XCTestCase {
     // MARK: - Multiple Request Array Tests
     
     func testCancelMultipleRequestsArray() async {
-        await setupManager()
+        let wrapper = await setupManager()
+        let manager = wrapper.manager
         
         let resources = [
             Resource(id: "multi-cancel-test-1", 
@@ -177,7 +177,8 @@ class MultipleRequestCancellationTests: XCTestCase {
     // MARK: - Callback Triggering Tests
     
     func testCancelMultipleRequestsTriggersAllCallbacks() async {
-        await setupManager()
+        let wrapper = await setupManager()
+        let manager = wrapper.manager
         
         let resources = [
             Resource(id: "callback-test-1", 
@@ -253,7 +254,8 @@ class MultipleRequestCancellationTests: XCTestCase {
     // MARK: - State Management Tests
     
     func testCancelMultipleRequestsStateManagement() async {
-        await setupManager()
+        let wrapper = await setupManager()
+        let manager = wrapper.manager
         
         let resources = [
             Resource(id: "state-test-1", 
@@ -308,7 +310,8 @@ class MultipleRequestCancellationTests: XCTestCase {
     // MARK: - Progress Tracking Tests
     
     func testCancelMultipleRequestsProgressTracking() async {
-        await setupManager()
+        let wrapper = await setupManager()
+        let manager = wrapper.manager
         
         let resources = [
             Resource(id: "progress-test-1", 
@@ -357,7 +360,8 @@ class MultipleRequestCancellationTests: XCTestCase {
     // MARK: - Priority Queue Tests
     
     func testCancelMultipleRequestsWithPriorityQueue() async {
-        await setupWithPriorityQueue()
+        let wrapper = await setupWithPriorityQueue()
+        let manager = wrapper.manager
         
         let resources = [
             Resource(id: "priority-cancel-test-1", 
@@ -409,7 +413,8 @@ class MultipleRequestCancellationTests: XCTestCase {
     // MARK: - Error Handling Tests
     
     func testCancelRequestArrayWithMixedValidInvalidRequests() async {
-        await setupManager()
+        let wrapper = await setupManager()
+        let manager = wrapper.manager
         
         let validResource = Resource(id: "valid-mixed-test", 
                                    main: FileMirror(id: "valid-mixed-test",
@@ -459,7 +464,8 @@ class MultipleRequestCancellationTests: XCTestCase {
     // MARK: - Large Array Tests
     
     func testCancelLargeArrayOfRequests() async {
-        await setupManager()
+        let wrapper = await setupManager()
+        let manager = wrapper.manager
         
         // Create a large number of resources
         let resources = (1...50).map { index in
@@ -505,7 +511,8 @@ class MultipleRequestCancellationTests: XCTestCase {
     // MARK: - Callback Error Verification Tests
     
     func testCancelledWebDownloadTriggersWaitTillCompleteWithCorrectError() async {
-        await setupManager()
+        let wrapper = await setupManager()
+        let manager = wrapper.manager
         
         // Create a resource with a real URL that will take time to download
         let resource = Resource(
@@ -550,7 +557,8 @@ class MultipleRequestCancellationTests: XCTestCase {
     }
     
     func testCancelledWebDownloadWithMultipleCallbacksVerifyError() async {
-        await setupManager()
+        let wrapper = await setupManager()
+        let manager = wrapper.manager
         
         let resource = Resource(
             id: "web-multi-callback-test",
@@ -609,7 +617,8 @@ class MultipleRequestCancellationTests: XCTestCase {
     }
     
     func testCancelMultipleWebDownloadsVerifyAllCallbacks() async {
-        await setupManager()
+        let wrapper = await setupManager()
+        let manager = wrapper.manager
         
         // Create web resources
         let webResource1 = Resource(
