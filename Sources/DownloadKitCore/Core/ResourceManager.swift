@@ -378,28 +378,32 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
     }
     
     public func cancel(_ download: DownloadTask) async {
-        // Cancel the download from both queues - it will only exist in one of them
+        log.info("Cancelled download request: \(download.id)")
+        
+        // Cancel the download from both queues - it will only exist in one of them.
+        // We will count on DownloadQueue to call back observer once download had
+        // finished cancelling, since this is an async operation.
         await downloadQueue.cancel(with: download.id)
         await priorityQueue?.cancel(with: download.id)
         
-        _ = await cache.download(download, didFailWith: DownloadKitError.networkError(.cancelled))
+//        _ = await cache.download(download, didFailWith: DownloadKitError.networkError(.cancelled))
+//        
+//        // Complete the request with cancellation
+//        
+//        // Remove progress tracking
+//        await progress.complete(identifier: download.id, with: DownloadKitError.networkError(.cancelled))
+//        
+//        // Execute and remove any completion handlers for this resource
+//        let resourceId = download.id
+//        if let completions = await state.resourceCompletions[resourceId] {
+//            await state.removeResourceCompletions(for: resourceId)
+//            
+//            for completion in completions {
+//                completion(false, resourceId)
+//            }
+//        }
         
-        // Complete the request with cancellation
-        
-        // Remove progress tracking
-        await progress.complete(identifier: download.id, with: DownloadKitError.networkError(.cancelled))
-        
-        // Execute and remove any completion handlers for this resource
-        let resourceId = download.id
-        if let completions = await state.resourceCompletions[resourceId] {
-            await state.removeResourceCompletions(for: resourceId)
-            
-            for completion in completions {
-                completion(false, resourceId)
-            }
-        }
-        
-        log.info("Cancelled download request: \(resourceId)")
+        //
     }
     
     public func cancel(downloadTasks: [DownloadTask]) async {

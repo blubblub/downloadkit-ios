@@ -1,5 +1,6 @@
 import XCTest
 import RealmSwift
+import os
 @testable import DownloadKit
 @testable import DownloadKitRealm
 @testable import DownloadKitCore
@@ -8,6 +9,8 @@ private struct ResourceManagerWrapper {
     let manager: ResourceManager
     let realm: Realm
 }
+
+private let log = Logger(subsystem: "DownloadKitTests", category: "MultipleRequestCancellationTests")
 
 class MultipleRequestCancellationTests: XCTestCase {
     
@@ -182,8 +185,11 @@ class MultipleRequestCancellationTests: XCTestCase {
         
         // Verify all requests are cleaned up
         for task in tasks {
+            log.debug("Checking if task is downloading: \(task.id)")
             let isDownloading = await manager.isDownloading(for: task.id)
             XCTAssertFalse(isDownloading, "Download should no longer be in progress after cancellation: \(task.id)")
+            
+            log.debug("Checking if task is in queue: \(task.id)")
             
             let hasDownload = await manager.hasDownload(for: task.id)
             XCTAssertFalse(hasDownload, "Download should be removed from queue after cancellation: \(task.id)")
@@ -502,8 +508,8 @@ class MultipleRequestCancellationTests: XCTestCase {
         // Add completion handlers for all resources
         for resource in resources {
             await manager.addResourceCompletion(for: resource) { (success: Bool, resourceId: String) in
-                XCTAssertFalse(success, "Cancellation should trigger completion with success: false")
-                XCTAssertTrue(resourceId.hasPrefix("large-array-test-"), "Resource ID should match expected pattern")
+                XCTAssertFalse(success, "Cancellation should trigger completion with success: false: \(resourceId)")
+                XCTAssertTrue(resourceId.hasPrefix("large-array-test-"), "Resource ID should match expected pattern: \(resourceId)")
                 expectation.fulfill()
             }
         }
@@ -610,7 +616,7 @@ class MultipleRequestCancellationTests: XCTestCase {
                 try await task.waitTillComplete()
                 XCTFail("Should have thrown cancellation error")
             } catch let error as DownloadKitError {
-                print("Catched error: \(error)")
+                log.debug("Catched error: \(error)")
                 if case .networkError(let networkError) = error {
                     XCTAssertEqual(networkError, .cancelled, "Error should be NetworkError.cancelled")
                 } else {

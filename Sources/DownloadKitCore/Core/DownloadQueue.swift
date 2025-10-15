@@ -481,6 +481,8 @@ extension DownloadQueue: DownloadProcessorObserver {
                 return
             }
             
+            log.debug("DownloadQueue - Download Error: \(downloadTask.id) - \(error)")
+            
             await retry(downloadTask: downloadTask, downloadable: downloadable, with: error)
         }
     }
@@ -495,8 +497,7 @@ extension DownloadQueue: DownloadProcessorObserver {
             await downloadFailure(downloadTask: downloadTask, downloadable: downloadable, withError: error)
             return
         }
-        
-        
+                
         if let newDownloadable = await downloadTask.createDownloadable(with: downloadable, error: error) {
             // We can process new downloadable now.
             
@@ -513,6 +514,8 @@ extension DownloadQueue: DownloadProcessorObserver {
     }
     
     private func downloadFailure(downloadTask: DownloadTask, downloadable: Downloadable, withError error: Error) async {
+        
+        log.debug("DownloadQueue - Failed Download Failure: \(downloadTask.id) - \(error)")
         
         self.metrics.processed += 1
         self.metrics.failed += 1
