@@ -309,6 +309,8 @@ class MultipleRequestCancellationTests: XCTestCase {
         // Cancel all requests
         await manager.cancel(downloadTasks: tasks)
         
+        //log.debug("Completed cancellation.")
+        
         // Verify manager state is cleaned up
         let currentDownloadCount = await manager.currentDownloadCount
         XCTAssertEqual(currentDownloadCount, 0, "No downloads should be current after cancellation")

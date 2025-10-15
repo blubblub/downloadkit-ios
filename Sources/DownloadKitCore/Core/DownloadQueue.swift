@@ -221,9 +221,6 @@ public actor DownloadQueue: DownloadQueuable {
         else if let queuedTask = self.queuedDownloadMap[identifier] {
             log.debug("DownloadQueue - Canceling in queue: \(identifier)")
             
-            // Cancel the task in queue, should finish all awaits on the task.
-            await queuedTask.cancel()
-            
             if let index = downloadQueue.firstIndex(where: { $0 === queuedTask }) {
                 downloadQueue.remove(at: index)
             }
@@ -232,6 +229,9 @@ public actor DownloadQueue: DownloadQueuable {
             }
             
             self.queuedDownloadMap[identifier] = nil
+            
+            // Cancel the task in queue, should finish all awaits on the task.
+            await queuedTask.cancel()            
             
             // Observers should be called with error.
             let error = DownloadKitError.network(.cancelled)

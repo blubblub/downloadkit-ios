@@ -207,7 +207,7 @@ extension WebDownloadProcessor : URLSessionDownloadDelegate {
                 let downloadableId = await downloadable.identifier
                 log.info("Forwarding didFinishDownloadingTo to downloadable \(downloadableId)")
                 // Forward the call to the downloadable item
-                downloadable.urlSession(session, downloadTask: downloadTask, didFinishDownloadingTo: tempLocation)
+                await downloadable.downloadUrlSession(session, downloadTask: downloadTask, didFinishDownloadingTo: tempLocation)
             }
         }
         catch let error {
@@ -229,7 +229,7 @@ extension WebDownloadProcessor : URLSessionDownloadDelegate {
                 return
             }
             
-            downloadable.urlSession(session, downloadTask: downloadTask, didWriteData: bytesWritten, totalBytesWritten: totalBytesWritten, totalBytesExpectedToWrite: totalBytesExpectedToWrite)
+            await downloadable.downloadUrlSession(session, downloadTask: downloadTask, didWriteData: bytesWritten, totalBytesWritten: totalBytesWritten, totalBytesExpectedToWrite: totalBytesExpectedToWrite)
         }
     }
     
@@ -237,7 +237,7 @@ extension WebDownloadProcessor : URLSessionDownloadDelegate {
         Task {
             // Go through all downloadables
             for downloadable in await self.downloadables {
-                downloadable.urlSession(session, didBecomeInvalidWithError: error)
+                await downloadable.downloadUrlSession(session, didBecomeInvalidWithError: error)
             }
         }
     }
@@ -253,7 +253,7 @@ extension WebDownloadProcessor : URLSessionDownloadDelegate {
                 return
             }
             
-            downloadable.urlSession(session, task: task, didCompleteWithError: error)
+            await downloadable.downloadUrlSession(session, task: task, didCompleteWithError: error)
         }
     }
     

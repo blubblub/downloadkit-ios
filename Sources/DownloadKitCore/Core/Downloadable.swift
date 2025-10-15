@@ -44,7 +44,7 @@ public protocol Downloadable: Actor {
     func start(with parameters: DownloadParameters)
     
     /// Cancel download in progress
-    func cancel()
+    func cancel() async
     
     /// Temporarily pause current download (if in progress)
     func pause()

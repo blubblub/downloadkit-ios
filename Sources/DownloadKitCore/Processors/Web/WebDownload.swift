@@ -140,13 +140,26 @@ public actor WebDownload : NSObject, Downloadable {
         
         task.suspend()
     }
-
-    public func cancel() {
+    
+    
+    private var cancellationContinuation: CheckedContinuation<Void, Never>?
+    
+    public func cancel() async {
         guard let task = task else {
             return
         }
-
+        
+        // Ensure task is in correct state or wont get callbacks and code below will bes tuck.
+        guard task.state == .running || task.state == .suspended else {
+            return
+        }
+        
         task.cancel()
+        
+        // Wait until download actually completes, suspend the actor.
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            self.cancellationContinuation = continuation
+        }
     }
     
     public func addCompletion(_ completion: @escaping (@Sendable (Result<URL, Error>) -> Void)) {
@@ -191,15 +204,14 @@ public actor WebDownload : NSObject, Downloadable {
     }
 }
 
-extension WebDownload : URLSessionDownloadDelegate {
-    nonisolated public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+// MARK: - URLSessionDelegates, used if delegate is the download itself.
+extension WebDownload {
+    public func downloadUrlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         log.info("WebDownload delegate: didFinishDownloadingTo called at \(location)")
         
         // File is already moved, just call completions.
         if location.absoluteString.contains(FileManager.default.temporaryDirectory.absoluteString) {
-            Task {
-                await completeDownload(url: location, error: nil)
-            }
+            completeDownload(url: location, error: nil)
         }
         else {
             do {
@@ -207,15 +219,10 @@ extension WebDownload : URLSessionDownloadDelegate {
                 let tempLocation = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + "-download.tmp")
                 try FileManager.default.moveItem(at: location, to: tempLocation)
                 log.info("Successfully moved file to \(tempLocation)")
-                
-                Task {
-                    await completeDownload(url: tempLocation, error:  nil)
-                }
+                completeDownload(url: tempLocation, error:  nil)
             } catch let error {
-                Task {
-                    let downloadKitError = DownloadKitError.from(error as NSError)
-                    await completeDownload(url: nil, error: downloadKitError)
-                }
+                let downloadKitError = DownloadKitError.from(error as NSError)
+                completeDownload(url: nil, error: downloadKitError)
             }
         }
     }
@@ -242,43 +249,44 @@ extension WebDownload : URLSessionDownloadDelegate {
             }
         }
     }
-        
-    nonisolated public func urlSession(_ session: Foundation.URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-        Task {
+    
+    public func downloadUrlSession(_ session: Foundation.URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
             // Forward the call to correct item, to correctly update progress.
-            await didWriteData(bytesWritten: bytesWritten, totalBytesWritten: totalBytesWritten, totalBytesExpectedToWrite: totalBytesExpectedToWrite)
-            
-            let progressUpdates = await self.progressUpdates
-            
-            for progressUpdate in progressUpdates {
-                // Pass both total bytes written and current progress to update observers
-                await progressUpdate(totalBytesWritten, progress?.completedUnitCount ?? 0)
-            }
+        didWriteData(bytesWritten: bytesWritten, totalBytesWritten: totalBytesWritten, totalBytesExpectedToWrite: totalBytesExpectedToWrite)
+        
+        let progressUpdates = self.progressUpdates
+        
+        for progressUpdate in progressUpdates {
+            // Pass both total bytes written and current progress to update observers
+            progressUpdate(totalBytesWritten, progress?.completedUnitCount ?? 0)
         }
     }
     
-    nonisolated public func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
-        Task {
-            let finalError = error ?? URLError(.unknown)
-            let downloadKitError = DownloadKitError.from(finalError as NSError)
-            
-            for completion in await self.completions {
-                completion(.failure(downloadKitError))
-            }
+    public func downloadUrlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
+        let finalError = error ?? URLError(.unknown)
+        let downloadKitError = DownloadKitError.from(finalError as NSError)
+        
+        for completion in self.completions {
+            completion(.failure(downloadKitError))
         }
     }
     
-    nonisolated public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        Task {
-            guard let error = error else {
-                return
-            }
-            
-            let downloadKitError = DownloadKitError.from(error as NSError)
-            
-            for completion in await self.completions {
-                completion(.failure(downloadKitError))
-            }
+    public func downloadUrlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        guard let error = error else {
+            return
+        }
+        
+        let cancellationContinuation = self.cancellationContinuation
+        
+        if let cancellationContinuation {
+            cancellationContinuation.resume()
+            self.cancellationContinuation = nil
+        }
+        
+        let downloadKitError = DownloadKitError.from(error as NSError)
+        
+        for completion in self.completions {
+            completion(.failure(downloadKitError))
         }
     }
 }

@@ -386,6 +386,8 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         await downloadQueue.cancel(with: download.id)
         await priorityQueue?.cancel(with: download.id)
         
+        // Wait until downloads are cancelled.
+        
 //        _ = await cache.download(download, didFailWith: DownloadKitError.networkError(.cancelled))
 //        
 //        // Complete the request with cancellation
