@@ -305,10 +305,8 @@ public actor DownloadQueue: DownloadQueuable {
         //
         // This method should be used internally to get DownloadTask for specific downloadable
         //
-        let identifier = await downloadable.identifier
-        
         for currentDownload in downloads {
-            if let currentDownloadable = await currentDownload.downloadable(), currentDownloadable === downloadable {
+            if await currentDownload.contains(downloadable: downloadable) {
                 return currentDownload
             }
         }

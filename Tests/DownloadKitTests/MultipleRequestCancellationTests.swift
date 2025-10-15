@@ -183,10 +183,10 @@ class MultipleRequestCancellationTests: XCTestCase {
         // Verify all requests are cleaned up
         for task in tasks {
             let isDownloading = await manager.isDownloading(for: task.id)
-            XCTAssertFalse(isDownloading, "Download should no longer be in progress after cancellation")
+            XCTAssertFalse(isDownloading, "Download should no longer be in progress after cancellation: \(task.id)")
             
             let hasDownload = await manager.hasDownload(for: task.id)
-            XCTAssertFalse(hasDownload, "Download should be removed from queue after cancellation")
+            XCTAssertFalse(hasDownload, "Download should be removed from queue after cancellation: \(task.id)")
         }
     }
     

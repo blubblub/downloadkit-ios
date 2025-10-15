@@ -120,6 +120,25 @@ public final class DownloadTask: Sendable, Equatable {
         return await state.currentDownloadable
     }
     
+    public func contains(downloadable: Downloadable) async -> Bool {
+        // Check if downloadables match directly.
+        let currentDownloadable = await state.currentDownloadable
+        
+        if downloadable === currentDownloadable {
+            return true
+        }
+        
+        // Also check for identifiers in mirrors, incase it would happen more times.
+        
+        let identifier = await downloadable.identifier
+        
+        for mirrorId in request.resource.mirrorIds {
+            return mirrorId == identifier
+        }
+        
+        return false
+    }
+    
     public func createDownloadable(with previousDownloadable: Downloadable?, error: Error?) async -> Downloadable? {
         if previousDownloadable != nil && error == nil {
             log.error("DownloadTask - Inconsistent state, no need to fetch downloadable, if error was nil.")
