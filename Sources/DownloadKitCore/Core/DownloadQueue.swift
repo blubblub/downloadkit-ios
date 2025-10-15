@@ -293,10 +293,10 @@ public actor DownloadQueue: DownloadQueuable {
         log.debug("DownloadQueue - Start Enqueue: \(identifier)")
         
         downloadQueue.append(downloadTask)
+        self.queuedDownloadMap[identifier] = downloadTask
         
         log.debug("DownloadQueue - Finished Enqueued: \(identifier)")
-                
-        self.queuedDownloadMap[identifier] = downloadTask
+
         await self.process()
     }
     
@@ -305,9 +305,10 @@ public actor DownloadQueue: DownloadQueuable {
         //
         // This method should be used internally to get DownloadTask for specific downloadable
         //
+        let identifier = await downloadable.identifier
         
         for currentDownload in downloads {
-            if let currentDownloadable = await currentDownload.downloadable(with: nil, error: nil), currentDownloadable === downloadable {
+            if let currentDownloadable = await currentDownload.downloadable(), currentDownloadable === downloadable {
                 return currentDownload
             }
         }
@@ -338,7 +339,7 @@ public actor DownloadQueue: DownloadQueuable {
                 _ = self.downloadQueue.removeFirst()
                 
                 // Grab the first downloadable and start processing the download
-                if let downloadable = await task.downloadable(with: nil, error: nil) {
+                if let downloadable = await task.createDownloadable(with: nil, error: nil) {
                     await process(download: task, downloadable: downloadable)
                 }
                 else {
@@ -498,7 +499,7 @@ extension DownloadQueue: DownloadProcessorObserver {
         }
         
         
-        if let newDownloadable = await downloadTask.downloadable(with: downloadable, error: error) {
+        if let newDownloadable = await downloadTask.createDownloadable(with: downloadable, error: error) {
             // We can process new downloadable now.
             
             let context = DownloadRetryContext(failedDownloadable: downloadable, nextDownloadable: newDownloadable, error: error)

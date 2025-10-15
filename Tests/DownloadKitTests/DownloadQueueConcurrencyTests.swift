@@ -137,8 +137,18 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
             }
         }
         
+        
         // Wait for completion with longer timeout for 1000 items
-        await fulfillment(of: [expectation], timeout: 120.0)
+        await fulfillment(of: [expectation], timeout: 30.0)
+        
+        
+        let currentDownloads = await self.downloadQueue.currentDownloads
+        
+        for downloadTask in currentDownloads {
+            let identifier = downloadTask.id
+            
+            print("Download: \(identifier) left in progress.")
+        }
         
         // Verify results
         let successCount = await successCounter.value

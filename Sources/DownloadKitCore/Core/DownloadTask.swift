@@ -116,7 +116,11 @@ public final class DownloadTask: Sendable, Equatable {
     
     // MARK: - Public Functions
     
-    public func downloadable(with previousDownloadable: Downloadable?, error: Error?) async -> Downloadable? {
+    public func downloadable() async -> Downloadable? {
+        return await state.currentDownloadable
+    }
+    
+    public func createDownloadable(with previousDownloadable: Downloadable?, error: Error?) async -> Downloadable? {
         if previousDownloadable != nil && error == nil {
             log.error("DownloadTask - Inconsistent state, no need to fetch downloadable, if error was nil.")
             return nil
@@ -132,6 +136,8 @@ public final class DownloadTask: Sendable, Equatable {
         let failedIdentifier = await previousDownloadable?.identifier
         let downloadable = await mirrorPolicy.downloadable(for: request.resource, lastDownloadableIdentifier: failedIdentifier, error: error)
         await state.set(downloadable: downloadable)
+        
+        log.debug("DownloadTask - Creating new downloadable: \(self.id) downloadable: \(downloadable != nil ? "YES" : "NO")")
             
         return downloadable
     }
