@@ -379,13 +379,14 @@ func setupWithPriorityQueue() async -> (ResourceManager, RealmCacheManager<Cache
 }
 
 /// Helper method to setup ResourceManager with priority queue for priority tests
-func setupManagerWithPriorityQueue() async -> (ResourceManager, RealmCacheManager<CachedLocalFile>, Realm) {
+func setupManagerWithPriorityQueue(simultaneousDownloads: Int = 4, priorityDownloads: Int = 10) async -> (ResourceManager, RealmCacheManager<CachedLocalFile>, Realm) {
     let downloadQueue = DownloadQueue()
-    await downloadQueue.set(simultaneousDownloads: 4)
+    await downloadQueue.set(simultaneousDownloads: simultaneousDownloads)
     await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
     
     // Create priority queue for high and urgent priority downloads
     let priorityQueue = DownloadQueue()
+    await priorityQueue.set(simultaneousDownloads: priorityDownloads)
     await priorityQueue.add(processor: WebDownloadProcessor(configuration: WebDownloadProcessor.priorityConfiguration(configuration: .default)))
     
     // Use in-memory Realm configuration
