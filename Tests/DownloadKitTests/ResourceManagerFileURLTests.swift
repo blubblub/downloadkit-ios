@@ -37,8 +37,7 @@ class ResourceManagerFileURLTests: XCTestCase {
                 location: "https://picsum.photos/200/300.jpg",
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
 
         // Request the download
@@ -102,8 +101,7 @@ class ResourceManagerFileURLTests: XCTestCase {
                     location: imageURL,
                     info: [:]
                 ),
-                alternatives: [],
-                fileURL: nil
+                alternatives: []
             )
         }
         
@@ -250,8 +248,7 @@ class ResourceManagerFileURLTests: XCTestCase {
                 location: "https://picsum.photos/100/100.jpg",
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         // Call manager.fileURL(for: resource) before any download
@@ -357,8 +354,7 @@ class ResourceManagerFileURLTests: XCTestCase {
                 location: "https://this-domain-does-not-exist-12345.com/image.jpg", // Invalid URL
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         // Verify fileURL is nil before download
@@ -410,8 +406,7 @@ class ResourceManagerFileURLTests: XCTestCase {
                 location: "https://picsum.photos/800/800.jpg",
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         // Verify fileURL is nil before download
@@ -470,8 +465,7 @@ class ResourceManagerFileURLTests: XCTestCase {
                 location: "https://picsum.photos/150/150.jpg",
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         // Request and complete the download with the first manager
@@ -548,8 +542,7 @@ class ResourceManagerFileURLTests: XCTestCase {
                     location: "https://picsum.photos/160/160.jpg", // Backup if needed
                     info: [WeightedMirrorPolicy.weightKey: 50]
                 )
-            ],
-            fileURL: nil
+            ]
         )
         
         // Verify fileURL is nil before download
@@ -707,8 +700,7 @@ class ResourceManagerFileURLTests: XCTestCase {
                     location: imageURL,
                     info: [:]
                 ),
-                alternatives: [],
-                fileURL: nil
+                alternatives: []
             )
         }
         
@@ -840,8 +832,7 @@ class ResourceManagerFileURLTests: XCTestCase {
                 location: "https://picsum.photos/800/600.jpg", // 800x600 image
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         // Verify no fileURL initially
@@ -920,8 +911,7 @@ class ResourceManagerFileURLTests: XCTestCase {
                 location: "https://picsum.photos/150/150.jpg",
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         // Verify fileURL is nil before download

@@ -50,8 +50,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
                     location: selectedURL,
                     info: [:]
                 ),
-                alternatives: [],
-                fileURL: nil
+                alternatives: []
             )
         }
     }
@@ -166,8 +165,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
                 location: "https://picsum.photos/100/100.jpg",
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         print("Testing single download with resource: \(resource.id)")
@@ -583,8 +581,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
                 location: "https://picsum.photos/120/120.jpg",
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
 
         // Create multiple entries of the same logical resource (same id)
@@ -627,8 +624,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
                 location: "https://picsum.photos/2000/2000.jpg",
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
 
         let parallelTasks = 10
@@ -676,8 +672,7 @@ class ResourceManagerIntegrationTests: XCTestCase {
                 location: "https://picsum.photos/2000/2000.jpg",
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         let manager = self.manager!

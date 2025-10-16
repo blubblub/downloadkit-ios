@@ -56,8 +56,7 @@ class StorageDownloadTests: XCTestCase {
                 location: "https://picsum.photos/80/80.jpg", // Small image for faster tests
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
     }
     
@@ -520,8 +519,7 @@ class StorageDownloadTests: XCTestCase {
                 location: "https://invalid-domain-that-does-not-exist-12345.com/file.jpg",
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         let failOptions = RequestOptions(storagePriority: .cached)

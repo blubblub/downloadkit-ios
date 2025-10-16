@@ -554,8 +554,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
             let resource = Resource(
                 id: identifier,
                 main: FileMirror(id: identifier, location: "mock://\(identifier)", info: [:]),
-                alternatives: [],
-                fileURL: nil
+                alternatives: []
             )
             
             let request = DownloadRequest(resource: resource, options: RequestOptions())
@@ -588,8 +587,7 @@ class DownloadQueueConcurrencyTests: XCTestCase, @unchecked Sendable {
             let resource = Resource(
                 id: identifier,
                 main: FileMirror(id: identifier, location: "mock://\(identifier)", info: [:]),
-                alternatives: [],
-                fileURL: nil
+                alternatives: []
             )
             
             let request = DownloadRequest(resource: resource, options: RequestOptions())

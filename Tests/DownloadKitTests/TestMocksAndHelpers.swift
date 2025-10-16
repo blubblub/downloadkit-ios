@@ -221,8 +221,7 @@ public extension Resource {
     static func sample(mirrorCount: Int) -> Resource {
         return Resource(id: "sample-id",
                         main: FileMirror.random(weight: 0),
-                        alternatives: (1...mirrorCount).map { FileMirror.random(weight: $0) },
-                        fileURL: nil)
+                        alternatives: (1...mirrorCount).map { FileMirror.random(weight: $0) })
     }
 }
 
@@ -265,8 +264,7 @@ func createTestResource(id: String, size: Int = 100) -> Resource {
             location: "https://picsum.photos/\(size)/\(size).jpg", // Small image for faster tests
             info: [:]
         ),
-        alternatives: [],
-        fileURL: nil
+        alternatives: []
     )
 }
 
@@ -284,8 +282,7 @@ func createTestResources(count: Int) -> [Resource] {
                 location: selectedURL,
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
     }
 }
@@ -299,8 +296,7 @@ func createTestResourceForStorage(id: String) -> Resource {
             location: "https://picsum.photos/80/80.jpg", // Small image for faster tests
             info: [:]
         ),
-        alternatives: [],
-        fileURL: nil
+        alternatives: []
     )
 }
 
@@ -475,8 +471,7 @@ var testResources: [Resource] {
                  alternatives: [
                    FileMirror(id: "resource-id", location: "https://picsum.photos/100", info: [WeightedMirrorPolicy.weightKey: 100]),
                    FileMirror(id: "resource-id", location: "https://picsum.photos/50", info: [WeightedMirrorPolicy.weightKey: 50])
-                 ],
-                 fileURL: nil)
+                 ])
     ]
     
     return resources

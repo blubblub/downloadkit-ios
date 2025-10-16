@@ -1,4 +1,5 @@
 import XCTest
+import XCTest
 import RealmSwift
 import os
 @testable import DownloadKit
@@ -99,8 +100,7 @@ class MultipleRequestCancellationTests: XCTestCase {
                                main: FileMirror(id: "single-cancel-test",
                                               location: "https://example.com/fakefile.jpg",
                                               info: [:]),
-                               alternatives: [], 
-                               fileURL: nil)
+                               alternatives: [])
         
         let request = await manager.request(resource: resource)
         XCTAssertNotNil(request, "Request should be created")
@@ -142,20 +142,17 @@ class MultipleRequestCancellationTests: XCTestCase {
                     main: FileMirror(id: "multi-cancel-test-1",
                                    location: "https://example.com/fakefile1.jpg",
                                    info: [:]),
-                    alternatives: [], 
-                    fileURL: nil),
+                    alternatives: []),
             Resource(id: "multi-cancel-test-2", 
                     main: FileMirror(id: "multi-cancel-test-2",
                                    location: "https://example.com/fakefile2.jpg",
                                    info: [:]),
-                    alternatives: [], 
-                    fileURL: nil),
+                    alternatives: []),
             Resource(id: "multi-cancel-test-3", 
                     main: FileMirror(id: "multi-cancel-test-3",
                                    location: "https://example.com/fakefile3.jpg",
                                    info: [:]),
-                    alternatives: [], 
-                    fileURL: nil)
+                    alternatives: [])
         ]
         
         let requests = await manager.request(resources: resources)
@@ -207,14 +204,12 @@ class MultipleRequestCancellationTests: XCTestCase {
                     main: FileMirror(id: "callback-test-1",
                                    location: "https://example.com/fakefile1.jpg",
                                    info: [:]),
-                    alternatives: [], 
-                    fileURL: nil),
+                    alternatives: []),
             Resource(id: "callback-test-2", 
                     main: FileMirror(id: "callback-test-2",
                                    location: "https://example.com/fakefile2.jpg",
                                    info: [:]),
-                    alternatives: [], 
-                    fileURL: nil)
+                    alternatives: [])
         ]
         
         let requests = await manager.request(resources: resources)
@@ -284,20 +279,17 @@ class MultipleRequestCancellationTests: XCTestCase {
                     main: FileMirror(id: "state-test-1",
                                    location: "https://example.com/fakefile1.jpg",
                                    info: [:]),
-                    alternatives: [], 
-                    fileURL: nil),
+                    alternatives: []),
             Resource(id: "state-test-2", 
                     main: FileMirror(id: "state-test-2",
                                    location: "https://example.com/fakefile2.jpg",
                                    info: [:]),
-                    alternatives: [], 
-                    fileURL: nil),
+                    alternatives: []),
             Resource(id: "state-test-3", 
                     main: FileMirror(id: "state-test-3",
                                    location: "https://example.com/fakefile3.jpg",
                                    info: [:]),
-                    alternatives: [], 
-                    fileURL: nil)
+                    alternatives: [])
         ]
         
         let requests = await manager.request(resources: resources)
@@ -342,14 +334,12 @@ class MultipleRequestCancellationTests: XCTestCase {
                     main: FileMirror(id: "progress-test-1",
                                    location: "https://example.com/fakefile1.jpg",
                                    info: [:]),
-                    alternatives: [], 
-                    fileURL: nil),
+                    alternatives: []),
             Resource(id: "progress-test-2", 
                     main: FileMirror(id: "progress-test-2",
                                    location: "https://example.com/fakefile2.jpg",
                                    info: [:]),
-                    alternatives: [], 
-                    fileURL: nil)
+                    alternatives: [])
         ]
         
         let requests = await manager.request(resources: resources)
@@ -392,14 +382,12 @@ class MultipleRequestCancellationTests: XCTestCase {
                     main: FileMirror(id: "priority-cancel-test-1",
                                    location: "https://example.com/fakefile1.jpg",
                                    info: [:]),
-                    alternatives: [], 
-                    fileURL: nil),
+                    alternatives: []),
             Resource(id: "priority-cancel-test-2", 
                     main: FileMirror(id: "priority-cancel-test-2",
                                    location: "https://example.com/fakefile2.jpg",
                                    info: [:]),
-                    alternatives: [], 
-                    fileURL: nil)
+                    alternatives: [])
         ]
         
         let requests = await manager.request(resources: resources)
@@ -444,8 +432,7 @@ class MultipleRequestCancellationTests: XCTestCase {
                                    main: FileMirror(id: "valid-mixed-test",
                                                   location: "https://example.com/fakefile.jpg",
                                                   info: [:]),
-                                   alternatives: [], 
-                                   fileURL: nil)
+                                   alternatives: [])
         
         let validRequest = await manager.request(resource: validResource)
         XCTAssertNotNil(validRequest, "Valid request should be created")
@@ -455,8 +442,7 @@ class MultipleRequestCancellationTests: XCTestCase {
                                      main: FileMirror(id: "invalid-mixed-test",
                                                     location: "https://example.com/fakefile.jpg",
                                                     info: [:]),
-                                     alternatives: [], 
-                                     fileURL: nil)
+                                     alternatives: [])
         
         let invalidRequest = await manager.request(resource: invalidResource)
         XCTAssertNotNil(invalidRequest, "Invalid request should still be created")
@@ -497,8 +483,7 @@ class MultipleRequestCancellationTests: XCTestCase {
                     main: FileMirror(id: "large-array-test-\(index)",
                                    location: "https://example.com/fakefile\(index).jpg",
                                    info: [:]),
-                    alternatives: [], 
-                    fileURL: nil)
+                    alternatives: [])
         }
         
         let requests = await manager.request(resources: resources)
@@ -544,8 +529,7 @@ class MultipleRequestCancellationTests: XCTestCase {
             main: FileMirror(id: "web-cancel-wait-error-test",
                            location: "https://file-examples.com/storage/fe3aa38b1868ec9b7a1cc78/2017/04/file_example_MP4_1920_18MG.mp4",
                            info: [:]),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         let request = await manager.request(resource: resource)
@@ -589,8 +573,7 @@ class MultipleRequestCancellationTests: XCTestCase {
             main: FileMirror(id: "web-multi-callback-test",
                            location: "https://file-examples.com/storage/fe3aa38b1868ec9b7a1cc78/2017/04/file_example_MP4_1920_18MG.mp4",
                            info: [:]),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         let expectation1 = self.expectation(description: "First callback should be triggered")
@@ -650,8 +633,7 @@ class MultipleRequestCancellationTests: XCTestCase {
             main: FileMirror(id: "mixed-web-1",
                            location: "https://file-examples.com/storage/fe3aa38b1868ec9b7a1cc78/2017/04/file_example_MP4_1920_18MG.mp4",
                            info: [:]),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         let webResource2 = Resource(
@@ -659,8 +641,7 @@ class MultipleRequestCancellationTests: XCTestCase {
             main: FileMirror(id: "mixed-web-2",
                            location: "https://file-examples.com/storage/fe3aa38b1868ec9b7a1cc78/2017/04/file_example_MP4_1920_18MG.mp4",
                            info: [:]),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         let webResource3 = Resource(
@@ -668,8 +649,7 @@ class MultipleRequestCancellationTests: XCTestCase {
             main: FileMirror(id: "mixed-web-3",
                            location: "https://file-examples.com/storage/fe3aa38b1868ec9b7a1cc78/2017/04/file_example_MP4_1920_18MG.mp4",
                            info: [:]),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         let expectation = self.expectation(description: "All callbacks should be triggered")

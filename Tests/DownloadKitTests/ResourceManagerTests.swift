@@ -16,8 +16,7 @@ class ResourceManagerTests: XCTestCase {
                      alternatives: [
                        FileMirror(id: "resource-id", location: "https://picsum.photos/100", info: [WeightedMirrorPolicy.weightKey: 100]),
                        FileMirror(id: "resource-id", location: "https://picsum.photos/50", info: [WeightedMirrorPolicy.weightKey: 50])
-                     ],
-                     fileURL: nil)
+                     ])
         ]
         
         return resources
@@ -146,8 +145,7 @@ class ResourceManagerTests: XCTestCase {
                     location: "https://picsum.photos/75/75.jpg",
                     info: [:]
                 ),
-                alternatives: [],
-                fileURL: nil
+                alternatives: []
             ),
             Resource(
                 id: "multiple-completion-test-resource-2",
@@ -156,8 +154,7 @@ class ResourceManagerTests: XCTestCase {
                     location: "https://picsum.photos/80/80.jpg",
                     info: [:]
                 ),
-                alternatives: [],
-                fileURL: nil
+                alternatives: []
             ),
             Resource(
                 id: "multiple-completion-test-resource-3",
@@ -166,8 +163,7 @@ class ResourceManagerTests: XCTestCase {
                     location: "https://picsum.photos/85/85.jpg",
                     info: [:]
                 ),
-                alternatives: [],
-                fileURL: nil
+                alternatives: []
             )
         ]
         
@@ -201,8 +197,7 @@ class ResourceManagerTests: XCTestCase {
         let resource = Resource(id: "invalid-resource", main: FileMirror(id: "invalid-resource",
                                                                         location: "https://scheme.does.not.exist/jpg",
                                                                         info: [:]),
-                                alternatives: [],
-                                fileURL: nil)
+                                alternatives: [])
         let request = await manager.request(resource: resource)
         await manager.addResourceCompletion(for: resource) { (success: Bool, resourceID: String) in
             // For unsupported URL schemes, this should fail quickly
@@ -267,8 +262,7 @@ class ResourceManagerTests: XCTestCase {
                                main: FileMirror(id: "resume-test-resource", 
                                                location: "https://picsum.photos/10", 
                                                info: [:]), 
-                               alternatives: [], 
-                               fileURL: nil)
+                               alternatives: [])
         
         // First, cancel all downloads and make manager inactive
         await manager.cancelAll()
@@ -314,7 +308,7 @@ class ResourceManagerTests: XCTestCase {
         let resource = Resource(id: "test-cancel-request", main: FileMirror(id: "test-cancel-request",
                                                                              location: "https://example.com/fakefile.jpg",
                                                                              info: [:]),
-                                alternatives: [], fileURL: nil)
+                                alternatives: [])
 
         let request = await manager.request(resource: resource)
         let expectation = self.expectation(description: "Resource cancelation should call completion with success: false.")
@@ -337,7 +331,7 @@ class ResourceManagerTests: XCTestCase {
         let resource = Resource(id: "test-cancel-resource", main: FileMirror(id: "test-cancel-resource",
                                                                              location: "https://example.com/fakefile.jpg",
                                                                              info: [:]),
-                                alternatives: [], fileURL: nil)
+                                alternatives: [])
 
         let request = await manager.request(resource: resource)
         let expectation = self.expectation(description: "Resource cancellation should trigger completion with success: false.")
@@ -369,7 +363,7 @@ class ResourceManagerTests: XCTestCase {
         let resource = Resource(id: "test-cancel-priority-resource", main: FileMirror(id: "test-cancel-priority-resource",
                                                                                       location: "https://example.com/fakefile.jpg",
                                                                                       info: [:]),
-                                alternatives: [], fileURL: nil)
+                                alternatives: [])
 
         let request = await manager.request(resource: resource)
         let expectation = self.expectation(description: "Resource cancellation should trigger completion with success: false.")
@@ -405,8 +399,7 @@ class ResourceManagerTests: XCTestCase {
         let manager = self.manager!
         
         let resource = Resource(id: "resource-id",
-                                 main: FileMirror(id: "resource-id", location: "https://picsum.photos/4000", info: [:]),
-                                 fileURL: nil)
+                                 main: FileMirror(id: "resource-id", location: "https://picsum.photos/4000", info: [:]))
         
         // Create download requests
         let amount = 5
@@ -449,7 +442,7 @@ class ResourceManagerTests: XCTestCase {
         let resource = Resource(id: "test-cancel-progress-resource", main: FileMirror(id: "test-cancel-progress-resource",
                                                                                       location: "https://slowlink.example.com/fakefile.jpg",
                                                                                       info: [:]),
-                                alternatives: [], fileURL: nil)
+                                alternatives: [])
 
         let request = await manager.request(resource: resource)
         XCTAssertNotNil(request)
@@ -479,7 +472,7 @@ class ResourceManagerTests: XCTestCase {
         let resource = Resource(id: "test-cancel-multiple-handlers", main: FileMirror(id: "test-cancel-multiple-handlers",
                                                                                        location: "https://example.com/fakefile.jpg",
                                                                                        info: [:]),
-                                alternatives: [], fileURL: nil)
+                                alternatives: [])
 
         let request = await manager.request(resource: resource)
         XCTAssertNotNil(request)

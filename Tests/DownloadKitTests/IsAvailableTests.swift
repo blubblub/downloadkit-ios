@@ -166,7 +166,6 @@ class IsAvailableTests: XCTestCase {
                 info: [:]
             ),
             alternatives: [],
-            fileURL: nil,
             createdAt: oldDate
         )
         
@@ -188,7 +187,6 @@ class IsAvailableTests: XCTestCase {
                 info: [:]
             ),
             alternatives: [],
-            fileURL: nil,
             createdAt: newDate
         )
         

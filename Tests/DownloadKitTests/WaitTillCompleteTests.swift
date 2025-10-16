@@ -49,8 +49,7 @@ class WaitTillCompleteTests: XCTestCase {
                 location: "https://picsum.photos/100/100.jpg",
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         // Request download
@@ -97,8 +96,7 @@ class WaitTillCompleteTests: XCTestCase {
                 location: "https://picsum.photos/100/100.jpg",
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         // Request download

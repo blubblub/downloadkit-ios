@@ -73,8 +73,7 @@ class WeightedMirrorPolicyTests: XCTestCase {
                                 main: FileMirror(id: "mirror-id",
                                                  location: "Path/To/Local/File.jpg", // unsupported URL
                                                  info: [:]),
-                                alternatives: [],
-                                fileURL: nil)
+                                alternatives: [])
         
         let downloadable = await policy.downloadable(for: resource, lastDownloadableIdentifier: nil, error: nil)
         
