@@ -14,6 +14,8 @@ public protocol ResourceManagerObserver: AnyObject, Sendable {
     func didFinishDownload(_ downloadTask: DownloadTask, with error: Error?) async
 }
 
+public typealias MirrorPolicyFactory = @Sendable (DownloadRequest) -> MirrorPolicy
+
 /// ResourceManager manages a set of resources, allowing a user to request downloads from multiple mirrors,
 /// managing caching and retries internally.
 public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
@@ -80,6 +82,8 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
     public let progress = ResourceDownloadProgress()
     
     private let log = Logger.logResourceManager
+    
+    private let mirrorPolicyFactory: MirrorPolicyFactory
     
     private let state = ResourceManagerState()
     public let metrics = ResourceManagerMetrics()
@@ -176,11 +180,17 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
     }
     
     // MARK: - Initialization
+    public convenience init(cache: any ResourceCachable, downloadQueue: DownloadQueue, priorityQueue: DownloadQueue? = nil) {
+        self.init(cache: cache, downloadQueue: downloadQueue, priorityQueue: priorityQueue, mirrorPolicyFactory: { request in
+            return WeightedMirrorPolicy()
+        })
+    }
     
-    public init(cache: any ResourceCachable, downloadQueue: DownloadQueue, priorityQueue: DownloadQueue? = nil) {
+    public init(cache: any ResourceCachable, downloadQueue: DownloadQueue, priorityQueue: DownloadQueue?, mirrorPolicyFactory: @escaping MirrorPolicyFactory) {
         self.cache = cache
         self.downloadQueue = downloadQueue
         self.priorityQueue = priorityQueue
+        self.mirrorPolicyFactory = mirrorPolicyFactory
     }
     
     // MARK: - ResourceRetrievable
@@ -267,8 +277,11 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
     
     public func process(request: DownloadRequest, priority: DownloadPriority = .normal) async -> DownloadTask {
         await ensureObserverSetup()
-                
-        let task = DownloadTask(request: request, mirrorPolicy: WeightedMirrorPolicy())
+        
+        // Fetch policy.
+        let policy = mirrorPolicyFactory(request)
+        
+        let task = DownloadTask(request: request, mirrorPolicy: policy)
         
         log.info("Start processing requested: \(task.id)")
         
