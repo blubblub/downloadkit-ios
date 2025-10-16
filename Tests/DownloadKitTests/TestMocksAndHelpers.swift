@@ -206,8 +206,8 @@ public extension FileMirror {
 /// Extension to convert WebDownload to FileMirror for testing
 extension WebDownload {
     func toMirror() async -> FileMirror {
-        let identifier = await self.identifier
-        let url = await self.url
+        let identifier = self.identifier
+        let url = self.url
         return FileMirror(
             id: identifier,
             location: url.absoluteString,
@@ -269,42 +269,12 @@ func createTestResource(id: String, size: Int = 100) -> Resource {
 }
 
 /// Creates test resources using free online APIs for integration testing
-func createTestResources(count: Int) -> [Resource] {
+func createTestResources(count: Int, size: Int = 100) -> [Resource] {
     return (1...count).map { i in
-        // Use reliable small image service
-        let imageSize = 50 + (i % 5) * 10 // 50x50, 60x60, 70x70, 80x80, 90x90
-        let selectedURL = "https://picsum.photos/\(imageSize)/\(imageSize).jpg"
-        
-        return Resource(
+        return createTestResource(
             id: "integration-resource-\(i)",
-            main: FileMirror(
-                id: "mirror-\(i)",
-                location: selectedURL,
-                info: [:]
-            ),
-            alternatives: []
+            size: size
         )
-    }
-}
-
-/// Creates a test resource for storage testing
-func createTestResourceForStorage(id: String) -> Resource {
-    return Resource(
-        id: id,
-        main: FileMirror(
-            id: "mirror-\(id)",
-            location: "https://picsum.photos/80/80.jpg", // Small image for faster tests
-            info: [:]
-        ),
-        alternatives: []
-    )
-}
-
-/// Creates test WebDownload instances for download queue testing
-func createTestDownloads(count: Int) -> [WebDownload] {
-    return (0..<count).map { index in
-        WebDownload(identifier: "test-download-\(index)", 
-                   url: URL(string: "https://example.com/file\(index)")!)
     }
 }
 
