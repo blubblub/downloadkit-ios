@@ -17,6 +17,7 @@ public protocol ResourceManagerObserver: AnyObject, Sendable {
 /// ResourceManager manages a set of resources, allowing a user to request downloads from multiple mirrors,
 /// managing caching and retries internally.
 public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
+    private static let suspendDelay: TimeInterval = 0.25
     
     private actor ResourceManagerState {
         struct Observer {
@@ -377,40 +378,34 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         await state.removeAllResourceCompletions()
     }
     
-    public func cancel(_ download: DownloadTask) async {
-        log.info("Cancelled download request: \(download.id)")
+    public func cancel(_ download: DownloadTask, waitUntilCancelled: Bool = true) async {
+        let downloadId = download.id
+        log.info("Cancelled download request: \(downloadId)")
         
         // Cancel the download from both queues - it will only exist in one of them.
         // We will count on DownloadQueue to call back observer once download had
         // finished cancelling, since this is an async operation.
-        await downloadQueue.cancel(with: download.id)
-        await priorityQueue?.cancel(with: download.id)
+        await downloadQueue.cancel(with: downloadId)
+        await priorityQueue?.cancel(with: downloadId)
         
         // Wait until downloads are cancelled.
         
-//        _ = await cache.download(download, didFailWith: DownloadKitError.networkError(.cancelled))
-//        
-//        // Complete the request with cancellation
-//        
-//        // Remove progress tracking
-//        await progress.complete(identifier: download.id, with: DownloadKitError.networkError(.cancelled))
-//        
-//        // Execute and remove any completion handlers for this resource
-//        let resourceId = download.id
-//        if let completions = await state.resourceCompletions[resourceId] {
-//            await state.removeResourceCompletions(for: resourceId)
-//            
-//            for completion in completions {
-//                completion(false, resourceId)
-//            }
-//        }
-        
-        //
+        if waitUntilCancelled {
+            await sleepUntilInQueue(downloadId: downloadId)
+        }
     }
     
-    public func cancel(downloadTasks: [DownloadTask]) async {
+    public func cancel(downloadTasks: [DownloadTask], waitUntilCancelled: Bool = true) async {
         for download in downloadTasks {
-            await cancel(download)
+            // Don't wait, we'll handle this on the end.
+            await cancel(download, waitUntilCancelled: false)
+        }
+        
+        // Wait until downloads are cancelled.
+        if waitUntilCancelled {
+            for download in downloadTasks {
+                await sleepUntilInQueue(downloadId: download.id)
+            }
         }
     }
     
@@ -427,6 +422,21 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
             guard let instance = observer.value.instance else { continue }
             await action(instance)
         }
+    }
+    
+    private func sleepUntilInQueue(downloadId: String) async {
+        var stillHasDownload = false
+        let suspendTime = UInt64(ResourceManager.suspendDelay * 1_000_000_000)
+        
+        repeat {
+            stillHasDownload = await self.hasDownload(for: downloadId)
+            do {
+                try await Task.sleep(nanoseconds: suspendTime)
+            }
+            catch {
+                
+            }
+        } while stillHasDownload
     }
     
     private func ensureObserverSetup() async {
