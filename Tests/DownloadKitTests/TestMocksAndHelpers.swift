@@ -251,6 +251,70 @@ extension FileManager {
 
 // MARK: - Resource Creation Factory Methods
 
+/// Enum representing different file sizes for test resources
+public enum TestFileSize: Sendable {
+    case tiny         // ~100KB (picsum.photos image)
+    case small        // ~1MB
+    case medium       // ~5MB
+    case large        // ~10MB
+    case extraLarge   // ~25MB
+    case huge         // ~50MB
+    
+    /// Returns the URL for the test file of this size
+    var url: String {
+        switch self {
+        case .tiny:
+            return "https://picsum.photos/100/100.jpg"
+        case .small:
+            return "https://proof.ovh.net/files/1Mb.dat"
+        case .medium:
+            return "http://ipv4.download.thinkbroadband.com/5MB.zip"
+        case .large:
+            return "https://proof.ovh.net/files/10Mb.dat"
+        case .extraLarge:
+            return "https://serc.carleton.edu/download/files/91151/unit_5_google_earth.zip"
+        case .huge:
+            return "http://ipv4.download.thinkbroadband.com/50MB.zip"
+        }
+    }
+    
+    /// Returns the approximate size in bytes
+    var approximateBytes: Int64 {
+        switch self {
+        case .tiny:
+            return 100_000 // ~100KB
+        case .small:
+            return 1_048_576 // 1MB
+        case .medium:
+            return 5_242_880 // 5MB
+        case .large:
+            return 10_485_760 // 10MB
+        case .extraLarge:
+            return 26_214_400 // 25MB
+        case .huge:
+            return 52_428_800 // 50MB
+        }
+    }
+    
+    /// Returns a human-readable description of the file size
+    var description: String {
+        switch self {
+        case .tiny:
+            return "~100KB"
+        case .small:
+            return "~1MB"
+        case .medium:
+            return "~5MB"
+        case .large:
+            return "~10MB"
+        case .extraLarge:
+            return "~25MB"
+        case .huge:
+            return "~50MB"
+        }
+    }
+}
+
 /// Creates a test resource with picsum.photos URLs for testing
 /// - Parameters:
 ///   - id: The resource identifier
@@ -268,12 +332,62 @@ func createTestResource(id: String, size: Int = 100) -> Resource {
     )
 }
 
+/// Creates a test resource with a specific file size for testing
+/// - Parameters:
+///   - id: The resource identifier
+///   - fileSize: The desired file size category
+/// - Returns: A test Resource instance
+func createTestResource(id: String, fileSize: TestFileSize) -> Resource {
+    return Resource(
+        id: id,
+        main: FileMirror(
+            id: "mirror-\(id)",
+            location: fileSize.url,
+            info: ["expectedSize": fileSize.approximateBytes]
+        ),
+        alternatives: []
+    )
+}
+
 /// Creates test resources using free online APIs for integration testing
 func createTestResources(count: Int, size: Int = 100) -> [Resource] {
     return (1...count).map { i in
         return createTestResource(
             id: "integration-resource-\(i)",
             size: size
+        )
+    }
+}
+
+/// Creates test resources with specific file sizes for integration testing
+/// - Parameters:
+///   - count: Number of resources to create
+///   - fileSize: The desired file size category for all resources
+/// - Returns: Array of test Resource instances
+func createTestResources(count: Int, fileSize: TestFileSize) -> [Resource] {
+    return (1...count).map { i in
+        return createTestResource(
+            id: "integration-resource-\(fileSize.description)-\(i)",
+            fileSize: fileSize
+        )
+    }
+}
+
+/// Creates test resources with mixed file sizes for integration testing
+/// - Parameters:
+///   - count: Number of resources to create
+///   - fileSizes: Array of file sizes to cycle through
+/// - Returns: Array of test Resource instances
+func createTestResources(count: Int, fileSizes: [TestFileSize]) -> [Resource] {
+    guard !fileSizes.isEmpty else {
+        return createTestResources(count: count) // Fallback to default
+    }
+    
+    return (1...count).map { i in
+        let fileSize = fileSizes[(i - 1) % fileSizes.count]
+        return createTestResource(
+            id: "integration-resource-mixed-\(i)",
+            fileSize: fileSize
         )
     }
 }

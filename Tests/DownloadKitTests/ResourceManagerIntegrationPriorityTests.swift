@@ -268,21 +268,21 @@ class ResourceManagerIntegrationPriorityTests: XCTestCase {
         
         // Phase 1: Add normal priority background downloads
         print("Phase 1: Creating 30 normal priority background downloads...")
-        let normalResources = (1...30).map { createTestResource(id: "normal-bg-\($0)", size: 100) }
+        let normalResources = (1...30).map { createTestResource(id: "normal-bg-\($0)", fileSize: .medium) }
         
         let normalRequests = await manager.request(resources: normalResources)
         print("Created \(normalRequests.count) normal priority requests")
         
         // Phase 2: Fill priority queue with high priority downloads
         print("\nPhase 2: Creating 20 high priority downloads to fill priority queue...")
-        let highPriorityResources = (1...20).map { createTestResource(id: "high-bg-\($0)", size: 100) }
+        let highPriorityResources = (1...20).map { createTestResource(id: "high-bg-\($0)", fileSize: .medium) }
         
         let highPriorityRequests = await manager.request(resources: highPriorityResources)
         print("Created \(highPriorityRequests.count) high priority requests")
         
         // Phase 3: Add urgent priority downloads (should downgrade high priority downloads)
         print("\nPhase 3: Adding 5 urgent priority downloads...")
-        let urgentResources = (1...5).map { createTestResource(id: "urgent-\($0)", size: 100) }
+        let urgentResources = (1...5).map { createTestResource(id: "urgent-\($0)", fileSize: .medium) }
         
         let urgentRequests = await manager.request(resources: urgentResources)
         print("Created \(urgentRequests.count) urgent priority requests")
