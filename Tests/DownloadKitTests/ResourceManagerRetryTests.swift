@@ -301,6 +301,288 @@ class ResourceManagerRetryTests: XCTestCase {
         print("=== Test Complete ===\n")
     }
     
+    // MARK: - WaitTillComplete Variants
+    
+    func testRetryWithRealDownloadAllMirrorsFail_WaitTillComplete() async throws {
+        print("\n=== Test: testRetryWithRealDownload_AllMirrorsFail_WaitTillComplete ===")
+        
+        // Create all instances in test function
+        let config = Realm.Configuration(inMemoryIdentifier: UUID().uuidString)
+        let realm = try await Realm(configuration: config, actor: MainActor.shared)
+        let cache = RealmCacheManager<CachedLocalFile>(configuration: config)
+        let downloadQueue = DownloadQueue()
+        
+        // Add real web download processor
+        await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
+        
+        let manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
+        
+        // Create resource with invalid URLs for all mirrors
+        let resource = Resource(
+            id: "test-real-all-fail-wait",
+            main: FileMirror(
+                id: "main-mirror-invalid-wait",
+                location: "https://invalid.domain.test.local.nonexistent/main.jpg",
+                info: [:]
+            ),
+            alternatives: [
+                FileMirror(
+                    id: "alt-mirror-invalid-wait-1",
+                    location: "https://invalid.domain.test.local.nonexistent/alt1.jpg",
+                    info: [WeightedMirrorPolicy.weightKey: 100]
+                ),
+                FileMirror(
+                    id: "alt-mirror-invalid-wait-2",
+                    location: "https://invalid.domain.test.local.nonexistent/alt2.jpg",
+                    info: [WeightedMirrorPolicy.weightKey: 50]
+                )
+            ]
+        )
+        
+        // Attach retry tracking observer
+        let retryObserver = RetryTrackingObserver()
+        await manager.add(observer: retryObserver)
+        
+        // Request and process download
+        let requests = await manager.request(resources: [resource])
+        XCTAssertEqual(requests.count, 1, "Should have one download request")
+        
+        let task = await manager.process(request: requests[0])
+        
+        // Wait for completion using waitTillComplete
+        do {
+            try await task.waitTillComplete()
+            XCTFail("Download should fail when all mirrors have invalid URLs")
+        } catch {
+            print("Download failed as expected with error: \(error.localizedDescription)")
+        }
+        
+        // Verify retry behavior
+        let totalRetries = await retryObserver.getTotalRetryCount()
+        let retriedMirrors = await retryObserver.getRetriedMirrorIds()
+        
+        print("Total retries: \(totalRetries)")
+        print("Retried mirrors: \(retriedMirrors)")
+        
+        // Should have retries as mirrors fail in order: alt1 -> alt2 -> main (3 times)
+        XCTAssertGreaterThanOrEqual(totalRetries, 4, "Should have at least 4 retries with real downloads")
+        
+        // Verify main mirror was retried multiple times
+        let mainMirrorRetries = retriedMirrors.filter { $0 == "main-mirror-invalid-wait" }.count
+        print("Main mirror retries: \(mainMirrorRetries)")
+        print("Task: \(task) Realm: \(realm)")
+        
+        print("=== Test Complete ===\n")
+    }
+    
+    func testRetryWithRealDownloadSecondMirrorSucceeds_WaitTillComplete() async throws {
+        print("\n=== Test: testRetryWithRealDownload_SecondMirrorSucceeds_WaitTillComplete ===")
+        
+        // Create all instances in test function
+        let config = Realm.Configuration(inMemoryIdentifier: UUID().uuidString)
+        let realm = try await Realm(configuration: config, actor: MainActor.shared)
+        let cache = RealmCacheManager<CachedLocalFile>(configuration: config)
+        let downloadQueue = DownloadQueue()
+        
+        // Add real web download processor
+        await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
+        
+        let manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
+        
+        // Create resource where first alternative fails but second alternative succeeds
+        let resource = Resource(
+            id: "test-real-second-succeeds-wait",
+            main: FileMirror(
+                id: "main-mirror-fallback-wait",
+                location: "https://picsum.photos/40/40.jpg",
+                info: [:]
+            ),
+            alternatives: [
+                FileMirror(
+                    id: "alt-mirror-first-invalid-wait",
+                    location: "https://invalid.domain.test.local.nonexistent/alt1.jpg",
+                    info: [WeightedMirrorPolicy.weightKey: 100]
+                ),
+                FileMirror(
+                    id: "alt-mirror-second-valid-wait",
+                    location: "https://picsum.photos/45/45.jpg",
+                    info: [WeightedMirrorPolicy.weightKey: 50]
+                )
+            ]
+        )
+        
+        // Attach retry tracking observer
+        let retryObserver = RetryTrackingObserver()
+        await manager.add(observer: retryObserver)
+        
+        // Request and process download
+        let requests = await manager.request(resources: [resource])
+        XCTAssertEqual(requests.count, 1, "Should have one download request")
+        
+        let task = await manager.process(request: requests[0])
+        
+        // Wait for completion using waitTillComplete
+        try await task.waitTillComplete()
+        print("Download completed successfully as expected")
+        
+        // Verify retry behavior
+        let totalRetries = await retryObserver.getTotalRetryCount()
+        let retriedMirrors = await retryObserver.getRetriedMirrorIds()
+        
+        print("Total retries: \(totalRetries)")
+        print("Retried mirrors: \(retriedMirrors)")
+        
+        // Should have exactly 1 retry (first mirror fails, then second succeeds)
+        XCTAssertEqual(totalRetries, 1, "Should have exactly 1 retry (first mirror fails, second succeeds)")
+        
+        // Verify first mirror was tried and failed
+        XCTAssertTrue(retriedMirrors.contains("alt-mirror-first-invalid-wait"), "Should have retried first alternative mirror")
+        
+        // Verify second mirror succeeded (not in retry list)
+        XCTAssertFalse(retriedMirrors.contains("alt-mirror-second-valid-wait"), "Second mirror should not be retried if it succeeds")
+        
+        // Verify main mirror was never tried (second mirror succeeded)
+        XCTAssertFalse(retriedMirrors.contains("main-mirror-fallback-wait"), "Main mirror should not be tried if second alternative succeeds")
+        
+        print("Task: \(task) Realm: \(realm)")
+        print("=== Test Complete ===\n")
+    }
+    
+    func testRetryWithRealDownloadMixedValidInvalidMirrors_WaitTillComplete() async throws {
+        print("\n=== Test: testRetryWithRealDownload_MixedValidInvalidMirrors_WaitTillComplete ===")
+        
+        // Create all instances in test function
+        let config = Realm.Configuration(inMemoryIdentifier: UUID().uuidString)
+        let realm = try await Realm(configuration: config, actor: MainActor.shared)
+        let cache = RealmCacheManager<CachedLocalFile>(configuration: config)
+        let downloadQueue = DownloadQueue()
+        
+        // Add real web download processor
+        await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
+        
+        let manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
+        
+        // Create resource with invalid alternatives but valid main mirror
+        let resource = Resource(
+            id: "test-real-mixed-wait",
+            main: FileMirror(
+                id: "main-mirror-valid-wait",
+                location: "https://picsum.photos/50/50.jpg",
+                info: [:]
+            ),
+            alternatives: [
+                FileMirror(
+                    id: "alt-mirror-invalid-mixed-wait-1",
+                    location: "https://invalid.domain.test.local.nonexistent/alt1.jpg",
+                    info: [WeightedMirrorPolicy.weightKey: 100]
+                ),
+                FileMirror(
+                    id: "alt-mirror-invalid-mixed-wait-2",
+                    location: "https://invalid.domain.test.local.nonexistent/alt2.jpg",
+                    info: [WeightedMirrorPolicy.weightKey: 50]
+                )
+            ]
+        )
+        
+        // Attach retry tracking observer
+        let retryObserver = RetryTrackingObserver()
+        await manager.add(observer: retryObserver)
+        
+        // Request and process download
+        let requests = await manager.request(resources: [resource])
+        XCTAssertEqual(requests.count, 1, "Should have one download request")
+        
+        let task = await manager.process(request: requests[0])
+        
+        // Wait for completion using waitTillComplete
+        try await task.waitTillComplete()
+        print("Download completed successfully as expected")
+        
+        // Verify retry behavior
+        let totalRetries = await retryObserver.getTotalRetryCount()
+        let retriedMirrors = await retryObserver.getRetriedMirrorIds()
+        
+        print("Total retries: \(totalRetries)")
+        print("Retried mirrors: \(retriedMirrors)")
+        
+        // Should have 2 retries (one for each failed alternative mirror)
+        // The main mirror should succeed without retry
+        XCTAssertEqual(totalRetries, 2, "Should have 2 retries (one for each failed alternative)")
+        
+        // Verify alternatives were tried
+        XCTAssertTrue(retriedMirrors.contains("alt-mirror-invalid-mixed-wait-1"), "Should have retried first alternative")
+        XCTAssertTrue(retriedMirrors.contains("alt-mirror-invalid-mixed-wait-2"), "Should have retried second alternative")
+        
+        // Verify main mirror was NOT in retried list (it succeeded on first try)
+        XCTAssertFalse(retriedMirrors.contains("main-mirror-valid-wait"), "Main mirror should not be retried if it succeeds")
+        
+        print("Task: \(task) Realm: \(realm)")
+        print("=== Test Complete ===\n")
+    }
+    
+    func testMultipleCompletionHandlersWithRetries_WaitTillComplete() async throws {
+        print("\n=== Test: testMultipleCompletionHandlersWithRetries_WaitTillComplete ===")
+        
+        // Create all instances in test function
+        let config = Realm.Configuration(inMemoryIdentifier: UUID().uuidString)
+        let realm = try await Realm(configuration: config, actor: MainActor.shared)
+        let cache = RealmCacheManager<CachedLocalFile>(configuration: config)
+        let downloadQueue = DownloadQueue()
+        
+        // Use real web download processor
+        await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
+        
+        let manager = ResourceManager(cache: cache, downloadQueue: downloadQueue)
+        
+        // Create resource with invalid mirrors that will fail
+        let resource = Resource(
+            id: "test-multiple-handlers-wait",
+            main: FileMirror(
+                id: "main-mirror-multi-wait",
+                location: "https://invalid.domain.test.local.nonexistent/main.jpg",
+                info: [:]
+            ),
+            alternatives: [
+                FileMirror(
+                    id: "alt-mirror-multi-wait-1",
+                    location: "https://invalid.domain.test.local.nonexistent/alt1.jpg",
+                    info: [WeightedMirrorPolicy.weightKey: 100]
+                ),
+                FileMirror(
+                    id: "alt-mirror-multi-wait-2",
+                    location: "https://invalid.domain.test.local.nonexistent/alt2.jpg",
+                    info: [WeightedMirrorPolicy.weightKey: 50]
+                )
+            ]
+        )
+        
+        // Attach retry tracking observer
+        let retryObserver = RetryTrackingObserver()
+        await manager.add(observer: retryObserver)
+        
+        // Request download
+        let requests = await manager.request(resources: [resource])
+        
+        // Process download
+        let task = await manager.process(request: requests[0])
+        
+        // Wait for completion using waitTillComplete
+        do {
+            try await task.waitTillComplete()
+            XCTFail("Download should fail")
+        } catch {
+            print("Download failed as expected with error: \(error.localizedDescription)")
+        }
+        
+        // Verify retries still happened
+        let totalRetries = await retryObserver.getTotalRetryCount()
+        print("Total retries with waitTillComplete: \(totalRetries)")
+        
+        XCTAssertGreaterThanOrEqual(totalRetries, 4, "Retries should occur with waitTillComplete")
+        print("Task: \(task) Realm: \(realm)")
+        print("=== Test Complete ===\n")
+    }
+    
     // MARK: - Multiple Completion Handlers Test
     
     func testMultipleCompletionHandlersWithRetries() async throws {
