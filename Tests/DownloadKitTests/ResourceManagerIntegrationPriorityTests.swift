@@ -171,6 +171,33 @@ class ResourceManagerIntegrationPriorityTests: XCTestCase {
         print("Phase 1: Creating 50 high priority downloads to fill the priority queue...")
         let initialHighResources = (1...50).map { createTestResource(id: "high-queue-\($0)", size: 100) }
         
+        let allExpectation = XCTestExpectation(description: "All downloads should complete")
+        allExpectation.expectedFulfillmentCount = 60
+        
+        let successCounter = ActorCounter()
+        let failureCounter = ActorCounter()
+                
+        // Phase 2: Add 10 more high priority downloads
+        print("\nPhase 2: Adding 10 additional high priority downloads...")
+        let additionalHighResources = (1...10).map { createTestResource(id: "high-extra-\($0)", size: 100) }
+        
+        let additionalHighRequests = await manager.request(resources: additionalHighResources)
+        print("Created \(additionalHighRequests.count) additional high priority requests")
+        
+        let allResources = initialHighResources + additionalHighResources
+        for resource in allResources {
+            await manager.addResourceCompletion(for: resource) { @Sendable (success, resourceID) in
+                Task {
+                    if success {
+                        await successCounter.increment()
+                    } else {
+                        await failureCounter.increment()
+                    }
+                    allExpectation.fulfill()
+                }
+            }
+        }
+        
         let initialHighRequests = await manager.request(resources: initialHighResources)
         print("Created \(initialHighRequests.count) high priority requests")
         
@@ -189,11 +216,6 @@ class ResourceManagerIntegrationPriorityTests: XCTestCase {
         
         // Phase 2: Add 10 more high priority downloads
         print("\nPhase 2: Adding 10 additional high priority downloads...")
-        let additionalHighResources = (1...10).map { createTestResource(id: "high-extra-\($0)", size: 100) }
-        
-        let additionalHighRequests = await manager.request(resources: additionalHighResources)
-        print("Created \(additionalHighRequests.count) additional high priority requests")
-        
         let queuedBeforeAdditional = await manager.queuedDownloadCount
         
         let _ = await manager.process(requests: additionalHighRequests, priority: .high)
@@ -214,26 +236,6 @@ class ResourceManagerIntegrationPriorityTests: XCTestCase {
         
         // Phase 3: Wait for all downloads to complete
         print("\nPhase 3: Waiting for all downloads to complete...")
-        let allExpectation = XCTestExpectation(description: "All downloads should complete")
-        allExpectation.expectedFulfillmentCount = 60
-        
-        let successCounter = ActorCounter()
-        let failureCounter = ActorCounter()
-        
-        let allResources = initialHighResources + additionalHighResources
-        for resource in allResources {
-            await manager.addResourceCompletion(for: resource) { @Sendable (success, resourceID) in
-                Task {
-                    if success {
-                        await successCounter.increment()
-                    } else {
-                        await failureCounter.increment()
-                    }
-                    allExpectation.fulfill()
-                }
-            }
-        }
-        
         await fulfillment(of: [allExpectation], timeout: 180)
         
         // Analyze results
