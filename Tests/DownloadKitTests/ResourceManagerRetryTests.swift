@@ -133,6 +133,7 @@ class ResourceManagerRetryTests: XCTestCase {
         // Verify main mirror was retried multiple times
         let mainMirrorRetries = retriedMirrors.filter { $0 == "main-mirror-invalid" }.count
         print("Main mirror retries: \(mainMirrorRetries)")
+        print("Task: \(task) Realm: \(realm)")
         
         print("=== Test Complete ===\n")
     }
@@ -214,6 +215,7 @@ class ResourceManagerRetryTests: XCTestCase {
         // Verify main mirror was NOT in retried list (it succeeded on first try)
         XCTAssertFalse(retriedMirrors.contains("main-mirror-valid"), "Main mirror should not be retried if it succeeds")
         
+        print("Task: \(task) Realm: \(realm)")
         print("=== Test Complete ===\n")
     }
     
@@ -300,7 +302,7 @@ class ResourceManagerRetryTests: XCTestCase {
         print("Total retries with multiple handlers: \(totalRetries)")
         
         XCTAssertGreaterThanOrEqual(totalRetries, 4, "Retries should occur with multiple completion handlers")
-        
+        print("Task: \(task) Realm: \(realm)")
         print("=== Test Complete ===\n")
     }
 }
