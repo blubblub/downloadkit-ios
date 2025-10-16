@@ -11,6 +11,37 @@ import RealmSwift
 @testable import DownloadKit
 @testable import DownloadKitRealm
 
+// MARK: - Download Start Tracking Observer
+
+/// Observer that tracks when downloads start for verification in tests
+actor DownloadStartTrackingObserver: ResourceManagerObserver {
+    private var startedDownloads: [String: Date] = [:]
+    
+    func didStartDownloading(_ downloadTask: DownloadTask) async {
+        startedDownloads[downloadTask.id] = Date()
+    }
+    
+    func willRetryFailedDownload(_ downloadTask: DownloadTask, failedDownloadable: Downloadable, downloadable: Downloadable, with error: Error) async {
+        // Not needed for this test
+    }
+    
+    func didFinishDownload(_ downloadTask: DownloadTask, with error: Error?) async {
+        // Not needed for this test
+    }
+    
+    // Public accessors for test verification
+    func getStartedUrgentDownloads() -> [String: Date] {
+        return startedDownloads.filter { $0.key.hasPrefix("urgent-") }
+    }
+    
+    func hasAllUrgentDownloadsStarted(count: Int) -> Bool {
+        return getStartedUrgentDownloads().count >= count
+    }
+    
+    func getAllStartedDownloads() -> [String: Date] {
+        return startedDownloads
+    }
+}
 
 class ResourceManagerIntegrationPriorityTests: XCTestCase {
     var manager: ResourceManager!
@@ -327,12 +358,42 @@ class ResourceManagerIntegrationPriorityTests: XCTestCase {
         let queuedAfterHigh = await manager.queuedDownloadCount
         let currentAfterHigh = await manager.currentDownloadCount
         print("Queue state after high priority - Queued: \(queuedAfterHigh), Current: \(currentAfterHigh)")
+        
+        // Add observer to track download starts (before processing urgent requests)
+        let downloadStartObserver = DownloadStartTrackingObserver()
+        await manager.add(observer: downloadStartObserver)
                 
-        // PTrigger urgent requests
+        // Trigger urgent requests
         let _ = await manager.process(requests: urgentRequests, priority: .urgent)
         
-        // Wait briefly for urgent processing
-        try await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+        // Wait for urgent downloads to actually start
+        // Poll until all urgent downloads have started or timeout after 10 seconds
+        let startTime = Date()
+        let timeout: TimeInterval = 10.0
+        var allUrgentStarted = false
+        
+        while !allUrgentStarted && Date().timeIntervalSince(startTime) < timeout {
+            let startedCount = await downloadStartObserver.getStartedUrgentDownloads().count
+            if startedCount >= 5 {
+                allUrgentStarted = true
+                print("All 5 urgent downloads have started after \(String(format: "%.2f", Date().timeIntervalSince(startTime)))s")
+            } else {
+                print("Waiting for urgent downloads to start: \(startedCount) / 5")
+                try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+            }
+        }
+        
+        // Verify that all 5 urgent downloads have started
+        let startedUrgentDownloads = await downloadStartObserver.getStartedUrgentDownloads()
+        print("Urgent downloads started: \(startedUrgentDownloads.count) / 5")
+        
+        XCTAssertEqual(startedUrgentDownloads.count, 5, 
+                      "Expected all 5 urgent downloads to have started, but only \(startedUrgentDownloads.count) started")
+        
+        // Log timing information for debugging
+        for (id, startTime) in startedUrgentDownloads.sorted(by: { $0.value < $1.value }) {
+            print("✓ Urgent download \(id) started at: \(startTime)")
+        }
         
         // Capture metrics after urgent processing
         let metricsAfterUrgent = manager.metrics
