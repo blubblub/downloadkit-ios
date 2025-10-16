@@ -307,7 +307,7 @@ class MultipleRequestCancellationTests: XCTestCase {
         let tasks = await manager.process(requests: requests)
         
         // Cancel all requests
-        await manager.cancel(downloadTasks: tasks)
+        await manager.cancel(downloadTasks: tasks, waitUntilCancelled: true)
         
         //log.debug("Completed cancellation.")
         

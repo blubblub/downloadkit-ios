@@ -378,7 +378,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         await state.removeAllResourceCompletions()
     }
     
-    public func cancel(_ download: DownloadTask, waitUntilCancelled: Bool = true) async {
+    public func cancel(_ download: DownloadTask, waitUntilCancelled: Bool = false) async {
         let downloadId = download.id
         log.info("Cancelled download request: \(downloadId)")
         
@@ -395,7 +395,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
         }
     }
     
-    public func cancel(downloadTasks: [DownloadTask], waitUntilCancelled: Bool = true) async {
+    public func cancel(downloadTasks: [DownloadTask], waitUntilCancelled: Bool = false) async {
         for download in downloadTasks {
             // Don't wait, we'll handle this on the end.
             await cancel(download, waitUntilCancelled: false)
