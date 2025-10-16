@@ -217,7 +217,7 @@ extension WebDownloadProcessor : URLSessionDownloadDelegate {
                     return
                 }
                 
-                await downloadable.completeDownload(url: nil, error: error)
+                await downloadable.downloadUrlSession(session, task: downloadTask, didCompleteWithError: error)
             }
         }
     }

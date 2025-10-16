@@ -155,11 +155,13 @@ public actor WebDownload : NSObject, Downloadable {
         }
         
         task.cancel()
-        
+                
         // Wait until download actually completes, suspend the actor.
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             self.cancellationContinuation = continuation
         }
+        
+        log.debug("Download: \(self.identifier) cancel await complete.")
     }
     
     public func addCompletion(_ completion: @escaping (@Sendable (Result<URL, Error>) -> Void)) {
@@ -221,13 +223,13 @@ extension WebDownload {
                 log.info("Successfully moved file to \(tempLocation)")
                 completeDownload(url: tempLocation, error:  nil)
             } catch let error {
-                let downloadKitError = DownloadKitError.from(error as NSError)
+                let downloadKitError = DownloadKitError.from(error)
                 completeDownload(url: nil, error: downloadKitError)
             }
         }
     }
     
-    public func completeDownload(url: URL?, error: Error?) {
+    private func completeDownload(url: URL?, error: Error?) {
         // Note: File operations should be completed before this method exits to ensure the temporary
         // file isn't deleted. Using async here is safe as the completion handlers will manage file moves.
         let completions = self.completions
@@ -238,13 +240,22 @@ extension WebDownload {
             data.finishedDate = Date()
         }
         
+        let cancellationContinuation = self.cancellationContinuation
+        
+        if let cancellationContinuation {
+            log.debug("Resuming cancellation: \(self.identifier)")
+            
+            cancellationContinuation.resume()
+            self.cancellationContinuation = nil
+        }
+        
         for completion in completions {
             if let url = url {
                 completion(.success(url))
             }
             else {
                 let finalError = error ?? URLError(.unknown)
-                let downloadKitError = DownloadKitError.from(finalError as NSError)
+                let downloadKitError = DownloadKitError.from(finalError)
                 completion(.failure(downloadKitError))
             }
         }
@@ -264,11 +275,12 @@ extension WebDownload {
     
     public func downloadUrlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
         let finalError = error ?? URLError(.unknown)
-        let downloadKitError = DownloadKitError.from(finalError as NSError)
+        let downloadKitError = DownloadKitError.from(finalError)
         
         for completion in self.completions {
             completion(.failure(downloadKitError))
         }
+        
     }
     
     public func downloadUrlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
@@ -276,17 +288,7 @@ extension WebDownload {
             return
         }
         
-        let cancellationContinuation = self.cancellationContinuation
-        
-        if let cancellationContinuation {
-            cancellationContinuation.resume()
-            self.cancellationContinuation = nil
-        }
-        
-        let downloadKitError = DownloadKitError.from(error as NSError)
-        
-        for completion in self.completions {
-            completion(.failure(downloadKitError))
-        }
+        let downloadKitError = DownloadKitError.from(error)
+        completeDownload(url: nil, error: downloadKitError)
     }
 }

@@ -17,6 +17,7 @@ public enum DownloadKitError: Error, LocalizedError, Equatable {
     case mirrorPolicyError(MirrorPolicyError)
     case networkError(NetworkError)
     case fileSystemError(FileSystemError)
+    case unknown(String)
     
     // MARK: - LocalizedError
     
@@ -34,6 +35,8 @@ public enum DownloadKitError: Error, LocalizedError, Equatable {
             return error.errorDescription
         case .fileSystemError(let error):
             return error.errorDescription
+        case .unknown(let errorDescription):
+            return errorDescription
         }
     }
     
@@ -51,6 +54,8 @@ public enum DownloadKitError: Error, LocalizedError, Equatable {
             return error.failureReason
         case .fileSystemError(let error):
             return error.failureReason
+        case .unknown(let errorDescription):
+            return "Unknown: \(errorDescription)"
         }
     }
     
@@ -68,6 +73,8 @@ public enum DownloadKitError: Error, LocalizedError, Equatable {
             return error.recoverySuggestion
         case .fileSystemError(let error):
             return error.recoverySuggestion
+        case .unknown(let errorDescription):
+            return "Unknown: \(errorDescription)"
         }
     }
 }
@@ -352,6 +359,36 @@ public enum NetworkError: Error, LocalizedError, Equatable {
             return "Connect to Wi-Fi or cellular network and try again"
         }
     }
+    
+    static func from(error: URLError) -> NetworkError {
+        switch error.code {
+        case .cancelled:
+            return .cancelled
+        case .timedOut:
+            return .timeout("Request timed out")
+        case .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed, .httpTooManyRedirects, .resourceUnavailable:
+            return .connectionFailed(error.localizedDescription)
+        case .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed:
+            return .noNetworkConnection
+        case .badURL, .unsupportedURL:
+            return .invalidURL(error.failureURLString ?? "Invalid URL")
+        case .badServerResponse, .zeroByteResource, .cannotDecodeRawData, .cannotDecodeContentData, .cannotParseResponse:
+            if let httpResponse = error.userInfo[NSURLErrorFailingURLStringErrorKey] as? String,
+               let statusCode = error.userInfo["NSHTTPURLResponseErrorKey"] as? HTTPURLResponse {
+                return .serverError(statusCode.statusCode, error.localizedDescription)
+            } else {
+                return .serverError(0, error.localizedDescription)
+            }
+        case .serverCertificateHasBadDate, .serverCertificateUntrusted, .serverCertificateHasUnknownRoot, .serverCertificateNotYetValid, .clientCertificateRejected, .clientCertificateRequired, .cannotLoadFromNetwork:
+            return .connectionFailed("Security error: \(error.localizedDescription)")
+        case .fileDoesNotExist, .fileIsDirectory, .noPermissionsToReadFile:
+            return .connectionFailed("File access error: \(error.localizedDescription)")
+        case .dataLengthExceedsMaximum, .requestBodyStreamExhausted:
+            return .connectionFailed("Data transfer error: \(error.localizedDescription)")
+        default:
+            return .connectionFailed(error.localizedDescription)
+        }
+    }
 }
 
 // MARK: - File System Errors
@@ -509,8 +546,22 @@ public extension DownloadKitError {
 // MARK: - Error Conversion Utilities
 
 public extension DownloadKitError {
+    
+    static func from(_ error: Error) -> DownloadKitError {
+        // If already downloadKit error.
+        if let finalError = error as? DownloadKitError {
+            return finalError
+        }
+        
+        if let finalError = error as? URLError {
+            return .network(NetworkError.from(error: finalError))
+        }
+        
+        return from(error as NSError)
+    }
+    
     /// Convert NSError to appropriate DownloadKitError
-    static func from(_ nsError: NSError) -> DownloadKitError {
+    private static func from(_ nsError: NSError) -> DownloadKitError {
         switch nsError.domain {
         case NSURLErrorDomain:
             switch nsError.code {
