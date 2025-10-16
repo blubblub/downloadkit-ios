@@ -10,7 +10,7 @@ import os
 
 public protocol ResourceManagerObserver: AnyObject, Sendable {
     func didStartDownloading(_ downloadTask: DownloadTask) async
-    func willRetryFailedDownload(_ downloadTask: DownloadTask, downloadable: Downloadable, with error: Error) async
+    func willRetryFailedDownload(_ downloadTask: DownloadTask, failedDownloadable: Downloadable, downloadable: Downloadable, with error: Error) async
     func didFinishDownload(_ downloadTask: DownloadTask, with error: Error?) async
 }
 
@@ -506,6 +506,7 @@ extension ResourceManager: DownloadQueueObserver {
     }
     
     public func downloadQueue(_ queue: DownloadQueue, downloadWillRetry downloadTask: DownloadTask, context: DownloadRetryContext) async {
+        let failedDownloadable = context.failedDownloadable
         let downloadable = context.nextDownloadable
         
         // Update progress.
@@ -514,7 +515,7 @@ extension ResourceManager: DownloadQueueObserver {
         await metrics.increase(retried: 1)
         await metrics.updateDownloadSpeed(for: downloadTask, downloadable: downloadable)
         
-        await self.foreachObserver { await $0.willRetryFailedDownload(downloadTask, downloadable: downloadable, with: context.error) }
+        await self.foreachObserver { await $0.willRetryFailedDownload(downloadTask, failedDownloadable: failedDownloadable, downloadable: downloadable, with: context.error) }
     }
     
 }

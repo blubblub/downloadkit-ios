@@ -24,9 +24,9 @@ actor RetryTrackingObserver: ResourceManagerObserver {
         // Not needed for retry tests
     }
     
-    func willRetryFailedDownload(_ downloadTask: DownloadTask, downloadable: Downloadable, with error: Error) async {
+    func willRetryFailedDownload(_ downloadTask: DownloadKitCore.DownloadTask, failedDownloadable: any DownloadKitCore.Downloadable, downloadable: any DownloadKitCore.Downloadable, with error: any Error) async {
         await retryCount.increment()
-        let mirrorId = await downloadable.identifier
+        let mirrorId = await failedDownloadable.identifier
         await retriedMirrorIds.append(mirrorId)
         await retriedResourceIds.append(downloadTask.id)
         
@@ -61,7 +61,7 @@ class ResourceManagerRetryTests: XCTestCase {
     
     // MARK: - Real Download Tests
     
-    func testRetryWithRealDownload_AllMirrorsFail() async throws {
+    func testRetryWithRealDownloadAllMirrorsFail() async throws {
         print("\n=== Test: testRetryWithRealDownload_AllMirrorsFail ===")
         
         // Create all instances in test function
@@ -137,7 +137,7 @@ class ResourceManagerRetryTests: XCTestCase {
         print("=== Test Complete ===\n")
     }
     
-    func testRetryWithRealDownload_MixedValidInvalidMirrors() async throws {
+    func testRetryWithRealDownloadMixedValidInvalidMirrors() async throws {
         print("\n=== Test: testRetryWithRealDownload_MixedValidInvalidMirrors ===")
         
         // Create all instances in test function
