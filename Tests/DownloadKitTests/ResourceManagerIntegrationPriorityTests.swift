@@ -362,20 +362,33 @@ class ResourceManagerIntegrationPriorityTests: XCTestCase {
         // Add observer to track download starts (before processing urgent requests)
         let downloadStartObserver = DownloadStartTrackingObserver()
         await manager.add(observer: downloadStartObserver)
-                
+        
+        let startTime = Date()
+        
         // Trigger urgent requests
         let _ = await manager.process(requests: urgentRequests, priority: .urgent)
         
         // Wait for urgent downloads to actually start
         // Poll until all urgent downloads have started or timeout after 10 seconds
-        let startTime = Date()
-        let timeout: TimeInterval = 10.0
+        
+        let timeout: TimeInterval = 30.0
         var allUrgentStarted = false
+        var firstStartedAt: Date? = nil
         
         while !allUrgentStarted && Date().timeIntervalSince(startTime) < timeout {
             let startedCount = await downloadStartObserver.getStartedUrgentDownloads().count
+            
+            if startedCount > 0, firstStartedAt == nil {
+                firstStartedAt = Date()
+                
+                let startDuration = abs(Date().timeIntervalSince(startTime))
+                print("Urgent download started in: \(startDuration) seconds")
+                XCTAssertLessThan(startDuration, 1.0, "Urgent downloads should start quickly, less than a second: \(startDuration)")
+            }
+            
             if startedCount >= 5 {
                 allUrgentStarted = true
+                
                 print("All 5 urgent downloads have started after \(String(format: "%.2f", Date().timeIntervalSince(startTime)))s")
             } else {
                 print("Waiting for urgent downloads to start: \(startedCount) / 5")
