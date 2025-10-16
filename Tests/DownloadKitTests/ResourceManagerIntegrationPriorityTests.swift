@@ -273,30 +273,12 @@ class ResourceManagerIntegrationPriorityTests: XCTestCase {
         let normalRequests = await manager.request(resources: normalResources)
         print("Created \(normalRequests.count) normal priority requests")
         
-        let _ = await manager.process(requests: normalRequests, priority: .normal)
-        
         // Phase 2: Fill priority queue with high priority downloads
         print("\nPhase 2: Creating 20 high priority downloads to fill priority queue...")
         let highPriorityResources = (1...20).map { createTestResource(id: "high-bg-\($0)", size: 100) }
         
         let highPriorityRequests = await manager.request(resources: highPriorityResources)
         print("Created \(highPriorityRequests.count) high priority requests")
-        
-        let _ = await manager.process(requests: highPriorityRequests, priority: .high)
-        
-        // Wait for processing to start
-        try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-        
-        // Capture metrics after high priority processing
-        let metricsAfterHigh = manager.metrics
-        let priorityIncreasedAfterHigh = await metricsAfterHigh.priorityIncreased
-        let priorityDecreasedAfterHigh = await metricsAfterHigh.priorityDecreased
-        
-        print("After high priority - Priority increased: \(priorityIncreasedAfterHigh), Priority decreased: \(priorityDecreasedAfterHigh)")
-        
-        let queuedAfterHigh = await manager.queuedDownloadCount
-        let currentAfterHigh = await manager.currentDownloadCount
-        print("Queue state after high priority - Queued: \(queuedAfterHigh), Current: \(currentAfterHigh)")
         
         // Phase 3: Add urgent priority downloads (should downgrade high priority downloads)
         print("\nPhase 3: Adding 5 urgent priority downloads...")
@@ -305,10 +287,49 @@ class ResourceManagerIntegrationPriorityTests: XCTestCase {
         let urgentRequests = await manager.request(resources: urgentResources)
         print("Created \(urgentRequests.count) urgent priority requests")
         
-        // Process each urgent request individually to trigger downgrade behavior
-        for request in urgentRequests {
-            let _ = await manager.process(request: request, priority: .urgent)
+        let allExpectation = XCTestExpectation(description: "All downloads should complete")
+        allExpectation.expectedFulfillmentCount = 55
+        
+        let successCounter = ActorCounter()
+        let failureCounter = ActorCounter()
+        
+        let allResources = normalResources + highPriorityResources + urgentResources
+        for resource in allResources {
+            await manager.addResourceCompletion(for: resource) { @Sendable (success, resourceID) in
+                Task {
+                    if success {
+                        await successCounter.increment()
+                    } else {
+                        await failureCounter.increment()
+                    }
+                    allExpectation.fulfill()
+                }
+            }
         }
+        
+        // Fill both normal and high priority queue.
+        let _ = await manager.process(requests: normalRequests, priority: .normal)
+        let _ = await manager.process(requests: highPriorityRequests, priority: .high)
+        
+        // Wait for processing to start
+        try await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+        
+        // Capture metrics after high priority processing
+        let metricsAfterHigh = manager.metrics
+        let priorityIncreasedAfterHigh = await metricsAfterHigh.priorityIncreased
+        let priorityDecreasedAfterHigh = await metricsAfterHigh.priorityDecreased
+        
+        XCTAssertEqual(priorityIncreasedAfterHigh, highPriorityRequests.count, "High should change priorities")
+        XCTAssertEqual(priorityDecreasedAfterHigh, 0, "There should be no priority decrease changes")
+        
+        print("After high priority - Priority increased: \(priorityIncreasedAfterHigh), Priority decreased: \(priorityDecreasedAfterHigh)")
+        
+        let queuedAfterHigh = await manager.queuedDownloadCount
+        let currentAfterHigh = await manager.currentDownloadCount
+        print("Queue state after high priority - Queued: \(queuedAfterHigh), Current: \(currentAfterHigh)")
+                
+        // PTrigger urgent requests
+        let _ = await manager.process(requests: urgentRequests, priority: .urgent)
         
         // Wait briefly for urgent processing
         try await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
@@ -336,25 +357,6 @@ class ResourceManagerIntegrationPriorityTests: XCTestCase {
         
         // Phase 4: Wait for all downloads to complete
         print("\nPhase 4: Waiting for all downloads to complete...")
-        let allExpectation = XCTestExpectation(description: "All downloads should complete")
-        allExpectation.expectedFulfillmentCount = 55
-        
-        let successCounter = ActorCounter()
-        let failureCounter = ActorCounter()
-        
-        let allResources = normalResources + highPriorityResources + urgentResources
-        for resource in allResources {
-            await manager.addResourceCompletion(for: resource) { @Sendable (success, resourceID) in
-                Task {
-                    if success {
-                        await successCounter.increment()
-                    } else {
-                        await failureCounter.increment()
-                    }
-                    allExpectation.fulfill()
-                }
-            }
-        }
         
         await fulfillment(of: [allExpectation], timeout: 180)
         

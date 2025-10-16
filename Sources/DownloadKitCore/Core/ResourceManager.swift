@@ -296,6 +296,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
             
             // Handle urgent priority downloads
             if priority.rawValue > 1 {
+                log.debug("Reprioritising existing resources on priority queue.")
                 await reprioritise(priorityQueue: priorityQueue)
             }
             
@@ -309,7 +310,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
                 await downloadQueue.cancel(with: task.id)
             }
             
-            log.info("Reprioritising resource: \(task.id)")
+            log.info("Prioritising resource: \(task.id)")
         }
         else {
             log.debug("Enqueueing - \(task.id)")
@@ -329,6 +330,8 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
             // Move current priority queued downloads back to normal queue, because we have
             // a higher priority downloads now.
             if priority == .urgent {
+                log.debug("Reprioritising existing resources on priority queue.")
+                
                 await reprioritise(priorityQueue: priorityQueue)
                 
                 // Since all downloads were cancelled as urgent, reduce priority,
@@ -342,7 +345,7 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
             for download in requests {
                 identifiers.append(download.id)
             }
-            log.info("Reprioritised resources: \(identifiers.joined(separator: ", "))")
+            log.info("Prioritised resources: \(identifiers.joined(separator: ", "))")
         }
         
         // Process the requests.
@@ -451,6 +454,8 @@ public final class ResourceManager: ResourceRetrievable, DownloadQueuable {
     private func reprioritise(priorityQueue: DownloadQueue) async {
         let currentPriorityDownloads = await priorityQueue.queuedDownloads
         await priorityQueue.cancel(items: currentPriorityDownloads)
+        
+        log.debug("Reprioritised: \(currentPriorityDownloads.count) downloads.")
         
         await metrics.increase(priorityDecreased: currentPriorityDownloads.count)
         
