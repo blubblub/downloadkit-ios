@@ -190,9 +190,8 @@ public actor WebDownloadProcessor: NSObject, DownloadProcessor {
 extension WebDownloadProcessor : URLSessionDownloadDelegate {
     nonisolated public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         log.info("URLSession delegate: didFinishDownloadingTo called for task \(downloadTask.taskIdentifier)")
-        
-        // We have to move file here, otherwise file is gone before Task is executed.
-        let tempLocation = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + "-download.tmp")
+        let fileManager = FileManager.default
+        let tempLocation = fileManager.tempLocation(for: location, originalLocation: downloadTask.originalRequest?.url)
         
         do {
             try FileManager.default.moveItem(at: location, to: tempLocation)
@@ -262,7 +261,11 @@ extension WebDownloadProcessor : URLSessionDownloadDelegate {
     /// This is crucial for background app refresh and proper session lifecycle management
     nonisolated public func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
         Task {
-            // TODO: Not sure what to do here?
+            await self.observer?.downloadProcessorDidFinishBackgroundEvents(self)
+            
+            // Notify the system that we've finished processing background events
+            // This allows the app to update its UI and complete the background app refresh cycle
+            log.info("Background URL session finished all events for session: \(session.configuration.identifier ?? "unknown")")
         }
     }
 }

@@ -13,6 +13,7 @@ public extension DownloadParameter {
     static let urlSession = DownloadParameter(rawValue: "urlSession")
 }
 
+
 // Actor can inherit NSObject, as a special exception.
 public actor WebDownload : NSObject, Downloadable {
     private let log = Logger.logWebDownload
@@ -216,9 +217,11 @@ extension WebDownload {
             completeDownload(url: location, error: nil)
         }
         else {
+            let fileManager = FileManager.default
+            let tempLocation = fileManager.tempLocation(for: location, originalLocation: downloadTask.originalRequest?.url)
+            
             do {
                 // Move the file to a temporary location, otherwise it gets removed by the system immediately after this function completes
-                let tempLocation = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + "-download.tmp")
                 try FileManager.default.moveItem(at: location, to: tempLocation)
                 log.info("Successfully moved file to \(tempLocation)")
                 completeDownload(url: tempLocation, error:  nil)
@@ -290,5 +293,20 @@ extension WebDownload {
         
         let downloadKitError = DownloadKitError.from(error)
         completeDownload(url: nil, error: downloadKitError)
+    }
+}
+
+public extension FileManager {
+    func tempLocation(for location: URL, originalLocation: URL?) -> URL {
+        // Extract filename from the download location or fall back to suggested filename
+        let originalFilename = location.lastPathComponent
+        let suggestedFilename = originalLocation?.lastPathComponent
+        let finalFilename = suggestedFilename ?? originalFilename
+        
+        let fileExtension = URL(fileURLWithPath: finalFilename).pathExtension
+        let baseFilename = fileExtension.isEmpty ? finalFilename : String(finalFilename.dropLast(fileExtension.count + 1))
+        let tempFilename = "\(UUID().uuidString)-\(baseFilename).\(fileExtension.isEmpty ? "tmp" : fileExtension)"
+        let tempLocation = temporaryDirectory.appendingPathComponent(tempFilename)
+        return tempLocation
     }
 }

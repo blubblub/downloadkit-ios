@@ -42,4 +42,16 @@ public protocol DownloadProcessorObserver: AnyObject, Actor {
     
     /// Sent when a Downloadable is completely finished.
     func downloadDidFinish(_ processor: DownloadProcessor, downloadable: Downloadable)
+    
+    /// Sent when a background URL session has finished processing all events.
+    /// This is important for background app refresh and proper lifecycle management.
+    func downloadProcessorDidFinishBackgroundEvents(_ processor: DownloadProcessor)
+}
+
+public extension DownloadProcessorObserver {
+    /// Default implementation for background events - does nothing by default
+    /// Override this method if you need to handle background session completion
+    func downloadProcessorDidFinishBackgroundEvents(_ processor: DownloadProcessor) {
+        // Default implementation does nothing
+    }
 }
