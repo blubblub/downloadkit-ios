@@ -256,7 +256,7 @@ class WebDownloadProcessorTests: XCTestCase {
         
         for (index, bytesWritten) in progressionSteps.enumerated() {
             // Simulate the URLSession delegate callback - this is nonisolated so calls happen via Task
-            webDownload.urlSession(
+            await webDownload.downloadUrlSession(
                 URLSession.shared,
                 downloadTask: URLSession.shared.downloadTask(with: downloadURL),
                 didWriteData: Int64(bytesWritten - (index > 0 ? progressionSteps[index - 1] : 0)),
