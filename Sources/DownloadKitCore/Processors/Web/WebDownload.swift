@@ -146,12 +146,8 @@ public actor WebDownload : NSObject, Downloadable {
     private var cancellationContinuation: CheckedContinuation<Void, Never>?
     
     public func cancel() async {
-        guard let task = task else {
-            return
-        }
-        
-        // Ensure task is in correct state or wont get callbacks and code below will bes tuck.
-        guard task.state == .running || task.state == .suspended else {
+        // Ensure task is in correct state or it wont get error callback, and code below will be stuck.
+        guard let task = task, task.state == .running || task.state == .suspended else {
             return
         }
         

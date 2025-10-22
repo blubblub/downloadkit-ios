@@ -60,7 +60,7 @@ private actor DownloadTaskState {
     fileprivate func set(downloadable: Downloadable?) {
         currentDownloadable = downloadable
         
-        // This happens on redownloading a cancelled or failed task, we should reset the isComplete flah.
+        // This happens on redownloading a cancelled or failed task, we should reset the isComplete flag.
         isComplete = false
     }
 
@@ -133,7 +133,9 @@ public final class DownloadTask: Sendable, Equatable {
         let identifier = await downloadable.identifier
         
         for mirrorId in request.resource.mirrorIds {
-            return mirrorId == identifier
+            if mirrorId == identifier {
+                return true
+            }
         }
         
         return false
