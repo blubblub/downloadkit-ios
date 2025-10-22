@@ -64,7 +64,7 @@ class DownloadPriorityTests: XCTestCase {
         XCTAssertEqual(requests.count, 3, "Should create 3 download requests")
         
         // Process with normal priority (default)
-        await manager.process(requests: requests, priority: .normal)
+        let _ = await manager.process(requests: requests, priority: .normal)
         
         // Check that downloads are in the main queue (not priority queue)
         let mainQueueDownloads = await manager.queuedDownloadCount
@@ -101,7 +101,7 @@ class DownloadPriorityTests: XCTestCase {
         }
         
         // Process with normal priority (default)
-        await manager.process(requests: requests, priority: .normal)
+        let _ = await manager.process(requests: requests, priority: .normal)
         
         // Wait for completion
         await fulfillment(of: [completionExpectation], timeout: 60)
@@ -136,7 +136,7 @@ class DownloadPriorityTests: XCTestCase {
         
         let normalRequests = await manager.request(resources: normalResources)
         print("Normal requests count: \(normalRequests.count)")
-        await manager.process(requests: normalRequests, priority: .normal)
+        let _ = await manager.process(requests: normalRequests, priority: .normal)
         
         // Check metrics after normal processing
         let metricsAfterNormal = manager.metrics
@@ -156,7 +156,7 @@ class DownloadPriorityTests: XCTestCase {
         
         // Process with high priority
         print("Processing high priority requests...")
-        await manager.process(requests: highPriorityRequests, priority: .high)
+        let _ = await manager.process(requests: highPriorityRequests, priority: .high)
         
         // Check metrics for priority increase
         let metrics = manager.metrics
@@ -194,7 +194,7 @@ class DownloadPriorityTests: XCTestCase {
         ]
         
         let normalRequests = await manager.request(resources: normalResources)
-        await manager.process(requests: normalRequests, priority: .normal)
+        let _ = await manager.process(requests: normalRequests, priority: .normal)
         
         // Start high priority downloads
         let highPriorityResources = [
@@ -202,7 +202,7 @@ class DownloadPriorityTests: XCTestCase {
         ]
         
         let highPriorityRequests = await manager.request(resources: highPriorityResources)
-        await manager.process(requests: highPriorityRequests, priority: .high)
+        let _ = await manager.process(requests: highPriorityRequests, priority: .high)
         
         // Get metrics after high priority
         let metricsAfterHigh = manager.metrics
@@ -265,7 +265,7 @@ class DownloadPriorityTests: XCTestCase {
         XCTAssertEqual(requests.count, 2, "Should create 2 download requests")
         
         // Try to process with high priority (should fall back to normal since no priority queue)
-        await manager.process(requests: requests, priority: .high)
+        let _ = await manager.process(requests: requests, priority: .high)
         
         // All downloads should be in main queue since there's no priority queue
         let queuedDownloads = await manager.queuedDownloadCount
@@ -292,7 +292,7 @@ class DownloadPriorityTests: XCTestCase {
         let normalResource = createTestResource(id: "dynamic-normal")
         let normalRequests = await manager.request(resources: [normalResource])
         print("DEBUG: Normal requests created: \(normalRequests.count)")
-        await manager.process(requests: normalRequests, priority: .normal)
+        let _ = await manager.process(requests: normalRequests, priority: .normal)
         
         let metricsAfterNormal = manager.metrics
         let normalPriorityIncreased = await metricsAfterNormal.priorityIncreased
@@ -302,7 +302,7 @@ class DownloadPriorityTests: XCTestCase {
         let highResource = createTestResource(id: "dynamic-high")
         let highRequests = await manager.request(resources: [highResource])
         print("DEBUG: High requests created: \(highRequests.count)")
-        await manager.process(requests: highRequests, priority: .high)
+        let _ = await manager.process(requests: highRequests, priority: .high)
         
         let metricsAfterHigh = manager.metrics
         let highPriorityIncreased = await metricsAfterHigh.priorityIncreased
@@ -368,7 +368,7 @@ class DownloadPriorityTests: XCTestCase {
         
         // Process normal priority first
         let normalRequests = await manager.request(resources: normalResources)
-        await manager.process(requests: normalRequests, priority: .normal)
+        let _ = await manager.process(requests: normalRequests, priority: .normal)
         
         let afterNormalMetrics = manager.metrics
         let afterNormalPriorityIncreased = await afterNormalMetrics.priorityIncreased
@@ -376,7 +376,7 @@ class DownloadPriorityTests: XCTestCase {
         
         // Process high priority
         let highRequests = await manager.request(resources: highResources)
-        await manager.process(requests: highRequests, priority: .high)
+        let _ = await manager.process(requests: highRequests, priority: .high)
         
         let afterHighMetrics = manager.metrics
         let afterHighPriorityIncreased = await afterHighMetrics.priorityIncreased
@@ -385,7 +385,7 @@ class DownloadPriorityTests: XCTestCase {
         
         // Process urgent priority
         let urgentRequests = await manager.request(resources: urgentResources)
-        await manager.process(requests: urgentRequests, priority: .urgent)
+        let _ = await manager.process(requests: urgentRequests, priority: .urgent)
         
         let finalMetrics = manager.metrics
         let finalPriorityIncreased = await finalMetrics.priorityIncreased
@@ -414,7 +414,7 @@ class DownloadPriorityTests: XCTestCase {
         // Start background downloads
         let backgroundResource = createTestResource(id: "bg-urgent-1")
         let backgroundRequests = await manager.request(resources: [backgroundResource])
-        await manager.process(requests: backgroundRequests, priority: .normal)
+        let _ = await manager.process(requests: backgroundRequests, priority: .normal)
         
         let initialMetrics = manager.metrics
         let initialPriorityIncreased = await initialMetrics.priorityIncreased
@@ -495,7 +495,7 @@ class DownloadPriorityTests: XCTestCase {
         // Fill up the normal queue with many downloads to make it "busy"
         let normalResources = (1...15).map { createTestResource(id: "busy-normal-\($0)") }
         let normalRequests = await manager.request(resources: normalResources)
-        await manager.process(requests: normalRequests, priority: .normal)
+        let _ = await manager.process(requests: normalRequests, priority: .normal)
         
         // Verify normal queue is busy
         let initialQueuedCount = await manager.queuedDownloadCount
@@ -516,7 +516,7 @@ class DownloadPriorityTests: XCTestCase {
         XCTAssertEqual(highPriorityRequests.count, 3, "Should create 3 high priority requests")
         
         // Process high priority downloads
-        await manager.process(requests: highPriorityRequests, priority: .high)
+        let _ = await manager.process(requests: highPriorityRequests, priority: .high)
         
         // Verify high priority downloads were processed immediately
         let afterHighMetrics = manager.metrics
@@ -560,7 +560,7 @@ class DownloadPriorityTests: XCTestCase {
         // Create a very busy normal queue
         let busyNormalResources = (1...30).map { createTestResource(id: "batch-busy-\($0)") }
         let busyNormalRequests = await manager.request(resources: busyNormalResources)
-        await manager.process(requests: busyNormalRequests, priority: .normal)
+        let _ = await manager.process(requests: busyNormalRequests, priority: .normal)
         
         let initialMetrics = manager.metrics
         let initialQueuedCount = await manager.queuedDownloadCount
@@ -572,14 +572,14 @@ class DownloadPriorityTests: XCTestCase {
         // Add batch of high priority downloads
         let batchHighResources = (1...8).map { createTestResource(id: "batch-high-\($0)") }
         let batchHighRequests = await manager.request(resources: batchHighResources)
-        await manager.process(requests: batchHighRequests, priority: .high)
+        let _ = await manager.process(requests: batchHighRequests, priority: .high)
         
         let afterBatchHighMetrics = manager.metrics
         
         // Add batch of urgent downloads
         let batchUrgentResources = (1...5).map { createTestResource(id: "batch-urgent-\($0)") }
         let batchUrgentRequests = await manager.request(resources: batchUrgentResources)
-        await manager.process(requests: batchUrgentRequests, priority: .urgent)
+        let _ = await manager.process(requests: batchUrgentRequests, priority: .urgent)
         
         let finalMetrics = manager.metrics
         let finalQueuedCount = await manager.queuedDownloadCount
@@ -625,12 +625,12 @@ class DownloadPriorityTests: XCTestCase {
         // Start some normal downloads
         let normalResources = (1...10).map { createTestResource(id: "empty-normal-\($0)") }
         let normalRequests = await manager.request(resources: normalResources)
-        await manager.process(requests: normalRequests, priority: .normal)
+        let _ = await manager.process(requests: normalRequests, priority: .normal)
         
         // Fill priority queue with high priority downloads
         let highPriorityResources = (1...8).map { createTestResource(id: "empty-high-\($0)") }
         let highPriorityRequests = await manager.request(resources: highPriorityResources)
-        await manager.process(requests: highPriorityRequests, priority: .high)
+        let _ = await manager.process(requests: highPriorityRequests, priority: .high)
         
         let metricsAfterHigh = manager.metrics
         
@@ -651,7 +651,7 @@ class DownloadPriorityTests: XCTestCase {
         ]
         
         let urgentRequests = await manager.request(resources: urgentResources)
-        await manager.process(requests: urgentRequests, priority: .urgent)
+        let _ = await manager.process(requests: urgentRequests, priority: .urgent)
         
         let finalMetrics = manager.metrics
         
@@ -688,7 +688,7 @@ class DownloadPriorityTests: XCTestCase {
         // Start with some normal downloads
         let normalResources = (1...5).map { createTestResource(id: "reprio-normal-\($0)") }
         let normalRequests = await manager.request(resources: normalResources)
-        await manager.process(requests: normalRequests, priority: .normal)
+        let _ = await manager.process(requests: normalRequests, priority: .normal)
         
         // Add high priority downloads
         let highPriorityResources = [
@@ -698,7 +698,7 @@ class DownloadPriorityTests: XCTestCase {
         ]
         
         let highPriorityRequests = await manager.request(resources: highPriorityResources)
-        await manager.process(requests: highPriorityRequests, priority: .high)
+        let _ = await manager.process(requests: highPriorityRequests, priority: .high)
         
         let metricsAfterHigh = manager.metrics
         let metricsAfterHighPriorityIncreased = await metricsAfterHigh.priorityIncreased
@@ -708,7 +708,7 @@ class DownloadPriorityTests: XCTestCase {
         // Add urgent downloads (this should move high priority downloads to normal queue)
         let urgentResources = [createTestResource(id: "reprio-urgent-1")]
         let urgentRequests = await manager.request(resources: urgentResources)
-        await manager.process(requests: urgentRequests, priority: .urgent)
+        let _ = await manager.process(requests: urgentRequests, priority: .urgent)
         
         let metricsAfterUrgent = manager.metrics
         let metricsAfterUrgentPriorityIncreased = await metricsAfterUrgent.priorityIncreased
@@ -730,7 +730,7 @@ class DownloadPriorityTests: XCTestCase {
         }
         
         if availableForReprioritization.count > 0 {
-            await manager.process(requests: availableForReprioritization, priority: .high)
+            let _ = await manager.process(requests: availableForReprioritization, priority: .high)
             
             let metricsAfterReprio = manager.metrics
             let metricsAfterReprioPriorityIncreased = await metricsAfterReprio.priorityIncreased
@@ -747,7 +747,7 @@ class DownloadPriorityTests: XCTestCase {
         // Test re-prioritizing with urgent priority
         let reUrgentRequests = await manager.request(resources: [highPriorityResources[0]])
         if reUrgentRequests.count > 0 {
-            await manager.process(requests: reUrgentRequests, priority: .urgent)
+            let _ = await manager.process(requests: reUrgentRequests, priority: .urgent)
             
             let finalMetrics = manager.metrics
             let finalPriorityIncreased = await finalMetrics.priorityIncreased
@@ -776,7 +776,7 @@ class DownloadPriorityTests: XCTestCase {
         // Phase 1: Create busy normal queue
         let phase1Normal = (1...12).map { createTestResource(id: "complex-normal-\($0)") }
         let phase1NormalRequests = await manager.request(resources: phase1Normal)
-        await manager.process(requests: phase1NormalRequests, priority: .normal)
+        let _ = await manager.process(requests: phase1NormalRequests, priority: .normal)
         
         let phase1Metrics = manager.metrics
         let phase1PriorityIncreased = await phase1Metrics.priorityIncreased
@@ -785,7 +785,7 @@ class DownloadPriorityTests: XCTestCase {
         // Phase 2: Add high priority downloads
         let phase2High = (1...6).map { createTestResource(id: "complex-high-\($0)") }
         let phase2HighRequests = await manager.request(resources: phase2High)
-        await manager.process(requests: phase2HighRequests, priority: .high)
+        let _ = await manager.process(requests: phase2HighRequests, priority: .high)
         
         let phase2Metrics = manager.metrics
         let phase2PriorityIncreased = await phase2Metrics.priorityIncreased
@@ -795,7 +795,7 @@ class DownloadPriorityTests: XCTestCase {
         // Phase 3: Add more high priority downloads
         let phase3High = (7...10).map { createTestResource(id: "complex-high-\($0)") }
         let phase3HighRequests = await manager.request(resources: phase3High)
-        await manager.process(requests: phase3HighRequests, priority: .high)
+        let _ = await manager.process(requests: phase3HighRequests, priority: .high)
         
         let phase3Metrics = manager.metrics
         let phase3PriorityIncreased = await phase3Metrics.priorityIncreased
@@ -805,7 +805,7 @@ class DownloadPriorityTests: XCTestCase {
         // Phase 4: Add urgent downloads (should empty priority queue)
         let phase4Urgent = (1...3).map { createTestResource(id: "complex-urgent-\($0)") }
         let phase4UrgentRequests = await manager.request(resources: phase4Urgent)
-        await manager.process(requests: phase4UrgentRequests, priority: .urgent)
+        let _ = await manager.process(requests: phase4UrgentRequests, priority: .urgent)
         
         let phase4Metrics = manager.metrics
         let phase4PriorityIncreased = await phase4Metrics.priorityIncreased
@@ -815,7 +815,7 @@ class DownloadPriorityTests: XCTestCase {
         // Phase 5: Add more urgent downloads
         let phase5Urgent = [createTestResource(id: "complex-urgent-4")]
         let phase5UrgentRequests = await manager.request(resources: phase5Urgent)
-        await manager.process(requests: phase5UrgentRequests, priority: .urgent)
+        let _ = await manager.process(requests: phase5UrgentRequests, priority: .urgent)
         
         let finalMetrics = manager.metrics
         let finalPriorityIncreased = await finalMetrics.priorityIncreased

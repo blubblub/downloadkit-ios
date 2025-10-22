@@ -145,29 +145,50 @@ actor DownloadProcessorObserverMock: DownloadProcessorObserver {
 
 /// Mock implementation of DownloadQueueObserver for testing download queue events
 actor DownloadQueueObserverMock: DownloadQueueObserver {
-    var didStartCallback: ((Downloadable, DownloadProcessor) -> Void)?
-    var didTransferDataCallback: ((Downloadable, DownloadProcessor) -> Void)?
-    var didFinishCallback: ((Downloadable, URL) -> Void)?
-    var didFailCallback: ((Downloadable, Error) -> Void)?
+    var didStartCallback: ((DownloadTask, Downloadable, DownloadProcessor) -> Void)?
+    var didTransferDataCallback: ((DownloadTask, Downloadable, DownloadProcessor) -> Void)?
+    var didFinishCallback: ((DownloadTask, Downloadable, URL) -> Void)?
+    var didFailCallback: ((DownloadTask, Error) -> Void)?
+    var didRetryCallback: ((DownloadTask, DownloadRetryContext) -> Void)?
     
-    func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadable: Downloadable, with processor: DownloadProcessor) async {
-        didStartCallback?(downloadable, processor)
+    func downloadQueue(_ queue: DownloadQueue, downloadDidStart downloadTask: DownloadTask, downloadable: Downloadable, on processor: DownloadProcessor) async {
+        didStartCallback?(downloadTask, downloadable, processor)
     }
     
-    func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadable: Downloadable, using processor: DownloadProcessor) async {
-        didTransferDataCallback?(downloadable, processor)
+    func downloadQueue(_ queue: DownloadQueue, downloadDidTransferData downloadTask: DownloadTask, downloadable: Downloadable, using processor: DownloadProcessor) async {
+        didTransferDataCallback?(downloadTask, downloadable, processor)
     }
     
-    func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadable: Downloadable, to location: URL) async throws {
-        didFinishCallback?(downloadable, location)
+    func downloadQueue(_ queue: DownloadQueue, downloadDidFinish downloadTask: DownloadTask, downloadable: Downloadable, to location: URL) async throws {
+        didFinishCallback?(downloadTask, downloadable, location)
     }
     
-    func downloadQueue(_ queue: DownloadQueue, downloadDidFail downloadable: Downloadable, with error: Error) async {
-        didFailCallback?(downloadable, error)
+    func downloadQueue(_ queue: DownloadQueue, downloadDidFail downloadTask: DownloadTask, with error: Error) async {
+        didFailCallback?(downloadTask, error)
     }
     
-    func setDidFailCallback(_ callback: @escaping (Downloadable, Error) -> Void) {
+    func downloadQueue(_ queue: DownloadQueue, downloadWillRetry downloadTask: DownloadTask, context: DownloadRetryContext) async {
+        didRetryCallback?(downloadTask, context)
+    }
+    
+    func setDidFailCallback(_ callback: @escaping (DownloadTask, Error) -> Void) {
         didFailCallback = callback
+    }
+    
+    func setDidFinishCallback(_ callback: @escaping (DownloadTask, Downloadable, URL) -> Void) {
+        didFinishCallback = callback
+    }
+    
+    func setDidStartCallback(_ callback: @escaping (DownloadTask, Downloadable, DownloadProcessor) -> Void) {
+        didStartCallback = callback
+    }
+    
+    func setDidTransferDataCallback(_ callback: @escaping (DownloadTask, Downloadable, DownloadProcessor) -> Void) {
+        didTransferDataCallback = callback
+    }
+    
+    func setDidRetryCallback(_ callback: @escaping (DownloadTask, DownloadRetryContext) -> Void) {
+        didRetryCallback = callback
     }
 }
 
@@ -182,13 +203,25 @@ public extension FileMirror {
     }
 }
 
+/// Extension to convert WebDownload to FileMirror for testing
+extension WebDownload {
+    func toMirror() async -> FileMirror {
+        let identifier = self.identifier
+        let url = self.url
+        return FileMirror(
+            id: identifier,
+            location: url.absoluteString,
+            info: [:]
+        )
+    }
+}
+
 public extension Resource {
     /// Creates a sample Resource with the specified number of alternative mirrors
     static func sample(mirrorCount: Int) -> Resource {
         return Resource(id: "sample-id",
                         main: FileMirror.random(weight: 0),
-                        alternatives: (1...mirrorCount).map { FileMirror.random(weight: $0) },
-                        fileURL: nil)
+                        alternatives: (1...mirrorCount).map { FileMirror.random(weight: $0) })
     }
 }
 
@@ -218,6 +251,70 @@ extension FileManager {
 
 // MARK: - Resource Creation Factory Methods
 
+/// Enum representing different file sizes for test resources
+public enum TestFileSize: Sendable {
+    case tiny         // ~100KB (picsum.photos image)
+    case small        // ~1MB
+    case medium       // ~5MB
+    case large        // ~10MB
+    case extraLarge   // ~25MB
+    case huge         // ~50MB
+    
+    /// Returns the URL for the test file of this size
+    var url: String {
+        switch self {
+        case .tiny:
+            return "https://picsum.photos/100/100.jpg"
+        case .small:
+            return "https://proof.ovh.net/files/1Mb.dat"
+        case .medium:
+            return "http://ipv4.download.thinkbroadband.com/5MB.zip"
+        case .large:
+            return "https://proof.ovh.net/files/10Mb.dat"
+        case .extraLarge:
+            return "https://serc.carleton.edu/download/files/91151/unit_5_google_earth.zip"
+        case .huge:
+            return "http://ipv4.download.thinkbroadband.com/50MB.zip"
+        }
+    }
+    
+    /// Returns the approximate size in bytes
+    var approximateBytes: Int64 {
+        switch self {
+        case .tiny:
+            return 100_000 // ~100KB
+        case .small:
+            return 1_048_576 // 1MB
+        case .medium:
+            return 5_242_880 // 5MB
+        case .large:
+            return 10_485_760 // 10MB
+        case .extraLarge:
+            return 26_214_400 // 25MB
+        case .huge:
+            return 52_428_800 // 50MB
+        }
+    }
+    
+    /// Returns a human-readable description of the file size
+    var description: String {
+        switch self {
+        case .tiny:
+            return "~100KB"
+        case .small:
+            return "~1MB"
+        case .medium:
+            return "~5MB"
+        case .large:
+            return "~10MB"
+        case .extraLarge:
+            return "~25MB"
+        case .huge:
+            return "~50MB"
+        }
+    }
+}
+
 /// Creates a test resource with picsum.photos URLs for testing
 /// - Parameters:
 ///   - id: The resource identifier
@@ -231,50 +328,67 @@ func createTestResource(id: String, size: Int = 100) -> Resource {
             location: "https://picsum.photos/\(size)/\(size).jpg", // Small image for faster tests
             info: [:]
         ),
-        alternatives: [],
-        fileURL: nil
+        alternatives: []
     )
 }
 
-/// Creates test resources using free online APIs for integration testing
-func createTestResources(count: Int) -> [Resource] {
-    return (1...count).map { i in
-        // Use reliable small image service
-        let imageSize = 50 + (i % 5) * 10 // 50x50, 60x60, 70x70, 80x80, 90x90
-        let selectedURL = "https://picsum.photos/\(imageSize)/\(imageSize).jpg"
-        
-        return Resource(
-            id: "integration-resource-\(i)",
-            main: FileMirror(
-                id: "mirror-\(i)",
-                location: selectedURL,
-                info: [:]
-            ),
-            alternatives: [],
-            fileURL: nil
-        )
-    }
-}
-
-/// Creates a test resource for storage testing
-func createTestResourceForStorage(id: String) -> Resource {
+/// Creates a test resource with a specific file size for testing
+/// - Parameters:
+///   - id: The resource identifier
+///   - fileSize: The desired file size category
+/// - Returns: A test Resource instance
+func createTestResource(id: String, fileSize: TestFileSize) -> Resource {
     return Resource(
         id: id,
         main: FileMirror(
             id: "mirror-\(id)",
-            location: "https://picsum.photos/80/80.jpg", // Small image for faster tests
-            info: [:]
+            location: fileSize.url,
+            info: ["expectedSize": fileSize.approximateBytes]
         ),
-        alternatives: [],
-        fileURL: nil
+        alternatives: []
     )
 }
 
-/// Creates test WebDownload instances for download queue testing
-func createTestDownloads(count: Int) -> [WebDownload] {
-    return (0..<count).map { index in
-        WebDownload(identifier: "test-download-\(index)", 
-                   url: URL(string: "https://example.com/file\(index)")!)
+/// Creates test resources using free online APIs for integration testing
+func createTestResources(count: Int, size: Int = 100) -> [Resource] {
+    return (1...count).map { i in
+        return createTestResource(
+            id: "integration-resource-\(i)",
+            size: size
+        )
+    }
+}
+
+/// Creates test resources with specific file sizes for integration testing
+/// - Parameters:
+///   - count: Number of resources to create
+///   - fileSize: The desired file size category for all resources
+/// - Returns: Array of test Resource instances
+func createTestResources(count: Int, fileSize: TestFileSize) -> [Resource] {
+    return (1...count).map { i in
+        return createTestResource(
+            id: "integration-resource-\(fileSize.description)-\(i)",
+            fileSize: fileSize
+        )
+    }
+}
+
+/// Creates test resources with mixed file sizes for integration testing
+/// - Parameters:
+///   - count: Number of resources to create
+///   - fileSizes: Array of file sizes to cycle through
+/// - Returns: Array of test Resource instances
+func createTestResources(count: Int, fileSizes: [TestFileSize]) -> [Resource] {
+    guard !fileSizes.isEmpty else {
+        return createTestResources(count: count) // Fallback to default
+    }
+    
+    return (1...count).map { i in
+        let fileSize = fileSizes[(i - 1) % fileSizes.count]
+        return createTestResource(
+            id: "integration-resource-mixed-\(i)",
+            fileSize: fileSize
+        )
     }
 }
 
@@ -290,9 +404,10 @@ func downloadAndWaitForCompletion(resource: Resource) async throws {
     
     guard let request = requests.first else { return }
     
-    await manager.process(requests: requests)
+    let tasks = await manager.process(requests: requests)
+    guard let task = tasks.first else { return }
     
-    try await request.waitTillComplete()
+    try await task.waitTillComplete()
 }
 
 /// Verifies a file URL points to a valid image file
@@ -348,13 +463,14 @@ func setupWithPriorityQueue() async -> (ResourceManager, RealmCacheManager<Cache
 }
 
 /// Helper method to setup ResourceManager with priority queue for priority tests
-func setupManagerWithPriorityQueue() async -> (ResourceManager, RealmCacheManager<CachedLocalFile>, Realm) {
+func setupManagerWithPriorityQueue(simultaneousDownloads: Int = 4, priorityDownloads: Int = 10) async -> (ResourceManager, RealmCacheManager<CachedLocalFile>, Realm) {
     let downloadQueue = DownloadQueue()
-    await downloadQueue.set(simultaneousDownloads: 4)
+    await downloadQueue.set(simultaneousDownloads: simultaneousDownloads)
     await downloadQueue.add(processor: WebDownloadProcessor(configuration: .default))
     
     // Create priority queue for high and urgent priority downloads
     let priorityQueue = DownloadQueue()
+    await priorityQueue.set(simultaneousDownloads: priorityDownloads)
     await priorityQueue.add(processor: WebDownloadProcessor(configuration: WebDownloadProcessor.priorityConfiguration(configuration: .default)))
     
     // Use in-memory Realm configuration
@@ -440,8 +556,7 @@ var testResources: [Resource] {
                  alternatives: [
                    FileMirror(id: "resource-id", location: "https://picsum.photos/100", info: [WeightedMirrorPolicy.weightKey: 100]),
                    FileMirror(id: "resource-id", location: "https://picsum.photos/50", info: [WeightedMirrorPolicy.weightKey: 50])
-                 ],
-                 fileURL: nil)
+                 ])
     ]
     
     return resources

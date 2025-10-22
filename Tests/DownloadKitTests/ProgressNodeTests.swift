@@ -29,8 +29,8 @@ class ProgressNodeTests: XCTestCase {
     
     override func setUp() {
         super.setUp()
-        node = ProgressNode(items: items)
-        nodeWithoutBytes = ProgressNode(items: items, inBytes: false)
+        node = ProgressNode(tasks: Array(items.keys), items: items)
+        nodeWithoutBytes = ProgressNode(tasks: Array(items.keys), items: items, inBytes: false)
     }
     
     override func tearDown() {
@@ -139,12 +139,12 @@ class ProgressNodeTests: XCTestCase {
     }
     
     func testInitializingWithEmptyItemsList() {
-        node = ProgressNode(items: [:])
+        node = ProgressNode(tasks: [], items: [:])
         XCTAssertNil(node)
     }
     
     func testMergingTwoProgressNodes() {
-        let other = ProgressNode(items: ["id100" : Foundation.Progress(totalUnitCount: 10)])!
+        let other = ProgressNode(tasks: ["id100"], items: ["id100" : Foundation.Progress(totalUnitCount: 10)])!
         
         node.complete("id1")
         node.complete("id2")
@@ -157,7 +157,7 @@ class ProgressNodeTests: XCTestCase {
         let mergedWithNil = node.merge(with: nil)
         XCTAssertEqual(mergedWithNil, node)
         
-        let nodeWithoutBytes = ProgressNode(items: ["abc" : Foundation.Progress(totalUnitCount: 10)], inBytes: false)
+        let nodeWithoutBytes = ProgressNode(tasks: ["abc"], items: ["abc" : Foundation.Progress(totalUnitCount: 10)], inBytes: false)
         XCTAssertNil(nodeWithoutBytes?.merge(with: node))
     }
     
@@ -169,7 +169,7 @@ class ProgressNodeTests: XCTestCase {
     }
     
     func testEquality() {
-        let other = ProgressNode(items: items)
+        let other = ProgressNode(tasks: Array(items.keys), items: items)
         XCTAssertTrue(other!.hasSameItems(as: node))
     }
 }

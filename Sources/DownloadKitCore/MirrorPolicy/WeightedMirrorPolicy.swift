@@ -16,7 +16,9 @@ public actor WeightedMirrorPolicy: MirrorPolicy {
     public static let weightKey = "weight"
     
     private let log = Logger.logWeightedMirrorPolicy
-    
+    /// Holds a small retry access
+    private var retryCounters = [String: Int]()
+        
     public private(set) weak var delegate: MirrorPolicyDelegate?
     
     public func setDelegate(_ delegate: MirrorPolicyDelegate?) {
@@ -38,20 +40,7 @@ public actor WeightedMirrorPolicy: MirrorPolicy {
         return resource.sortedMirrors()
     }
     
-    public func mirror(for resource: ResourceFile, lastMirrorSelection: ResourceMirrorSelection?, error: Error?) -> ResourceMirrorSelection? {
-        
-        // if download was cancelled, no need to retry or return new mirror
-        if let downloadKitError = error as? DownloadKitError,
-           case .networkError(.cancelled) = downloadKitError {
-            return nil
-        }
-        
-        // Also handle NSError for backwards compatibility
-        if let nsError = error as NSError?,
-           nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
-            return nil
-        }
-        
+    public func downloadable(for resource: ResourceFile, lastDownloadableIdentifier: String?, error: Error?) -> Downloadable? {
         let mirrors = sortMirrors(for: resource)
         
         var selectedIndex = 0
@@ -60,18 +49,19 @@ public actor WeightedMirrorPolicy: MirrorPolicy {
         var downloadable: Downloadable?
         
         // If we have tried a mirror and gotten an error, select a lower weight mirror.
-        if let mirrorSelection = lastMirrorSelection, error != nil {
-            log.info("Mirror errored: \(mirrorSelection.mirror.location), searching for next available on resource: \(resource.id)")
+        if let lastDownloadableIdentifier, error != nil {
+            
+            log.info("Mirror errored: \(lastDownloadableIdentifier), searching for next available on resource: \(resource.id)")
             
             // Find index of last mirror
-            if let index = mirrors.firstIndex(where: { $0.id == mirrorSelection.mirror.id }) {
+            if let index = mirrors.firstIndex(where: { $0.id == lastDownloadableIdentifier }) {
                 selectedIndex = index + 1
             }
             
             // Ensure downloadable exists, otherwise continue
             var counter = selectedIndex
             
-            while downloadable == nil, counter < mirrors.count  {
+            while downloadable == nil, counter < mirrors.count {
                 downloadable = mirrors[counter].downloadable
                 
                 if downloadable != nil {
@@ -111,20 +101,8 @@ public actor WeightedMirrorPolicy: MirrorPolicy {
                 
         //log.debug("Downloading resource: \(resource.id) from: \(mirrors[selectedIndex].location)")
 
-        return ResourceMirrorSelection(id: resource.id, mirror: mirrors[selectedIndex], downloadable: finalDownloadable)
+        return finalDownloadable
     }
-    
-    public func downloadComplete(for resource: ResourceFile) {
-        // Download was completed for file, clean up the local cache for retries.
-        
-        for mirror in resource.sortedMirrors() {
-            let mirrorKey = "\(resource.id)-\(mirror.id)"
-            retryCounters[mirrorKey] = nil
-        }
-    }
-    
-    /// Holds a small retry access
-    private var retryCounters = [String: Int]()
     
     private func shouldRetry(mirror: ResourceFileMirror, for resource: ResourceFile) -> Bool {
         let mirrorKey = "\(resource.id)-\(mirror.id)"

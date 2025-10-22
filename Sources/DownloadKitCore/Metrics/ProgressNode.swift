@@ -84,12 +84,14 @@ public final class ProgressNode: Sendable {
     }
     
     private let _items: SendableBox<[Item]>
+    private let tasks: [String]
     
-    public init?(items: [String: Foundation.Progress], inBytes: Bool = true) {
+    public init?(tasks: [String], items: [String: Foundation.Progress], inBytes: Bool = true) {
         if items.count == 0 {
             return nil
         }
         
+        self.tasks = tasks
         self.inBytes = inBytes
         var itemsArray: [Item] = []
         
@@ -112,7 +114,8 @@ public final class ProgressNode: Sendable {
         self.progress.completedUnitCount = completedCount
     }
     
-    private init(items: [Item], inBytes: Bool) {
+    private init(tasks: [String], items: [Item], inBytes: Bool) {
+        self.tasks = tasks
         self.inBytes = inBytes
         self._items = SendableBox(items)
         // Calculate counts directly without using computed properties
@@ -122,7 +125,11 @@ public final class ProgressNode: Sendable {
         self.progress.completedUnitCount = completedCount
     }
     
-    public func retry(_ identifier: String, with progress: Foundation.Progress) {
+    public func retry(_ identifier: String, with progress: Foundation.Progress?) {
+        guard let progress = progress else {
+            return
+        }
+        
         let (newTotalUnitCount, newCompletedUnitCount) = _items.write { items in
             guard let index = items.firstIndex(where: { $0.identifier == identifier }) else {
                 let totalCount = items.reduce(0, { $0 + $1.totalUnitCount })
@@ -196,7 +203,9 @@ public final class ProgressNode: Sendable {
         let missingItems = missingIDs.compactMap { id in otherItems.first(where: { id == $0.identifier }) }
         items.append(contentsOf: missingItems)
         
-        return ProgressNode(items: items, inBytes: inBytes)
+        let mergedTasks = Set(tasks).union(other.tasks)
+        
+        return ProgressNode(tasks: Array(mergedTasks), items: items, inBytes: inBytes)
     }
     
     public func hasSameItems(as other: ProgressNode) -> Bool {

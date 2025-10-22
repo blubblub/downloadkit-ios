@@ -40,7 +40,7 @@ class LocalCacheManagerTests: XCTestCase {
         let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
         let resource = Resource(id: UUID().uuidString, main: sampleMain)
         
-        let stored = try manager.store(resource: resource, mirror: resource.main, at: url, options: cachedOptions)
+        let stored = try manager.store(resource: resource, mirrorId: resource.main.id, at: url, options: cachedOptions)
         
         XCTAssertNotNil(stored, "Local resource was stored in realm.")
         XCTAssertTrue(FileManager.default.fileExists(atPath: stored.fileURL.path))
@@ -66,7 +66,7 @@ class LocalCacheManagerTests: XCTestCase {
         
         // store first resource
         let first = resources.first!
-        let _ = try manager.store(resource: first, mirror: first.main, at: url, options: cachedOptions)
+        let _ = try manager.store(resource: first, mirrorId: first.main.id, at: url, options: cachedOptions)
         
         // request downloads should only return 4 resources since the first one is saved
         let requests = manager.downloads(from: resources)
@@ -83,7 +83,7 @@ class LocalCacheManagerTests: XCTestCase {
         
         // store to realm
         for resource in resources {
-            let _ = try manager.store(resource: resource, mirror: resource.main, at: url, options: cachedOptions)
+            let _ = try manager.store(resource: resource, mirrorId: resource.main.id, at: url, options: cachedOptions)
         }
         
         // update stored resources and move them to permanent storage
@@ -102,7 +102,7 @@ class LocalCacheManagerTests: XCTestCase {
         
         // store to realm
         for resource in resources {
-            let _ = try manager.store(resource: resource, mirror: resource.main, at: url, options: cachedOptions)
+            let _ = try manager.store(resource: resource, mirrorId: resource.main.id, at: url, options: cachedOptions)
         }
         
         // reset local cache
@@ -121,7 +121,7 @@ class LocalCacheManagerTests: XCTestCase {
         
         // store to realm
         let localResources = resources.map { resource in
-            return try! manager.store(resource: resource, mirror: resource.main, at: url, options: permanentOptions)
+            return try! manager.store(resource: resource, mirrorId: resource.main.id, at: url, options: permanentOptions)
         }
         
         // clean up everything except the first resource

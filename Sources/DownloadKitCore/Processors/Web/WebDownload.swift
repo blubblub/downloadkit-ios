@@ -13,6 +13,7 @@ public extension DownloadParameter {
     static let urlSession = DownloadParameter(rawValue: "urlSession")
 }
 
+
 // Actor can inherit NSObject, as a special exception.
 public actor WebDownload : NSObject, Downloadable {
     private let log = Logger.logWebDownload
@@ -29,19 +30,12 @@ public actor WebDownload : NSObject, Downloadable {
         return data.url
     }
     
+    private let isHighPriority: Bool
+    
     // MARK: - Downloadable
     
     /// Identifier of the download, usually an id
     public var identifier: String { return data.identifier }
-    
-    /// Task priority in download queue (if needed), higher number means higher priority.
-    public var priority: Int {
-        return data.priority
-    }
-    
-    public func set(priority: Int) {
-        data.priority = priority
-    }
     
     /// Total bytes reported by download agent
     public var totalBytes: Int64 { return data.totalBytes }
@@ -79,9 +73,9 @@ public actor WebDownload : NSObject, Downloadable {
     
     // MARK: - Constructors
         
-    public init(identifier: String, url: URL, priority: Int = 0, completion: (@Sendable (Result<URL, Error>) -> Void)? = nil, progressUpdate: (@Sendable (Int64, Int64) -> Void)? = nil) {
+    public init(identifier: String, url: URL, isHighPriority: Bool = false, completion: (@Sendable (Result<URL, Error>) -> Void)? = nil, progressUpdate: (@Sendable (Int64, Int64) -> Void)? = nil) {
         self.data = .init(url: url, identifier: identifier)
-        self.data.priority = priority
+        self.isHighPriority = isHighPriority
         
         if let progressUpdate {
             self.progressUpdates.append(progressUpdate)
@@ -101,6 +95,7 @@ public actor WebDownload : NSObject, Downloadable {
             return nil
         }
         
+        self.isHighPriority = task.priority == URLSessionDownloadTask.highPriority
         self.data = item
         self.task = task
         
@@ -146,13 +141,24 @@ public actor WebDownload : NSObject, Downloadable {
         
         task.suspend()
     }
-
-    public func cancel() {
-        guard let task = task else {
+    
+    
+    private var cancellationContinuation: CheckedContinuation<Void, Never>?
+    
+    public func cancel() async {
+        // Ensure task is in correct state or it wont get error callback, and code below will be stuck.
+        guard let task = task, task.state == .running || task.state == .suspended else {
             return
         }
-
+        
         task.cancel()
+                
+        // Wait until download actually completes, suspend the actor.
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            self.cancellationContinuation = continuation
+        }
+        
+        log.debug("Download: \(self.identifier) cancel await complete.")
     }
     
     public func addCompletion(_ completion: @escaping (@Sendable (Result<URL, Error>) -> Void)) {
@@ -184,7 +190,7 @@ public actor WebDownload : NSObject, Downloadable {
         
         let task = session.downloadTask(with: URLRequest(url: url))
         
-        if priority > 0 {
+        if isHighPriority {
             task.priority = URLSessionDownloadTask.highPriority
         }
         
@@ -197,36 +203,32 @@ public actor WebDownload : NSObject, Downloadable {
     }
 }
 
-extension WebDownload : URLSessionDownloadDelegate {
-    nonisolated public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+// MARK: - URLSessionDelegates, used if delegate is the download itself.
+extension WebDownload {
+    public func downloadUrlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         log.info("WebDownload delegate: didFinishDownloadingTo called at \(location)")
         
         // File is already moved, just call completions.
         if location.absoluteString.contains(FileManager.default.temporaryDirectory.absoluteString) {
-            Task {
-                await completeDownload(url: location, error: nil)
-            }
+            completeDownload(url: location, error: nil)
         }
         else {
+            let fileManager = FileManager.default
+            let tempLocation = fileManager.tempLocation(for: location, originalLocation: downloadTask.originalRequest?.url)
+            
             do {
                 // Move the file to a temporary location, otherwise it gets removed by the system immediately after this function completes
-                let tempLocation = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + "-download.tmp")
                 try FileManager.default.moveItem(at: location, to: tempLocation)
                 log.info("Successfully moved file to \(tempLocation)")
-                
-                Task {
-                    await completeDownload(url: tempLocation, error:  nil)
-                }
+                completeDownload(url: tempLocation, error:  nil)
             } catch let error {
-                Task {
-                    let downloadKitError = DownloadKitError.from(error as NSError)
-                    await completeDownload(url: nil, error: downloadKitError)
-                }
+                let downloadKitError = DownloadKitError.from(error)
+                completeDownload(url: nil, error: downloadKitError)
             }
         }
     }
     
-    public func completeDownload(url: URL?, error: Error?) {
+    private func completeDownload(url: URL?, error: Error?) {
         // Note: File operations should be completed before this method exits to ensure the temporary
         // file isn't deleted. Using async here is safe as the completion handlers will manage file moves.
         let completions = self.completions
@@ -237,54 +239,70 @@ extension WebDownload : URLSessionDownloadDelegate {
             data.finishedDate = Date()
         }
         
+        let cancellationContinuation = self.cancellationContinuation
+        
+        if let cancellationContinuation {
+            log.debug("Resuming cancellation: \(self.identifier)")
+            
+            cancellationContinuation.resume()
+            self.cancellationContinuation = nil
+        }
+        
         for completion in completions {
             if let url = url {
                 completion(.success(url))
             }
             else {
                 let finalError = error ?? URLError(.unknown)
-                let downloadKitError = DownloadKitError.from(finalError as NSError)
+                let downloadKitError = DownloadKitError.from(finalError)
                 completion(.failure(downloadKitError))
             }
         }
     }
-        
-    nonisolated public func urlSession(_ session: Foundation.URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-        Task {
+    
+    public func downloadUrlSession(_ session: Foundation.URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
             // Forward the call to correct item, to correctly update progress.
-            await didWriteData(bytesWritten: bytesWritten, totalBytesWritten: totalBytesWritten, totalBytesExpectedToWrite: totalBytesExpectedToWrite)
-            
-            let progressUpdates = await self.progressUpdates
-            
-            for progressUpdate in progressUpdates {
-                // Pass both total bytes written and current progress to update observers
-                await progressUpdate(totalBytesWritten, progress?.completedUnitCount ?? 0)
-            }
+        didWriteData(bytesWritten: bytesWritten, totalBytesWritten: totalBytesWritten, totalBytesExpectedToWrite: totalBytesExpectedToWrite)
+        
+        let progressUpdates = self.progressUpdates
+        
+        for progressUpdate in progressUpdates {
+            // Pass both total bytes written and current progress to update observers
+            progressUpdate(totalBytesWritten, progress?.completedUnitCount ?? 0)
         }
     }
     
-    nonisolated public func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
-        Task {
-            let finalError = error ?? URLError(.unknown)
-            let downloadKitError = DownloadKitError.from(finalError as NSError)
-            
-            for completion in await self.completions {
-                completion(.failure(downloadKitError))
-            }
+    public func downloadUrlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
+        let finalError = error ?? URLError(.unknown)
+        let downloadKitError = DownloadKitError.from(finalError)
+        
+        for completion in self.completions {
+            completion(.failure(downloadKitError))
         }
+        
     }
     
-    nonisolated public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        Task {
-            guard let error = error else {
-                return
-            }
-            
-            let downloadKitError = DownloadKitError.from(error as NSError)
-            
-            for completion in await self.completions {
-                completion(.failure(downloadKitError))
-            }
+    public func downloadUrlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        guard let error = error else {
+            return
         }
+        
+        let downloadKitError = DownloadKitError.from(error)
+        completeDownload(url: nil, error: downloadKitError)
+    }
+}
+
+public extension FileManager {
+    func tempLocation(for location: URL, originalLocation: URL?) -> URL {
+        // Extract filename from the download location or fall back to suggested filename
+        let originalFilename = location.lastPathComponent
+        let suggestedFilename = originalLocation?.lastPathComponent
+        let finalFilename = suggestedFilename ?? originalFilename
+        
+        let fileExtension = URL(fileURLWithPath: finalFilename).pathExtension
+        let baseFilename = fileExtension.isEmpty ? finalFilename : String(finalFilename.dropLast(fileExtension.count + 1))
+        let tempFilename = "\(UUID().uuidString)-\(baseFilename).\(fileExtension.isEmpty ? "tmp" : fileExtension)"
+        let tempLocation = temporaryDirectory.appendingPathComponent(tempFilename)
+        return tempLocation
     }
 }
