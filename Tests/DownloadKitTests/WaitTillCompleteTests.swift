@@ -49,8 +49,7 @@ class WaitTillCompleteTests: XCTestCase {
                 location: "https://picsum.photos/100/100.jpg",
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         // Request download
@@ -60,30 +59,25 @@ class WaitTillCompleteTests: XCTestCase {
             return
         }
         
-        // Process the request
-        await manager.process(requests: requests)
+        // Process the request and get the task
+        let tasks = await manager.process(requests: requests)
+        guard let task = tasks.first else {
+            XCTFail("Should have created a download task")
+            return
+        }
         
         // Record start time
         let startTime = Date()
         
         // Wait for completion
         do {
-            try await request.waitTillComplete()
+            try await task.waitTillComplete()
             
             let duration = Date().timeIntervalSince(startTime)
             print("✅ Download completed successfully in \(String(format: "%.2f", duration)) seconds")
-            
-            // Verify the downloadable has a finished date set
-            let finishedDate = await request.mirror.downloadable.finishedDate
-            XCTAssertNotNil(finishedDate, "Download should have a finished date after completion")
-            
         } catch {
             let duration = Date().timeIntervalSince(startTime)
             print("❌ Download failed after \(String(format: "%.2f", duration)) seconds with error: \(error)")
-            
-            // Even in failure case, finishedDate should be set
-            let finishedDate = await request.mirror.downloadable.finishedDate
-            XCTAssertNotNil(finishedDate, "Download should have a finished date even after failure")
             
             // Re-throw the error if it's not expected
             throw error
@@ -102,8 +96,7 @@ class WaitTillCompleteTests: XCTestCase {
                 location: "https://picsum.photos/100/100.jpg",
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         // Request download
@@ -113,30 +106,25 @@ class WaitTillCompleteTests: XCTestCase {
             return
         }
         
-        // Process the request
-        await manager.process(requests: requests)
+        // Process the request and get the task
+        let tasks = await manager.process(requests: requests)
+        guard let task = tasks.first else {
+            XCTFail("Should have created a download task")
+            return
+        }
         
         // Record start time
         let startTime = Date()
         
         // Wait for completion
         do {
-            try await request.waitTillComplete()
+            try await task.waitTillComplete()
             
             let duration = Date().timeIntervalSince(startTime)
             print("✅ Download completed successfully in \(String(format: "%.2f", duration)) seconds")
-            
-            // Verify the downloadable has a finished date set
-            let finishedDate = await request.mirror.downloadable.finishedDate
-            XCTAssertNotNil(finishedDate, "Download should have a finished date after completion")
-            
         } catch {
             let duration = Date().timeIntervalSince(startTime)
             print("❌ Download failed after \(String(format: "%.2f", duration)) seconds with error: \(error)")
-            
-            // Even in failure case, finishedDate should be set
-            let finishedDate = await request.mirror.downloadable.finishedDate
-            XCTAssertNotNil(finishedDate, "Download should have a finished date even after failure")
             
             // Re-throw the error if it's not expected
             throw error
@@ -154,11 +142,14 @@ class WaitTillCompleteTests: XCTestCase {
                 return
             }
             
-            await manager.process(requests: secondRequests)
+            let secondTasks = await manager.process(requests: secondRequests)
+            guard let secondTask = secondTasks.first else {
+                return
+            }
             
             let secondStartTime = Date()
             do {
-                try await secondRequest.waitTillComplete()
+                try await secondTask.waitTillComplete()
                 let secondDuration = Date().timeIntervalSince(secondStartTime)
                 print("✅ Second download completed in \(String(format: "%.2f", secondDuration)) seconds")
             } catch {

@@ -22,9 +22,6 @@ public protocol Downloadable: Actor {
     /// Identifier of the download, usually an id
     var identifier: String { get }
     
-    /// Task priority in download queue (if needed), higher number means higher priority.
-    var priority: Int { get }
-    
     /// Total bytes reported by download agent
     var totalBytes: Int64 { get }
     
@@ -43,21 +40,17 @@ public protocol Downloadable: Actor {
     /// Progress of the download
     var progress: Foundation.Progress? { get }
     
-    /// Set Task priority
-    func set(priority: Int)
-    
     /// Start download with parameters
     func start(with parameters: DownloadParameters)
     
     /// Cancel download in progress
-    func cancel()
+    func cancel() async
     
     /// Temporarily pause current download (if in progress)
     func pause()
 }
 
 public extension Downloadable {
-    var priority: Int { return 0 }
     var totalBytes: Int64 { return 0 }
     var totalSize: Int64 { return 0 }
     
@@ -82,9 +75,6 @@ public struct DownloadItemData : Codable, Sendable {
     
     /// Task identifier, usually resource identifier. Must not be nil.
     public var identifier: String
-    
-    /// Task priority in download queue (if needed), higher number means higher priority.
-    public var priority: Int = 0
     
     /// Total bytes reported by download agent
     public var totalBytes: Int64 = 0

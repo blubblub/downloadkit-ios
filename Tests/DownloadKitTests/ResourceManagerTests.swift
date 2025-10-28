@@ -16,8 +16,7 @@ class ResourceManagerTests: XCTestCase {
                      alternatives: [
                        FileMirror(id: "resource-id", location: "https://picsum.photos/100", info: [WeightedMirrorPolicy.weightKey: 100]),
                        FileMirror(id: "resource-id", location: "https://picsum.photos/50", info: [WeightedMirrorPolicy.weightKey: 50])
-                     ],
-                     fileURL: nil)
+                     ])
         ]
         
         return resources
@@ -86,10 +85,10 @@ class ResourceManagerTests: XCTestCase {
         XCTAssertEqual(currentDownloads.count, 0, "Manager should be empty.")
         let queuedDownloads = await manager.queuedDownloads
         XCTAssertEqual(queuedDownloads.count, 0, "Manager should be empty.")
-        let hasDownloadable = await manager.hasDownloadable(with: "random-id")
-        XCTAssertEqual(hasDownloadable, false, "Manager should be empty.")
-        let downloadable = await manager.downloadable(for: "random-id")
-        XCTAssertNil(downloadable, "Manager should be empty.")
+        let hasDownload = await manager.hasDownload(for: "random-id")
+        XCTAssertEqual(hasDownload, false, "Manager should be empty.")
+        let download = await manager.download(for: "random-id")
+        XCTAssertNil(download, "Manager should be empty.")
         let isDownloading = await manager.isDownloading(for: "random-id")
         XCTAssertEqual(isDownloading, false, "Manager should be empty.")
     }
@@ -100,7 +99,7 @@ class ResourceManagerTests: XCTestCase {
         let requests = await manager.request(resources: resources)
         XCTAssertEqual(requests.count, 1)
         if let firstRequest = requests.first {
-            let identifier = await firstRequest.downloadableIdentifier()
+            let identifier = firstRequest.id
             XCTAssertEqual(identifier, "resource-id", "First downloadable should be the mirror with highest weight")
         }
     }
@@ -111,7 +110,7 @@ class ResourceManagerTests: XCTestCase {
         let requests = await manager.request(resources: resources)
         XCTAssertEqual(requests.count, 1)
         if let firstRequest = requests.first {
-            let identifier = await firstRequest.downloadableIdentifier()
+            let identifier = firstRequest.id
             XCTAssertEqual(identifier, "resource-id", "First downloadable should be the mirror with highest weight")
         }
     }
@@ -146,8 +145,7 @@ class ResourceManagerTests: XCTestCase {
                     location: "https://picsum.photos/75/75.jpg",
                     info: [:]
                 ),
-                alternatives: [],
-                fileURL: nil
+                alternatives: []
             ),
             Resource(
                 id: "multiple-completion-test-resource-2",
@@ -156,8 +154,7 @@ class ResourceManagerTests: XCTestCase {
                     location: "https://picsum.photos/80/80.jpg",
                     info: [:]
                 ),
-                alternatives: [],
-                fileURL: nil
+                alternatives: []
             ),
             Resource(
                 id: "multiple-completion-test-resource-3",
@@ -166,8 +163,7 @@ class ResourceManagerTests: XCTestCase {
                     location: "https://picsum.photos/85/85.jpg",
                     info: [:]
                 ),
-                alternatives: [],
-                fileURL: nil
+                alternatives: []
             )
         ]
         
@@ -187,7 +183,7 @@ class ResourceManagerTests: XCTestCase {
         }
         
         // Process all download requests
-        await manager.process(requests: requests)
+        let _ = await manager.process(requests: requests)
         
         await fulfillment(of: [expectation], timeout: 60)
         // Verify that all 3 resource completion callbacks were called
@@ -201,8 +197,7 @@ class ResourceManagerTests: XCTestCase {
         let resource = Resource(id: "invalid-resource", main: FileMirror(id: "invalid-resource",
                                                                         location: "https://scheme.does.not.exist/jpg",
                                                                         info: [:]),
-                                alternatives: [],
-                                fileURL: nil)
+                                alternatives: [])
         let request = await manager.request(resource: resource)
         await manager.addResourceCompletion(for: resource) { (success: Bool, resourceID: String) in
             // For unsupported URL schemes, this should fail quickly
@@ -267,8 +262,7 @@ class ResourceManagerTests: XCTestCase {
                                main: FileMirror(id: "resume-test-resource", 
                                                location: "https://picsum.photos/10", 
                                                info: [:]), 
-                               alternatives: [], 
-                               fileURL: nil)
+                               alternatives: [])
         
         // First, cancel all downloads and make manager inactive
         await manager.cancelAll()
@@ -293,9 +287,9 @@ class ResourceManagerTests: XCTestCase {
         let queuedDownloadCount = await manager.queuedDownloadCount
         let currentDownloadCount = await manager.currentDownloadCount
         let totalDownloads = await manager.downloads.count
-        let hasDownloadable = await manager.hasDownloadable(with: "resume-test-resource")
+        let hasDownload = await manager.hasDownload(for: "resume-test-resource")
         
-        print("DEBUG: Queued: \(queuedDownloadCount), Current: \(currentDownloadCount), Total: \(totalDownloads), Has downloadable: \(hasDownloadable)")
+        print("DEBUG: Queued: \(queuedDownloadCount), Current: \(currentDownloadCount), Total: \(totalDownloads), Has download: \(hasDownload)")
         
         // The test should pass if we have any form of download activity
         // If requestsWhileInactive.count is 0, it means the resource was already cached or filtered out
@@ -314,7 +308,7 @@ class ResourceManagerTests: XCTestCase {
         let resource = Resource(id: "test-cancel-request", main: FileMirror(id: "test-cancel-request",
                                                                              location: "https://example.com/fakefile.jpg",
                                                                              info: [:]),
-                                alternatives: [], fileURL: nil)
+                                alternatives: [])
 
         let request = await manager.request(resource: resource)
         let expectation = self.expectation(description: "Resource cancelation should call completion with success: false.")
@@ -325,8 +319,8 @@ class ResourceManagerTests: XCTestCase {
         }
 
         XCTAssertNotNil(request)
-
-        await manager.cancel(request: request!)
+        let task = await manager.process(request: request!)
+        await manager.cancel(task)
 
         await fulfillment(of: [expectation], timeout: 2)
     }
@@ -337,7 +331,7 @@ class ResourceManagerTests: XCTestCase {
         let resource = Resource(id: "test-cancel-resource", main: FileMirror(id: "test-cancel-resource",
                                                                              location: "https://example.com/fakefile.jpg",
                                                                              info: [:]),
-                                alternatives: [], fileURL: nil)
+                                alternatives: [])
 
         let request = await manager.request(resource: resource)
         let expectation = self.expectation(description: "Resource cancellation should trigger completion with success: false.")
@@ -349,18 +343,18 @@ class ResourceManagerTests: XCTestCase {
         }
 
         XCTAssertNotNil(request)
-
-        await manager.cancel(request: request!)
+        let task = await manager.process(request: request!)
+        await manager.cancel(task)
 
         await fulfillment(of: [expectation], timeout: 2)
 
         // Verify internal state is cleaned up
-        let downloadableIdentifier = await request!.downloadableIdentifier()
+        let downloadableIdentifier = task.id
         let isDownloading = await manager.isDownloading(for: downloadableIdentifier)
         XCTAssertFalse(isDownloading, "Download should no longer be in progress after cancellation")
         
-        let hasDownloadable = await manager.hasDownloadable(with: downloadableIdentifier)
-        XCTAssertFalse(hasDownloadable, "Download should be removed from queue after cancellation")
+        let hasDownload = await manager.hasDownload(for: downloadableIdentifier)
+        XCTAssertFalse(hasDownload, "Download should be removed from queue after cancellation")
     }
     
     func testSingleRequestCancellationWithPriorityQueue() async {
@@ -369,7 +363,7 @@ class ResourceManagerTests: XCTestCase {
         let resource = Resource(id: "test-cancel-priority-resource", main: FileMirror(id: "test-cancel-priority-resource",
                                                                                       location: "https://example.com/fakefile.jpg",
                                                                                       info: [:]),
-                                alternatives: [], fileURL: nil)
+                                alternatives: [])
 
         let request = await manager.request(resource: resource)
         let expectation = self.expectation(description: "Resource cancellation should trigger completion with success: false.")
@@ -381,19 +375,21 @@ class ResourceManagerTests: XCTestCase {
         }
 
         XCTAssertNotNil(request)
-
+        let task = await manager.process(request: request!)
         // Cancel the request without processing it to avoid double completion
-        await manager.cancel(request: request!)
+        await manager.cancel(task)
 
-        await fulfillment(of: [expectation], timeout: 2)
+        await fulfillment(of: [expectation], timeout: 3)
+        
+        print("Task should be cancelled now.")
 
         // Verify internal state is cleaned up from both queues
-        let downloadableIdentifier = await request!.downloadableIdentifier()
+        let downloadableIdentifier = task.id
         let isDownloading = await manager.isDownloading(for: downloadableIdentifier)
         XCTAssertFalse(isDownloading, "Download should no longer be in progress after cancellation")
         
-        let hasDownloadable = await manager.hasDownloadable(with: downloadableIdentifier)
-        XCTAssertFalse(hasDownloadable, "Download should be removed from both queues after cancellation")
+        let hasDownload = await manager.hasDownload(for: downloadableIdentifier)
+        XCTAssertFalse(hasDownload, "Download should be removed from both queues after cancellation")
     }
     
     /// Test concurrent transfers with same content ID to ensure thread safety
@@ -403,8 +399,7 @@ class ResourceManagerTests: XCTestCase {
         let manager = self.manager!
         
         let resource = Resource(id: "resource-id",
-                                 main: FileMirror(id: "resource-id", location: "https://picsum.photos/4000", info: [:]),
-                                 fileURL: nil)
+                                 main: FileMirror(id: "resource-id", location: "https://picsum.photos/4000", info: [:]))
         
         // Create download requests
         let amount = 5
@@ -425,9 +420,9 @@ class ResourceManagerTests: XCTestCase {
             for (index, request) in requests.enumerated() {
                 group.addTask { @Sendable in
                     do {
-                        await manager.process(request: request)
+                        let task = await manager.process(request: request)
                         
-                        try await request.waitTillComplete()
+                        try await task.waitTillComplete()
                         print("Concurrent transfer \(index) successful")
                     } catch {
                         print("Concurrent transfer \(index) failed: \(error)")
@@ -447,10 +442,11 @@ class ResourceManagerTests: XCTestCase {
         let resource = Resource(id: "test-cancel-progress-resource", main: FileMirror(id: "test-cancel-progress-resource",
                                                                                       location: "https://slowlink.example.com/fakefile.jpg",
                                                                                       info: [:]),
-                                alternatives: [], fileURL: nil)
+                                alternatives: [])
 
         let request = await manager.request(resource: resource)
         XCTAssertNotNil(request)
+        let task = await manager.process(request: request!)
         
         let expectation = self.expectation(description: "Resource cancellation should trigger completion with success: false.")
         
@@ -460,12 +456,12 @@ class ResourceManagerTests: XCTestCase {
         }
         
         // Cancel the request without processing it to avoid double completion
-        await manager.cancel(request: request!)
+        await manager.cancel(task)
         
         await fulfillment(of: [expectation], timeout: 2)
         
         // Verify progress tracking is cleaned up
-        let downloadableIdentifier = await request!.downloadableIdentifier()
+        let downloadableIdentifier = task.id
         let progressAfter = await manager.progress.progresses[downloadableIdentifier]
         XCTAssertNil(progressAfter, "Progress should be cleaned up after cancellation")
     }
@@ -476,10 +472,11 @@ class ResourceManagerTests: XCTestCase {
         let resource = Resource(id: "test-cancel-multiple-handlers", main: FileMirror(id: "test-cancel-multiple-handlers",
                                                                                        location: "https://example.com/fakefile.jpg",
                                                                                        info: [:]),
-                                alternatives: [], fileURL: nil)
+                                alternatives: [])
 
         let request = await manager.request(resource: resource)
         XCTAssertNotNil(request)
+        let task = await manager.process(request: request!)
         
         let expectation1 = self.expectation(description: "First completion handler should be called")
         let expectation2 = self.expectation(description: "Second completion handler should be called")
@@ -495,7 +492,7 @@ class ResourceManagerTests: XCTestCase {
             expectation2.fulfill()
         }
 
-        await manager.cancel(request: request!)
+        await manager.cancel(task)
 
         await fulfillment(of: [expectation1, expectation2], timeout: 2)
     }

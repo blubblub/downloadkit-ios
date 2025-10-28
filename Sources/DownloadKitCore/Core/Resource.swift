@@ -27,7 +27,7 @@ public struct Resource: ResourceFile, Sendable {
     public var alternatives: [ResourceFileMirror]
     public var createdAt: Date?
     
-    public init(id: String, main: ResourceFileMirror, alternatives: [ResourceFileMirror] = [], fileURL: URL? = nil, createdAt: Date? = nil) {
+    public init(id: String, main: ResourceFileMirror, alternatives: [ResourceFileMirror] = [], createdAt: Date? = nil) {
         self.id = id
         self.main = main
         self.alternatives = alternatives

@@ -56,8 +56,7 @@ class StorageDownloadTests: XCTestCase {
                 location: "https://picsum.photos/80/80.jpg", // Small image for faster tests
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
     }
     
@@ -92,7 +91,7 @@ class StorageDownloadTests: XCTestCase {
         }
         
         // Process the cached download
-        await manager.process(requests: cachedRequests)
+        let _ = await manager.process(requests: cachedRequests)
         await fulfillment(of: [cachedExpectation], timeout: 60)
         
         let finalSuccess = await successTracker.value
@@ -217,7 +216,7 @@ class StorageDownloadTests: XCTestCase {
         }
         
         // Process the permanent download
-        await manager.process(requests: permanentRequests)
+        let _ = await manager.process(requests: permanentRequests)
         await fulfillment(of: [permanentExpectation], timeout: 60)
         
         let finalPermanentSuccess = await permanentSuccessTracker.value
@@ -257,7 +256,7 @@ class StorageDownloadTests: XCTestCase {
                 cachedUpdateExpectation.fulfill()
             }
             
-            await manager.process(requests: cachedRequests)
+            let _ = await manager.process(requests: cachedRequests)
             await fulfillment(of: [cachedUpdateExpectation], timeout: 60)
         } else {
             print("✅ No new download requests - storage update should have happened during request phase")
@@ -352,7 +351,7 @@ class StorageDownloadTests: XCTestCase {
         }
         
         // Process all downloads
-        await manager.process(requests: cachedRequests)
+        let _ = await manager.process(requests: cachedRequests)
         await fulfillment(of: [batchExpectation], timeout: 120)
         
         let successCount = await successCounter.value
@@ -438,7 +437,7 @@ class StorageDownloadTests: XCTestCase {
             cachedExpectation.fulfill()
         }
         
-        await manager.process(requests: cachedRequests)
+        let _ = await manager.process(requests: cachedRequests)
         await fulfillment(of: [cachedExpectation], timeout: 60)
         
         cachedFileURL = cache.fileURL(for: resource.id)
@@ -478,7 +477,7 @@ class StorageDownloadTests: XCTestCase {
             permanentExpectation.fulfill()
         }
         
-        await manager.process(requests: permanentRequests)
+        let _ = await manager.process(requests: permanentRequests)
         await fulfillment(of: [permanentExpectation], timeout: 60)
         
         if let permanentURL = cache.fileURL(for: permanentResource.id) {
@@ -520,8 +519,7 @@ class StorageDownloadTests: XCTestCase {
                 location: "https://invalid-domain-that-does-not-exist-12345.com/file.jpg",
                 info: [:]
             ),
-            alternatives: [],
-            fileURL: nil
+            alternatives: []
         )
         
         let failOptions = RequestOptions(storagePriority: .cached)
@@ -534,7 +532,7 @@ class StorageDownloadTests: XCTestCase {
                 failExpectation.fulfill()
             }
             
-            await manager.process(requests: failRequests)
+            let _ = await manager.process(requests: failRequests)
             await fulfillment(of: [failExpectation], timeout: 20)
             
             // Verify failed download is not stored
@@ -561,7 +559,7 @@ class StorageDownloadTests: XCTestCase {
                 rapidExpectation.fulfill()
             }
             
-            await manager.process(requests: rapidCachedRequests)
+            let _ = await manager.process(requests: rapidCachedRequests)
             await fulfillment(of: [rapidExpectation], timeout: 60)
             
             // Rapid storage priority requests

@@ -10,10 +10,10 @@ public final class CachedLocalFile: Object, LocalResourceFile, @unchecked Sendab
     @Persisted public var url: String?
     @Persisted public var storagePriority: String = StoragePriority.cached.rawValue
         
-    public static func targetUrl(for resource: ResourceFile, mirror: ResourceFileMirror, at url: URL, storagePriority: StoragePriority, file: FileManager) -> URL {
+    public static func targetUrl(for resource: ResourceFile, at url: URL, storagePriority: StoragePriority, file: FileManager) -> URL {
         // Select directory based on state. Use is cached, everything else is stored in support.
         let targetUrl = storagePriority == .permanent ? file.supportDirectoryURL : file.cacheDirectoryURL
-        let path = CachedLocalFile.randomLocalPath(for: resource.id, fileExtension: (mirror.location as NSString).pathExtension)
+        let path = CachedLocalFile.randomLocalPath(for: resource.id, fileExtension: (url.absoluteString as NSString).pathExtension)
         return targetUrl.appendingPathComponent(path)
     }
     
