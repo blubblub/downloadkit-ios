@@ -250,7 +250,7 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
             }
             
             // Check if resource file url points to a file that exists
-            guard file.fileExists(atPath: resource.fileURL.path) else {
+            guard let resolvedURL = fileURL(for: resource.id), file.fileExists(atPath: resolvedURL.path) else {
                 return true
             }
             
