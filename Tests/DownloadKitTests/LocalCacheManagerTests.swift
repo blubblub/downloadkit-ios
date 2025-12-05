@@ -131,6 +131,33 @@ class LocalCacheManagerTests: XCTestCase {
         XCTAssertEqual(requested.count, 4)
     }
     
+    /// Test that a resource is marked for re-download when its physical file is deleted from disk.
+    /// This tests the fix for CU-869b9b44m where deleted files were not being re-downloaded.
+    func testDownloadsFromReturnsResourceWhenPhysicalFileIsDeleted() async throws {
+        await setupManager()
+        
+        let sampleMain = FileMirror(id: UUID().uuidString, location: "https://example.com/sample", info: [:])
+        let resource = Resource(id: UUID().uuidString, main: sampleMain)
+        
+        // 1. Store the resource
+        let storedResource = try manager.store(resource: resource, mirrorId: resource.main.id, at: url, options: cachedOptions)
+        
+        // Verify the file exists and resource is not marked for download
+        XCTAssertTrue(FileManager.default.fileExists(atPath: storedResource.fileURL.path), "File should exist after storing")
+        
+        var requests = manager.downloads(from: [resource])
+        XCTAssertEqual(requests.count, 0, "Resource should not be marked for download when file exists")
+        
+        // 2. Manually delete the physical file from disk
+        try FileManager.default.removeItem(at: storedResource.fileURL)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storedResource.fileURL.path), "File should be deleted")
+        
+        // 3. Verify the resource is now marked for re-download
+        requests = manager.downloads(from: [resource])
+        XCTAssertEqual(requests.count, 1, "Resource should be marked for re-download when physical file is deleted")
+        XCTAssertEqual(requests.first?.id, resource.id, "The resource marked for download should be the one whose file was deleted")
+    }
+    
 }
 
 

@@ -17,12 +17,10 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
     /// Target Realm to update
     public let configuration: Realm.Configuration
     
-    public let resourceSubdirectory : String
-    public let excludeFilesFromBackup : Bool
+    public let resourceSubdirectory: String
+    public let excludeFilesFromBackup: Bool
     
-    public let shouldDownload: (@Sendable (ResourceFile) -> Bool)?
-    
-    private var file : FileManager {
+    private var file: FileManager {
         FileManager.default
     }
 
@@ -40,12 +38,10 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
     
     public init(configuration: Realm.Configuration,
                 resourceSubdirectory: String = "resources/",
-                excludeFilesFromBackup: Bool = true,
-                shouldDownload: (@Sendable (ResourceFile) -> Bool)? = nil) {
+                excludeFilesFromBackup: Bool = true) {
         self.configuration = configuration
         self.resourceSubdirectory = resourceSubdirectory
         self.excludeFilesFromBackup = excludeFilesFromBackup
-        self.shouldDownload = shouldDownload
     }
     
     /// Returns fileURL to resource id, if available.
@@ -248,12 +244,13 @@ public final class RealmLocalCacheManager<L: Object>: ResourceFileRetrievable, S
         // Get resources that need to be downloaded.
         let downloadableResources = resources.filter { item in
             
-            if let shouldDownload = shouldDownload {
-                return shouldDownload(item)
-            }
-            
             // No local resource, let's download.
             guard let resource = realm.object(ofType: L.self, forPrimaryKey: item.id) else {
+                return true
+            }
+            
+            // Check if resource file url points to a file that exists
+            guard let resolvedURL = fileURL(for: resource.id), file.fileExists(atPath: resolvedURL.path) else {
                 return true
             }
             
